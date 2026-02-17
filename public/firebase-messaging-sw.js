@@ -1,6 +1,7 @@
 /* eslint-disable no-undef */
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js')
 importScripts('https://www.gstatic.com/firebasejs/9.23.0/firebase-messaging-compat.js')
+importScripts('/firebase-config')
 
 let initialized = false
 
@@ -22,6 +23,24 @@ function initFirebase(config) {
 
   initialized = true
 }
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification?.close()
+  const target = event.notification?.data?.click_action || '/admin/dashboard'
+  event.waitUntil(clients.openWindow(target))
+})
+
+self.addEventListener('install', () => {
+  if (self.FIREBASE_CONFIG) {
+    initFirebase(self.FIREBASE_CONFIG)
+  }
+})
+
+self.addEventListener('activate', () => {
+  if (self.FIREBASE_CONFIG) {
+    initFirebase(self.FIREBASE_CONFIG)
+  }
+})
 
 self.addEventListener('message', (event) => {
   if (event.data?.type === 'INIT_FIREBASE') {
