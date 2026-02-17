@@ -100,7 +100,7 @@ export default function OrderTrackingDetailsPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-8 px-4 max-w-3xl">
+        <main className="container px-4 max-w-3xl mx-auto flex flex-col justify-center min-h-[calc(100vh-5rem)] py-8">
           <Skeleton className="h-8 w-48 mb-6" />
           <Card>
             <CardHeader>
@@ -120,7 +120,7 @@ export default function OrderTrackingDetailsPage() {
     return (
       <div className="min-h-screen bg-background">
         <Header />
-        <main className="container py-8 px-4 max-w-3xl">
+        <main className="container py-8 px-4 max-w-3xl mx-auto">
           <Button variant="ghost" asChild className="mb-6 -ml-3">
             <Link href="/track">
               <ArrowLeft className="mr-2 h-4 w-4" />
