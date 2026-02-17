@@ -5,6 +5,24 @@ importScripts('/firebase-config')
 
 let initialized = false
 
+// Required by some browsers/FCM: ensure a push handler is registered at eval time.
+self.addEventListener('push', (event) => {
+  if (!event.data) return
+  try {
+    const payload = event.data.json()
+    const notification = payload.notification || {}
+    const title = notification.title || 'Nuovo ordine'
+    const options = {
+      body: notification.body || 'È arrivato un nuovo ordine',
+      icon: '/icons/icon-star.svg',
+      data: payload.data || {},
+    }
+    event.waitUntil(self.registration.showNotification(title, options))
+  } catch {
+    // ignore
+  }
+})
+
 function initFirebase(config) {
   if (initialized || !config) return
   firebase.initializeApp(config)
