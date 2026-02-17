@@ -54,7 +54,8 @@ export function verifyAdminPassword(password: string): boolean {
   // WARNING: This is still client-side and insecure
   // In production, this should be a server-side API call
   // For now, using environment variable (still visible in client bundle)
-  const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD || 'admin123'
+  const adminPassword = process.env.NEXT_PUBLIC_ADMIN_PASSWORD
+  if (!adminPassword) return false
   
   // Basic timing attack mitigation
   const isValid = password === adminPassword

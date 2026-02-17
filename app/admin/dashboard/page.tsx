@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Package, ShoppingCart, Euro, TrendingUp } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { supabase } from '@/lib/supabase'
 
 export default function AdminDashboardPage() {
@@ -12,6 +13,7 @@ export default function AdminDashboardPage() {
     pendingOrders: 0,
     todayRevenue: 0
   })
+  const [dailyRevenue, setDailyRevenue] = useState<{ date: string; total: number }[]>([])
 
   useEffect(() => {
     async function fetchStats() {
@@ -42,6 +44,30 @@ export default function AdminDashboardPage() {
           .neq('status', 'cancelled')
 
         const revenue = todayOrders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0
+
+        // Daily revenue table
+        const { data: allOrders } = await supabase
+          .from('orders')
+          .select('total, created_at, status')
+          .neq('status', 'cancelled')
+
+        const revenueByDay = new Map<string, number>()
+        if (allOrders) {
+          allOrders.forEach((order) => {
+            const dateKey = new Date(order.created_at).toLocaleDateString('it-IT')
+            revenueByDay.set(dateKey, (revenueByDay.get(dateKey) || 0) + (order.total || 0))
+          })
+        }
+
+        const dailyRows = Array.from(revenueByDay.entries())
+          .map(([date, total]) => ({ date, total }))
+          .sort((a, b) => {
+            const da = new Date(a.date.split('/').reverse().join('-')).getTime()
+            const db = new Date(b.date.split('/').reverse().join('-')).getTime()
+            return db - da
+          })
+
+        setDailyRevenue(dailyRows)
 
         setStats({
           totalProducts: productsCount || 0,
@@ -154,6 +180,37 @@ export default function AdminDashboardPage() {
               <div className="font-medium">Modifica Menu</div>
               <div className="text-xs text-muted-foreground">Aggiungi o modifica prodotti</div>
             </a>
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="mt-8">
+        <Card>
+          <CardHeader>
+            <CardTitle>Incassi Giornalieri</CardTitle>
+            <CardDescription>Riepilogo incassi per giorno</CardDescription>
+          </CardHeader>
+          <CardContent>
+            {dailyRevenue.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nessun incasso disponibile.</p>
+            ) : (
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Data</TableHead>
+                    <TableHead className="text-right">Incasso</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {dailyRevenue.map((row) => (
+                    <TableRow key={row.date}>
+                      <TableCell>{row.date}</TableCell>
+                      <TableCell className="text-right">{row.total.toFixed(2)}€</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            )}
           </CardContent>
         </Card>
       </div>

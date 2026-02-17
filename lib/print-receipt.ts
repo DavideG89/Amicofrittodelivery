@@ -1,5 +1,19 @@
 import { Order, Product } from './supabase'
 
+function escapeHtml(value: string): string {
+  return value
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
+function safeText(value: string | null | undefined): string {
+  if (!value) return ''
+  return escapeHtml(value)
+}
+
 export function printReceipt(order: Order, storeInfo?: { name: string; phone?: string | null; address?: string | null }) {
   // Create a hidden iframe for printing
   const printWindow = window.open('', '_blank', 'width=300,height=600')
@@ -12,7 +26,7 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
   const itemsHTML = order.items.map(item => `
     <tr>
       <td>${item.quantity}x</td>
-      <td>${item.name}</td>
+      <td>${safeText(item.name)}</td>
       <td style="text-align: right">€${item.price.toFixed(2)}</td>
     </tr>
   `).join('')
@@ -136,13 +150,13 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
       </head>
       <body>
         <div class="header">
-          <h1>${storeInfo?.name || 'AMICO FRITTO'}</h1>
-          ${storeInfo?.address ? `<p>${storeInfo.address}</p>` : ''}
-          ${storeInfo?.phone ? `<p>Tel: ${storeInfo.phone}</p>` : ''}
+          <h1>${safeText(storeInfo?.name || 'AMICO FRITTO')}</h1>
+          ${storeInfo?.address ? `<p>${safeText(storeInfo.address)}</p>` : ''}
+          ${storeInfo?.phone ? `<p>Tel: ${safeText(storeInfo.phone)}</p>` : ''}
         </div>
         
         <div class="order-info">
-          <div><strong>COMANDA:</strong> #${order.order_number}</div>
+          <div><strong>COMANDA:</strong> #${safeText(order.order_number)}</div>
           <div><strong>Data:</strong> ${new Date(order.created_at).toLocaleString('it-IT')}</div>
         </div>
         
@@ -151,10 +165,10 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
         </div>
         
         <div style="margin: 15px 0;">
-          <div><strong>Cliente:</strong> ${order.customer_name}</div>
-          <div><strong>Tel:</strong> ${order.customer_phone}</div>
+          <div><strong>Cliente:</strong> ${safeText(order.customer_name)}</div>
+          <div><strong>Tel:</strong> ${safeText(order.customer_phone)}</div>
           ${order.customer_address && order.order_type === 'delivery' ? 
-            `<div><strong>Indirizzo:</strong> ${order.customer_address}</div>` : ''}
+            `<div><strong>Indirizzo:</strong> ${safeText(order.customer_address)}</div>` : ''}
         </div>
         
         <table>
@@ -170,7 +184,7 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
           </div>
           ${order.discount_amount > 0 ? `
             <div>
-              <span>Sconto (${order.discount_code}):</span>
+              <span>Sconto (${safeText(order.discount_code)}):</span>
               <span>-€${order.discount_amount.toFixed(2)}</span>
             </div>
           ` : ''}
@@ -189,7 +203,7 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
         ${order.notes ? `
           <div class="notes">
             <strong>Note:</strong>
-            <p>${order.notes}</p>
+            <p>${safeText(order.notes)}</p>
           </div>
         ` : ''}
         

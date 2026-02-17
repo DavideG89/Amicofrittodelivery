@@ -9,6 +9,17 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { toast } from 'sonner'
 import { Save } from 'lucide-react'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from '@/components/ui/alert-dialog'
 
 interface StoreInfo {
   id: string
@@ -24,6 +35,7 @@ interface StoreInfo {
 export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [resettingOrders, setResettingOrders] = useState(false)
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -129,6 +141,25 @@ export default function SettingsPage() {
       toast.error('Errore nel salvataggio delle informazioni')
     } finally {
       setSaving(false)
+    }
+  }
+
+  async function handleResetOrders() {
+    setResettingOrders(true)
+    try {
+      const { error } = await supabase
+        .from('orders')
+        .delete()
+        .neq('id', '')
+
+      if (error) throw error
+
+      toast.success('Ordini azzerati con successo')
+    } catch (error) {
+      console.error('[v0] Error resetting orders:', error)
+      toast.error('Errore durante l’azzeramento degli ordini')
+    } finally {
+      setResettingOrders(false)
     }
   }
 
@@ -263,12 +294,47 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-muted-foreground mb-4">
-            La password è configurata tramite variabili d&apos;ambiente (ADMIN_PASSWORD).
+            La password è configurata tramite variabili d&apos;ambiente (NEXT_PUBLIC_ADMIN_PASSWORD).
             Per cambiarla, modifica la variabile d&apos;ambiente nel tuo progetto.
           </p>
           <div className="bg-muted p-4 rounded-lg">
-            <code className="text-sm">ADMIN_PASSWORD=la_tua_password_sicura</code>
+            <code className="text-sm">NEXT_PUBLIC_ADMIN_PASSWORD=la_tua_password_sicura</code>
           </div>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle>Azzeramento Dati Ordini</CardTitle>
+          <CardDescription>
+            Questa azione cancella tutti gli ordini e resetta incassi e contatori
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground">
+            Usa questa funzione solo per ripulire dati di test. L’operazione è irreversibile.
+          </p>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="destructive" disabled={resettingOrders}>
+                {resettingOrders ? 'Azzeramento...' : 'Azzera ordini e incassi'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confermi l’azzeramento?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Verranno cancellati tutti gli ordini. Questa azione non può essere annullata.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                <AlertDialogAction onClick={handleResetOrders}>
+                  Conferma azzeramento
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         </CardContent>
       </Card>
     </div>
