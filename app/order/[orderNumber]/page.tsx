@@ -1,7 +1,7 @@
 'use client'
 
-import { use, useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useState } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { CheckCircle, Home, Loader2, Package, Clock, Copy, Check, Bookmark, MapPin, Phone, User } from 'lucide-react'
 import { Header } from '@/components/header'
@@ -13,9 +13,10 @@ import { supabase, Order } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
 
-export default function OrderPage({ params }: { params: Promise<{ orderNumber: string }> }) {
+export default function OrderPage() {
+  const params = useParams()
   const router = useRouter()
-  const { orderNumber } = use(params)
+  const orderNumber = params.orderNumber as string
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)

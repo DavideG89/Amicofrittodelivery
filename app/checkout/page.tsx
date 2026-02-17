@@ -22,6 +22,8 @@ function CheckoutForm() {
   const { items, subtotal, clearCart } = useCart()
   const [loading, setLoading] = useState(false)
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
+  const [orderPlaced, setOrderPlaced] = useState(false)
+  const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
   
   const isDelivery = searchParams.get('delivery') === 'true'
   
@@ -52,10 +54,33 @@ function CheckoutForm() {
   }, [])
 
   useEffect(() => {
-    if (items.length === 0) {
+    if (!orderPlaced && items.length === 0) {
       router.push('/cart')
     }
-  }, [items, router])
+  }, [items, orderPlaced, router])
+
+  if (orderPlaced) {
+    return (
+      <div className="min-h-screen bg-background">
+        <Header />
+        <main className="container px-4 sm:px-6 lg:px-8 py-10 max-w-2xl mx-auto">
+          <Card>
+            <CardHeader>
+              <CardTitle>Ordine effettuato</CardTitle>
+              <CardDescription>
+                {placedOrderNumber ? `Numero ordine: ${placedOrderNumber}` : 'Stiamo preparando la pagina di conferma.'}
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button asChild className="w-full">
+                <Link href="/">Torna alla home</Link>
+              </Button>
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    )
+  }
 
   const deliveryFee = isDelivery ? (storeInfo?.delivery_fee || 0) : 0
   const total = subtotal + deliveryFee - discountAmount
@@ -184,6 +209,8 @@ function CheckoutForm() {
       if (error) throw error
 
       toast.success('Ordine inviato con successo!')
+      setOrderPlaced(true)
+      setPlacedOrderNumber(orderNumber)
       clearCart()
       router.push(`/order/${orderNumber}`)
     } catch (err) {
