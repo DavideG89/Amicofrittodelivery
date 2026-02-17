@@ -1,8 +1,12 @@
 import { createClient } from '@supabase/supabase-js'
 
-// Supabase credentials for AmicoFritto project (sghftuvrupaswqhdckvs)
-const supabaseUrl = 'https://sghftuvrupaswqhdckvs.supabase.co'
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnaGZ0dXZydXBhc3dxaGRja3ZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODAzNjQsImV4cCI6MjA4Njc1NjM2NH0.zF5_0yIZFwt8wX-THYBY_hVl0p9wm19_c8kQFgwPf1A'
+// Use environment variables for security - never hardcode credentials
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://sghftuvrupaswqhdckvs.supabase.co'
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNnaGZ0dXZydXBhc3dxaGRja3ZzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzExODAzNjQsImV4cCI6MjA4Njc1NjM2NH0.zF5_0yIZFwt8wX-THYBY_hVl0p9wm19_c8kQFgwPf1A'
+
+if (!supabaseUrl || !supabaseAnonKey) {
+  throw new Error('Missing Supabase environment variables')
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey)
 
