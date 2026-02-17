@@ -8,6 +8,8 @@ import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Menu as MenuI
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
 import { checkAdminAuth, setAdminAuth } from '@/lib/admin-auth'
+import { enableAdminPush, listenForForegroundNotifications } from '@/lib/admin-push'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 const navItems = [
@@ -27,6 +29,7 @@ export default function AdminDashboardLayout({
   const pathname = usePathname()
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'denied' | 'unsupported' | 'error' | 'missing'>('idle')
 
   useEffect(() => {
     const authenticated = checkAdminAuth()
@@ -38,9 +41,47 @@ export default function AdminDashboardLayout({
     setIsLoading(false)
   }, [router])
 
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+    if (Notification.permission === 'granted') {
+      enableAdminPush().then((result) => {
+        if (result.ok) setPushStatus('enabled')
+        else if (result.reason === 'missing_config') setPushStatus('missing')
+      })
+    } else if (Notification.permission === 'denied') {
+      setPushStatus('denied')
+    }
+  }, [])
+
+  useEffect(() => {
+    let unsubscribe: (() => void) | undefined
+    const start = async () => {
+      unsubscribe = await listenForForegroundNotifications((payload) => {
+        const title = payload.notification?.title ?? 'Nuovo ordine'
+        const body = payload.notification?.body ?? 'È arrivato un nuovo ordine'
+        toast(title, { description: body })
+        playNotificationSound()
+      })
+    }
+    start()
+    return () => unsubscribe?.()
+  }, [])
+
   const handleLogout = () => {
     setAdminAuth(false)
     router.push('/admin/login')
+  }
+
+  const handleEnablePush = async () => {
+    const result = await enableAdminPush()
+    if (result.ok) {
+      setPushStatus('enabled')
+    } else {
+      if (result.reason === 'unsupported') setPushStatus('unsupported')
+      else if (result.reason === 'denied') setPushStatus('denied')
+      else if (result.reason === 'missing_config') setPushStatus('missing')
+      else setPushStatus('error')
+    }
   }
 
   if (isLoading || !isAuthenticated) {
@@ -134,10 +175,47 @@ export default function AdminDashboardLayout({
 
           {/* Main Content Area */}
           <main className="flex-1 overflow-y-auto">
+            {pushStatus !== 'enabled' && (
+              <div className="border-b bg-card/60 px-4 py-3 flex items-center justify-between gap-3">
+                <div className="text-sm text-muted-foreground">
+                  {pushStatus === 'denied' && 'Notifiche bloccate nel browser. Sbloccale nelle impostazioni del sito.'}
+                  {pushStatus === 'unsupported' && 'Notifiche push non supportate su questo browser.'}
+                  {pushStatus === 'missing' && 'Configurazione Firebase mancante. Completa le env pubbliche.'}
+                  {pushStatus === 'error' && 'Errore durante l’attivazione delle notifiche.'}
+                  {pushStatus === 'idle' && 'Abilita le notifiche per ricevere i nuovi ordini.'}
+                </div>
+                {pushStatus === 'idle' && (
+                  <Button size="sm" onClick={handleEnablePush}>
+                    Abilita notifiche
+                  </Button>
+                )}
+              </div>
+            )}
             {children}
           </main>
         </div>
       </div>
     </div>
   )
+}
+
+function playNotificationSound() {
+  if (typeof window === 'undefined') return
+  try {
+    const audio = new AudioContext()
+    const oscillator = audio.createOscillator()
+    const gain = audio.createGain()
+    oscillator.type = 'sine'
+    oscillator.frequency.value = 880
+    gain.gain.value = 0.12
+    oscillator.connect(gain)
+    gain.connect(audio.destination)
+    oscillator.start()
+    setTimeout(() => {
+      oscillator.stop()
+      audio.close()
+    }, 180)
+  } catch {
+    // ignore
+  }
 }
