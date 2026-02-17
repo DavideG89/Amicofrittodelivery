@@ -1,0 +1,98 @@
+'use client'
+
+/**
+ * Utility per gestire lo storage locale degli ordini
+ * Memorizza solo i numeri ordine (non i dati sensibili)
+ */
+
+const STORAGE_KEY = 'amico-fritto-orders'
+const MAX_ORDERS = 5
+
+export interface StoredOrder {
+  orderNumber: string
+  createdAt: string
+  type: 'delivery' | 'pickup'
+}
+
+/**
+ * Salva un ordine nel localStorage
+ */
+export function saveOrderToDevice(orderNumber: string, orderType: 'delivery' | 'pickup') {
+  if (typeof window === 'undefined') return
+
+  try {
+    const orders = getStoredOrders()
+    
+    const newOrder: StoredOrder = {
+      orderNumber,
+      createdAt: new Date().toISOString(),
+      type: orderType
+    }
+
+    // Aggiungi il nuovo ordine all'inizio
+    const updatedOrders = [newOrder, ...orders.filter(o => o.orderNumber !== orderNumber)]
+    
+    // Mantieni solo gli ultimi MAX_ORDERS ordini
+    const limitedOrders = updatedOrders.slice(0, MAX_ORDERS)
+    
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(limitedOrders))
+    
+    console.log('[v0] Order saved to device:', orderNumber)
+  } catch (error) {
+    console.error('[v0] Error saving order to device:', error)
+  }
+}
+
+/**
+ * Recupera tutti gli ordini dal localStorage
+ */
+export function getStoredOrders(): StoredOrder[] {
+  if (typeof window === 'undefined') return []
+
+  try {
+    const stored = localStorage.getItem(STORAGE_KEY)
+    if (!stored) return []
+    
+    const orders = JSON.parse(stored) as StoredOrder[]
+    
+    // Filtra ordini più vecchi di 30 giorni
+    const thirtyDaysAgo = new Date()
+    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    
+    return orders.filter(order => new Date(order.createdAt) > thirtyDaysAgo)
+  } catch (error) {
+    console.error('[v0] Error reading orders from device:', error)
+    return []
+  }
+}
+
+/**
+ * Rimuove un ordine dal localStorage
+ */
+export function removeOrderFromDevice(orderNumber: string) {
+  if (typeof window === 'undefined') return
+
+  try {
+    const orders = getStoredOrders()
+    const updatedOrders = orders.filter(o => o.orderNumber !== orderNumber)
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedOrders))
+    
+    console.log('[v0] Order removed from device:', orderNumber)
+  } catch (error) {
+    console.error('[v0] Error removing order from device:', error)
+  }
+}
+
+/**
+ * Cancella tutti gli ordini dal localStorage
+ */
+export function clearAllOrders() {
+  if (typeof window === 'undefined') return
+
+  try {
+    localStorage.removeItem(STORAGE_KEY)
+    console.log('[v0] All orders cleared from device')
+  } catch (error) {
+    console.error('[v0] Error clearing orders:', error)
+  }
+}
