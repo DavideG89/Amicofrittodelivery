@@ -13,6 +13,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
+import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
 import { toast } from 'sonner'
 
 function CheckoutForm() {
@@ -130,15 +131,36 @@ function CheckoutForm() {
       return
     }
 
+    // Validate input data
+    const validation = validateOrderData({
+      customer_name: formData.name,
+      customer_phone: formData.phone,
+      customer_address: formData.address,
+      notes: formData.notes
+    })
+
+    if (!validation.valid) {
+      toast.error(validation.errors[0])
+      return
+    }
+
     setLoading(true)
     try {
       const orderNumber = `AF${Date.now().toString().slice(-8)}`
 
-      const orderData = {
-        order_number: orderNumber,
+      // Sanitize user input
+      const sanitizedData = sanitizeOrderData({
         customer_name: formData.name,
         customer_phone: formData.phone,
         customer_address: isDelivery ? formData.address : null,
+        notes: formData.notes
+      })
+
+      const orderData = {
+        order_number: orderNumber,
+        customer_name: sanitizedData.customer_name,
+        customer_phone: sanitizedData.customer_phone,
+        customer_address: sanitizedData.customer_address,
         order_type: isDelivery ? 'delivery' : 'takeaway',
         items: items.map(item => ({
           product_id: item.product.id,
