@@ -36,10 +36,14 @@ function getFirebaseApp() {
 }
 
 async function ensureServiceWorker(config: typeof firebaseConfig) {
-  const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js')
+  let registration = await navigator.serviceWorker.getRegistration()
+  if (!registration) {
+    registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
+  }
+
   const ready = await navigator.serviceWorker.ready
   ready.active?.postMessage({ type: 'INIT_FIREBASE', config })
-  return registration
+  return ready
 }
 
 export async function enableAdminPush(): Promise<PushResult> {
@@ -57,6 +61,9 @@ export async function enableAdminPush(): Promise<PushResult> {
 
   const app = getFirebaseApp()
   const registration = await ensureServiceWorker(firebaseConfig)
+  if (!registration || !registration.pushManager) {
+    return { ok: false, reason: 'unsupported' }
+  }
   const messaging = getMessaging(app)
 
   const token = await getToken(messaging, {

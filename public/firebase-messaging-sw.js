@@ -23,6 +23,10 @@ self.addEventListener('push', (event) => {
   }
 })
 
+self.addEventListener('pushsubscriptionchange', (event) => {
+  event.waitUntil(self.registration.pushManager.getSubscription())
+})
+
 function initFirebase(config) {
   if (initialized || !config) return
   firebase.initializeApp(config)
