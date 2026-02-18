@@ -67,6 +67,7 @@ async function getAccessToken() {
 async function sendFcm(accessToken: string, token: string, payload: OrderPayload) {
   const title = 'Nuovo ordine'
   const body = `Ordine ${payload.order_number} • €${payload.total}`
+  const clickAction = buildOrderLink(payload.order_number)
 
   const message = {
     message: {
@@ -77,16 +78,18 @@ async function sendFcm(accessToken: string, token: string, payload: OrderPayload
         order_number: payload.order_number,
         order_type: payload.order_type,
         total: String(payload.total),
-        created_at: payload.created_at
+        created_at: payload.created_at,
+        click_action: clickAction
       },
       webpush: {
         fcm_options: {
-          link: adminDashboardUrl || undefined
+          link: clickAction || undefined
         },
         notification: {
           title,
           body,
-          icon: '/icons/icon-192.png'
+          icon: '/icons/icon-192.png',
+          data: { click_action: clickAction }
         }
       }
     }
@@ -111,6 +114,15 @@ async function sendFcm(accessToken: string, token: string, payload: OrderPayload
     throw error
   }
   console.log(`[FCM] ok token=${token.slice(0, 10)}… response=${text}`)
+}
+
+function buildOrderLink(orderNumber: string) {
+  if (!adminDashboardUrl) return `/admin/dashboard/orders?order=${encodeURIComponent(orderNumber)}`
+  const base = adminDashboardUrl.replace(/\/$/, '')
+  if (base.endsWith('/admin/dashboard')) {
+    return `${base}/orders?order=${encodeURIComponent(orderNumber)}`
+  }
+  return `${base}/admin/dashboard/orders?order=${encodeURIComponent(orderNumber)}`
 }
 
 function extractPayload(body: WebhookPayload): OrderPayload | null {

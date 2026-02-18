@@ -16,6 +16,8 @@ self.addEventListener('push', (event) => {
       body: notification.body || 'È arrivato un nuovo ordine',
       icon: '/icons/icon-star.svg',
       data: payload.data || {},
+      tag: payload.data?.order_number || `${Date.now()}`,
+      renotify: true,
     }
     event.waitUntil(self.registration.showNotification(title, options))
   } catch {
@@ -39,6 +41,8 @@ function initFirebase(config) {
       body: notification.body || 'È arrivato un nuovo ordine',
       icon: '/icons/icon-star.svg',
       data: payload.data || {},
+      tag: payload.data?.order_number || `${Date.now()}`,
+      renotify: true,
     }
     self.registration.showNotification(title, options)
   })
@@ -48,7 +52,7 @@ function initFirebase(config) {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification?.close()
-  const target = event.notification?.data?.click_action || '/admin/dashboard'
+  const target = event.notification?.data?.click_action || '/admin/dashboard/orders'
   event.waitUntil(clients.openWindow(target))
 })
 
