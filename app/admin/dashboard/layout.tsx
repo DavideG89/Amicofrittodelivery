@@ -202,19 +202,9 @@ export default function AdminDashboardLayout({
 function playNotificationSound() {
   if (typeof window === 'undefined') return
   try {
-    const audio = new AudioContext()
-    const oscillator = audio.createOscillator()
-    const gain = audio.createGain()
-    oscillator.type = 'sine'
-    oscillator.frequency.value = 880
-    gain.gain.value = 0.12
-    oscillator.connect(gain)
-    gain.connect(audio.destination)
-    oscillator.start()
-    setTimeout(() => {
-      oscillator.stop()
-      audio.close()
-    }, 180)
+    const audio = new Audio('/sounds/notifica_sound.wav')
+    audio.volume = 0.8
+    void audio.play()
   } catch {
     // ignore
   }
