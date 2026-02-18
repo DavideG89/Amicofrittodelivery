@@ -63,6 +63,7 @@ export default function AdminDashboardLayout({
         if (!current) return
         const stored = localStorage.getItem('app-version')
         if (stored && stored !== current) {
+          localStorage.setItem('app-version', current)
           window.location.reload()
           return
         }
