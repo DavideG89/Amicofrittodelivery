@@ -104,12 +104,13 @@ async function sendFcm(accessToken: string, token: string, payload: OrderPayload
     }
   )
 
+  const text = await res.text()
   if (!res.ok) {
-    const text = await res.text()
     const error = new Error(text)
     ;(error as { status?: number }).status = res.status
     throw error
   }
+  console.log(`[FCM] ok token=${token.slice(0, 10)}… response=${text}`)
 }
 
 function extractPayload(body: WebhookPayload): OrderPayload | null {
