@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS admin_push_tokens (
 CREATE INDEX IF NOT EXISTS idx_admin_push_tokens_last_seen ON admin_push_tokens(last_seen DESC);
 
 -- Notify admin on new order via Supabase Edge Function
+-- Uses pg_net extension for HTTP calls.
 -- IMPORTANT: Replace YOUR_PROJECT_REF and REPLACE_WITH_SECRET before running.
+CREATE EXTENSION IF NOT EXISTS pg_net;
 CREATE OR REPLACE FUNCTION notify_admin_on_new_order()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -25,14 +27,13 @@ BEGIN
     'created_at', NEW.created_at
   );
 
-  PERFORM supabase_functions.http_request(
-    'https://sghftuvrupaswqhdckvs.functions.supabase.co/notify-new-order',
-    'POST',
-    jsonb_build_object(
+  PERFORM net.http_post(
+    url := 'https://sghftuvrupaswqhdckvs.functions.supabase.co/notify-new-order',
+    headers := jsonb_build_object(
       'Content-Type', 'application/json',
       'X-Webhook-Secret', 'AF_NOTIFY_2026_Xy9!'
     ),
-    payload
+    body := payload
   );
 
   RETURN NEW;
