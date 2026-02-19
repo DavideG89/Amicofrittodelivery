@@ -211,7 +211,8 @@ export default function OrdersManagementPage() {
       </div>
 
       <Tabs defaultValue="pending" className="w-full">
-        <TabsList>
+        <div className="sticky top-0 z-20 -mx-6 px-6 py-3 bg-background/95 backdrop-blur border-b">
+          <TabsList className="w-full flex-wrap justify-start gap-2 bg-muted/60">
           <TabsTrigger value="pending">
             In attesa ({pendingOrders.length})
           </TabsTrigger>
@@ -224,7 +225,8 @@ export default function OrdersManagementPage() {
           <TabsTrigger value="all">
             Tutti ({orders.length})
           </TabsTrigger>
-        </TabsList>
+          </TabsList>
+        </div>
 
         <TabsContent value="pending" className="mt-6">
           {pendingOrders.length === 0 ? (

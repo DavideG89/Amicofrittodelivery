@@ -149,6 +149,7 @@ export default function OrderTrackingDetailsPage() {
 
   const currentStatus = statusConfig[order.status as keyof typeof statusConfig]
   const StatusIcon = currentStatus.icon
+  const statusTimestamp = order.updated_at || order.created_at
 
   return (
     <div className="min-h-screen bg-background">
@@ -157,10 +158,9 @@ export default function OrderTrackingDetailsPage() {
       <main className="container py-4 sm:py-8 px-4 max-w-3xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
           <Button variant="ghost" asChild className="-ml-3 w-fit">
-            <Link href="/track">
+            <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
-              <span className="hidden sm:inline">Cerca altro ordine</span>
-              <span className="sm:hidden">Indietro</span>
+              Torna in Home
             </Link>
           </Button>
           
@@ -187,7 +187,8 @@ export default function OrderTrackingDetailsPage() {
                     Ordine {order.order_number}
                   </CardTitle>
                   <p className="text-xs sm:text-sm text-muted-foreground mt-1">
-                    {new Date(order.created_at).toLocaleDateString('it-IT', {
+                    Stato aggiornato alle{' '}
+                    {new Date(statusTimestamp).toLocaleDateString('it-IT', {
                       day: 'numeric',
                       month: 'short',
                       year: 'numeric',
