@@ -149,7 +149,7 @@ export default function UserPage() {
           <p className="text-sm text-muted-foreground">
             Se non trovi il numero ordine contattaci su WhatsApp:{' '}
             <a
-              href="https://wa.me/393205671678"
+              href="https://wa.me/393382012533"
               target="_blank"
               rel="noreferrer"
               className="font-mono font-semibold text-primary hover:underline"
