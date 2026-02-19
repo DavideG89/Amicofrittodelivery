@@ -69,6 +69,7 @@ export type Order = {
   customer_phone: string
   customer_address: string | null
   order_type: 'delivery' | 'takeaway'
+  payment_method: 'cash' | 'card' | null
   items: OrderItem[]
   subtotal: number
   discount_code: string | null

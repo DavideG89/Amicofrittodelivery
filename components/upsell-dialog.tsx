@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { X, Plus } from 'lucide-react'
+import { X, Plus, Check } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -139,10 +139,17 @@ export function UpsellDialog({
                       <span className="text-base sm:text-lg font-bold text-primary">
                         {product.price.toFixed(2)}€
                       </span>
-                      <Plus 
-                        className={`h-4 w-4 sm:h-5 sm:w-5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
-                        aria-hidden="true"
-                      />
+                      {isSelected ? (
+                        <Check
+                          className="h-4 w-4 sm:h-5 sm:w-5 text-green-600"
+                          aria-hidden="true"
+                        />
+                      ) : (
+                        <Plus 
+                          className="h-4 w-4 sm:h-5 sm:w-5 text-muted-foreground"
+                          aria-hidden="true"
+                        />
+                      )}
                     </div>
                   </div>
                 </button>

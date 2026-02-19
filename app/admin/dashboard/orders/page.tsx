@@ -3,11 +3,11 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Clock, CheckCircle, XCircle, Package, Truck, Printer } from 'lucide-react'
+import { Clock, CheckCircle, XCircle, Package, Truck, Printer, X } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { supabase, Order } from '@/lib/supabase'
@@ -109,6 +109,7 @@ export default function OrdersManagementPage() {
   const OrderCard = ({ order }: { order: Order }) => {
     const config = statusConfig[order.status]
     const Icon = config.icon
+    const paymentLabel = order.payment_method === 'card' ? 'Carta (POS)' : order.payment_method === 'cash' ? 'Contanti' : null
 
     return (
       <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleViewDetails(order)}>
@@ -137,6 +138,12 @@ export default function OrdersManagementPage() {
                 <Badge variant="outline">Ritiro</Badge>
               )}
             </div>
+            {order.order_type === 'delivery' && paymentLabel && (
+              <div>
+                <span className="font-medium">Pagamento:</span>{' '}
+                <Badge variant="outline">{paymentLabel}</Badge>
+              </div>
+            )}
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t">
@@ -240,18 +247,26 @@ export default function OrdersManagementPage() {
 
       {/* Order Details Dialog */}
       <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent
+          className="left-0 right-0 bottom-0 top-auto translate-x-0 translate-y-0 w-full max-w-none max-h-[85vh] overflow-y-auto rounded-t-2xl rounded-b-none border-t p-4 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom data-[state=open]:duration-300 data-[state=closed]:duration-200 [&>button]:hidden sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:w-auto sm:max-w-2xl sm:max-h-[90vh] sm:rounded-2xl sm:p-6 sm:data-[state=open]:slide-in-from-top-1/2 sm:data-[state=closed]:slide-out-to-top-1/2"
+        >
           {selectedOrder && (
             <>
-              <DialogHeader>
-                <DialogTitle>Ordine {selectedOrder.order_number}</DialogTitle>
-                <DialogDescription>
-                  {format(new Date(selectedOrder.created_at), 'PPpp', { locale: it })}
-                </DialogDescription>
-              </DialogHeader>
+              <div className="-mx-4 sm:mx-0 px-4 sm:px-0 pt-1 pb-4 sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
+                <DialogHeader>
+                  <div className="flex items-start justify-between gap-4">
+                    <DialogTitle>Ordine {selectedOrder.order_number}</DialogTitle>
+                    <DialogClose className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                      <span className="sr-only">Chiudi</span>
+                      <X className="h-4 w-4" />
+                    </DialogClose>
+                  </div>
+                  <DialogDescription>
+                    {format(new Date(selectedOrder.created_at), 'PPpp', { locale: it })}
+                  </DialogDescription>
+                </DialogHeader>
 
-              <div className="space-y-6">
-                <div>
+                <div className="mt-4">
                   <h3 className="font-semibold mb-3">Stato ordine</h3>
                   <Select
                     value={selectedOrder.status}
@@ -269,7 +284,9 @@ export default function OrdersManagementPage() {
                     </SelectContent>
                   </Select>
                 </div>
+              </div>
 
+              <div className="space-y-6 pt-4">
                 <div>
                   <h3 className="font-semibold mb-3">Informazioni cliente</h3>
                   <div className="space-y-2 text-sm">
@@ -287,6 +304,14 @@ export default function OrdersManagementPage() {
                         {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
                       </span>
                     </div>
+                    {selectedOrder.order_type === 'delivery' && selectedOrder.payment_method && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Pagamento:</span>
+                        <span className="font-medium">
+                          {selectedOrder.payment_method === 'card' ? 'Carta (POS)' : 'Contanti'}
+                        </span>
+                      </div>
+                    )}
                     {selectedOrder.customer_address && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Indirizzo:</span>

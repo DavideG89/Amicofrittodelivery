@@ -11,6 +11,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
@@ -33,7 +34,8 @@ function CheckoutForm() {
     phone: '',
     address: '',
     notes: '',
-    discountCode: ''
+    discountCode: '',
+    paymentMethod: 'cash' as 'cash' | 'card'
   })
 
   const [discountAmount, setDiscountAmount] = useState(0)
@@ -147,6 +149,24 @@ function CheckoutForm() {
     }
   }
 
+  const getNextOrderNumber = async () => {
+    const { data, error } = await supabase
+      .from('orders')
+      .select('order_number')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (error) throw error
+
+    const lastNumber = data?.order_number ?? null
+    const match = typeof lastNumber === 'string' ? lastNumber.match(/^AF(\d+)$/) : null
+    const lastNumeric = match ? parseInt(match[1], 10) : 0
+    const nextNumeric = Number.isFinite(lastNumeric) && lastNumeric > 0 ? lastNumeric + 1 : 1
+
+    return `AF${String(nextNumeric).padStart(6, '0')}`
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -180,7 +200,7 @@ function CheckoutForm() {
 
     setLoading(true)
     try {
-      const orderNumber = `AF${Date.now().toString().slice(-8)}`
+      const orderNumber = await getNextOrderNumber()
 
       // Sanitize user input
       const sanitizedData = sanitizeOrderData({
@@ -208,7 +228,8 @@ function CheckoutForm() {
         delivery_fee: deliveryFee,
         total,
         status: 'pending',
-        notes: formData.notes || null
+        notes: formData.notes || null,
+        payment_method: isDelivery ? formData.paymentMethod : null
       }
 
       const { error } = await supabase
@@ -302,6 +323,32 @@ function CheckoutForm() {
                   </div>
                 )}
 
+                {isDelivery && (
+                  <div className="space-y-2">
+                    <Label>Metodo di pagamento</Label>
+                    <RadioGroup
+                      value={formData.paymentMethod}
+                      onValueChange={(value) => setFormData({ ...formData, paymentMethod: value as 'cash' | 'card' })}
+                      className="grid gap-2 sm:grid-cols-2"
+                    >
+                      <label
+                        htmlFor="payment-cash"
+                        className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
+                      >
+                        <RadioGroupItem id="payment-cash" value="cash" />
+                        Contanti
+                      </label>
+                      <label
+                        htmlFor="payment-card"
+                        className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
+                      >
+                        <RadioGroupItem id="payment-card" value="card" />
+                        Carta (POS)
+                      </label>
+                    </RadioGroup>
+                  </div>
+                )}
+
                 <div className="space-y-2">
                   <Label htmlFor="notes">Note (opzionale)</Label>
                   <Textarea
@@ -375,7 +422,7 @@ function CheckoutForm() {
                 </div>
 
                 <div className="text-xs sm:text-sm text-muted-foreground bg-muted p-3 rounded-md leading-relaxed">
-                  Pagamento in contanti alla consegna o al ritiro
+                  {isDelivery ? 'Pagamento alla consegna: contanti o carta (POS)' : 'Pagamento in contanti al ritiro'}
                 </div>
               </CardContent>
               <CardFooter className="pt-2">

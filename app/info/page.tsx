@@ -174,7 +174,7 @@ export default function InfoPage() {
                     <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0">
                       4
                     </div>
-                    <p>Pagherai in contanti alla consegna o al ritiro</p>
+                    <p>Pagamento in contanti al ritiro, contanti o carta (POS) alla consegna</p>
                   </div>
                 </CardContent>
               </Card>

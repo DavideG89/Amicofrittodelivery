@@ -81,12 +81,16 @@ export default function Home() {
     // Find the category of the added product
     const productCategory = categories.find(c => c.id === product.category_id)
     
-    // Trigger upsell only for Panini/Hamburger categories
+    // Trigger upsell for Panini/Hamburger/Mini Burger categories
+    const categoryName = productCategory?.name.toLowerCase() || ''
+    const categorySlug = productCategory?.slug || ''
     const shouldShowUpsell = productCategory && 
-      (productCategory.slug === 'panini' || 
-       productCategory.slug === 'hamburger' ||
-       productCategory.name.toLowerCase().includes('panin') ||
-       productCategory.name.toLowerCase().includes('hamburger'))
+      (categorySlug === 'panini' || 
+       categorySlug === 'hamburger' ||
+       categorySlug === 'mini-burger' ||
+       categoryName.includes('panin') ||
+       categoryName.includes('hamburger') ||
+       categoryName.includes('mini burger'))
     
     if (shouldShowUpsell) {
       // Find complementary categories (Fritti, Bevande)
@@ -161,12 +165,12 @@ export default function Home() {
         ) : (
           <Tabs defaultValue={categories[0]?.id} className="w-full">
             <div className="mb-6 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-              <TabsList className="inline-flex w-auto min-w-full sm:w-full justify-start h-auto gap-1.5 rounded-2xl border border-muted/60 bg-background/70 p-1.5 shadow-sm backdrop-blur">
+              <TabsList className="inline-flex w-max min-w-max sm:w-full sm:min-w-full justify-start h-auto gap-1.5 rounded-2xl border border-muted/60 bg-background/70 p-1.5 shadow-sm backdrop-blur">
                 {categories.map((category) => (
                   <TabsTrigger 
                     key={category.id} 
                     value={category.id}
-                    className="flex-shrink-0 rounded-xl px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
+                    className="flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
                   >
                     {category.name}
                   </TabsTrigger>

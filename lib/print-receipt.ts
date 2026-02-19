@@ -169,6 +169,8 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
           <div><strong>Tel:</strong> ${safeText(order.customer_phone)}</div>
           ${order.customer_address && order.order_type === 'delivery' ? 
             `<div><strong>Indirizzo:</strong> ${safeText(order.customer_address)}</div>` : ''}
+          ${order.order_type === 'delivery' && order.payment_method ? 
+            `<div><strong>Pagamento:</strong> ${order.payment_method === 'card' ? 'Carta (POS)' : 'Contanti'}</div>` : ''}
         </div>
         
         <table>
