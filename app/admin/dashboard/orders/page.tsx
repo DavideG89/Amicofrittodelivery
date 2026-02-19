@@ -3,16 +3,19 @@
 import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Clock, CheckCircle, XCircle, Package, Truck, Printer, X } from 'lucide-react'
+import { Clock, CheckCircle, XCircle, Package, Truck, Printer, X, ChevronUp } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { supabase, Order } from '@/lib/supabase'
 import { printReceipt } from '@/lib/print-receipt'
 import { toast } from 'sonner'
+import { useIsMobile } from '@/components/ui/use-mobile'
 
 const statusConfig = {
   pending: { label: 'In attesa', icon: Clock, variant: 'secondary' as const },
@@ -23,12 +26,47 @@ const statusConfig = {
   cancelled: { label: 'Annullato', icon: XCircle, variant: 'destructive' as const }
 }
 
+const statusOrder: Order['status'][] = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled']
+
+const getStatusOptions = (current: Order['status']) => {
+  if (current === 'ready') {
+    return ['ready', 'completed', 'cancelled']
+  }
+  return statusOrder
+}
+
+const getNextStatus = (current: Order['status']): Order['status'] | null => {
+  const nextStatus: Record<Order['status'], Order['status'] | null> = {
+    pending: 'confirmed',
+    confirmed: 'preparing',
+    preparing: 'ready',
+    ready: 'completed',
+    completed: null,
+    cancelled: null
+  }
+
+  return nextStatus[current] ?? null
+}
+
+const getNextStatusLabel = (current: Order['status']) => {
+  const next = getNextStatus(current)
+  if (!next) return 'Aggiorna stato'
+  return statusConfig[next].label === 'Completato' ? 'Completa ordine' : statusConfig[next].label === 'In preparazione'
+    ? 'Inizia preparazione'
+    : statusConfig[next].label === 'Confermato'
+      ? 'Conferma ordine'
+      : statusConfig[next].label === 'Pronto'
+        ? 'Segna come pronto'
+        : `Passa a ${statusConfig[next].label.toLowerCase()}`
+}
+
 export default function OrdersManagementPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [storeInfo, setStoreInfo] = useState<{ name: string; phone?: string | null; address?: string | null } | null>(null)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     fetchOrders()
@@ -245,174 +283,305 @@ export default function OrdersManagementPage() {
         </TabsContent>
       </Tabs>
 
-      {/* Order Details Dialog */}
-      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-        <DialogContent
-          className="left-0 right-0 bottom-0 top-auto translate-x-0 translate-y-0 w-full max-w-none max-h-[85vh] overflow-y-auto rounded-t-2xl rounded-b-none border-t p-4 data-[state=open]:slide-in-from-bottom data-[state=closed]:slide-out-to-bottom data-[state=open]:duration-300 data-[state=closed]:duration-200 [&>button]:hidden sm:left-[50%] sm:top-[50%] sm:translate-x-[-50%] sm:translate-y-[-50%] sm:w-auto sm:max-w-2xl sm:max-h-[90vh] sm:rounded-2xl sm:p-6 sm:data-[state=open]:slide-in-from-top-1/2 sm:data-[state=closed]:slide-out-to-top-1/2"
-        >
-          {selectedOrder && (
-            <>
-              <div className="-mx-4 sm:mx-0 px-4 sm:px-0 pt-1 pb-4 sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
-                <DialogHeader>
-                  <div className="flex items-start justify-between gap-4">
-                    <DialogTitle>Ordine {selectedOrder.order_number}</DialogTitle>
-                    <DialogClose className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
-                      <span className="sr-only">Chiudi</span>
-                      <X className="h-4 w-4" />
-                    </DialogClose>
+      {/* Order Details Dialog / Sheet */}
+      {isMobile ? (
+        <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl p-4 pt-0 [&>button]:hidden">
+            {selectedOrder && (
+              <>
+                <div className="-mx-4 px-4 pt-4 pb-4 sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
+                  <SheetHeader>
+                    <div className="flex items-start justify-between gap-4">
+                      <SheetTitle>Ordine n° {selectedOrder.order_number}</SheetTitle>
+                      <SheetClose className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                        <span className="sr-only">Chiudi</span>
+                        <X className="h-4 w-4" />
+                      </SheetClose>
+                    </div>
+                    <SheetDescription>
+                      {format(new Date(selectedOrder.created_at), 'PPpp', { locale: it })}
+                    </SheetDescription>
+                  </SheetHeader>
+                </div>
+
+                <div className="space-y-6 pt-4 pb-24">
+                  <div>
+                    <h3 className="font-semibold mb-3">Informazioni cliente</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Nome:</span>
+                        <span className="font-medium">{selectedOrder.customer_name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Telefono:</span>
+                        <span className="font-medium">{selectedOrder.customer_phone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tipo:</span>
+                        <span className="font-medium">
+                          {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
+                        </span>
+                      </div>
+                      {selectedOrder.order_type === 'delivery' && selectedOrder.payment_method && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Pagamento:</span>
+                          <span className="font-medium">
+                            {selectedOrder.payment_method === 'card' ? 'Carta (POS)' : 'Contanti'}
+                          </span>
+                        </div>
+                      )}
+                      {selectedOrder.customer_address && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Indirizzo:</span>
+                          <span className="font-medium text-right">{selectedOrder.customer_address}</span>
+                        </div>
+                      )}
+                    </div>
                   </div>
+
+                  <div>
+                    <h3 className="font-semibold mb-3">Articoli ordinati</h3>
+                    <div className="space-y-2">
+                      {selectedOrder.items.map((item, index) => (
+                        <div key={index} className="flex justify-between text-sm py-2 border-b">
+                          <div>
+                            <span className="font-medium">{item.quantity}x</span> {item.name}
+                            <div className="text-xs text-muted-foreground">{item.price.toFixed(2)}€ cad.</div>
+                          </div>
+                          <span className="font-medium">{(item.price * item.quantity).toFixed(2)}€</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h3 className="font-semibold mb-3">Riepilogo</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Subtotale:</span>
+                        <span>{selectedOrder.subtotal.toFixed(2)}€</span>
+                      </div>
+                      {selectedOrder.delivery_fee > 0 && (
+                        <div className="flex justify-between">
+                          <span>Consegna:</span>
+                          <span>{selectedOrder.delivery_fee.toFixed(2)}€</span>
+                        </div>
+                      )}
+                      {selectedOrder.discount_amount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Sconto ({selectedOrder.discount_code}):</span>
+                          <span>-{selectedOrder.discount_amount.toFixed(2)}€</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                        <span>Totale:</span>
+                        <span>{selectedOrder.total.toFixed(2)}€</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedOrder.notes && (
+                    <div>
+                      <h3 className="font-semibold mb-2">Note:</h3>
+                      <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                        {selectedOrder.notes}
+                      </p>
+                    </div>
+                  )}
+
+                  <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 backdrop-blur px-4 py-3">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        onClick={() => printReceipt(selectedOrder, storeInfo || undefined)}
+                      >
+                        <Printer className="h-4 w-4 mr-2" />
+                        Stampa
+                      </Button>
+                      {selectedOrder.status !== 'completed' && selectedOrder.status !== 'cancelled' && (
+                        <div className="flex flex-1 gap-2">
+                          <Button
+                            className="flex-1"
+                            onClick={() => {
+                              const next = getNextStatus(selectedOrder.status)
+                              if (next) {
+                                handleStatusChange(selectedOrder.id, next)
+                              }
+                            }}
+                          >
+                            {getNextStatusLabel(selectedOrder.status)}
+                          </Button>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button variant="outline" size="icon" aria-label="Cambia stato ordine">
+                                <ChevronUp className="h-4 w-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent side="top" align="end">
+                              {getStatusOptions(selectedOrder.status).map((key) => (
+                                <DropdownMenuItem
+                                  key={key}
+                                  onClick={() => handleStatusChange(selectedOrder.id, key)}
+                                >
+                                  {statusConfig[key].label}
+                                </DropdownMenuItem>
+                              ))}
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
+          </SheetContent>
+        </Sheet>
+      ) : (
+        <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+            {selectedOrder && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>Ordine {selectedOrder.order_number}</DialogTitle>
                   <DialogDescription>
                     {format(new Date(selectedOrder.created_at), 'PPpp', { locale: it })}
                   </DialogDescription>
                 </DialogHeader>
 
-                <div className="mt-4">
-                  <h3 className="font-semibold mb-3">Stato ordine</h3>
-                  <Select
-                    value={selectedOrder.status}
-                    onValueChange={(value) => handleStatusChange(selectedOrder.id, value as Order['status'])}
-                  >
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Object.entries(statusConfig).map(([key, config]) => (
-                        <SelectItem key={key} value={key}>
-                          {config.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-              </div>
+                <div className="space-y-6">
 
-              <div className="space-y-6 pt-4">
-                <div>
-                  <h3 className="font-semibold mb-3">Informazioni cliente</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Nome:</span>
-                      <span className="font-medium">{selectedOrder.customer_name}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Telefono:</span>
-                      <span className="font-medium">{selectedOrder.customer_phone}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-muted-foreground">Tipo:</span>
-                      <span className="font-medium">
-                        {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
-                      </span>
-                    </div>
-                    {selectedOrder.order_type === 'delivery' && selectedOrder.payment_method && (
+                  <div>
+                    <h3 className="font-semibold mb-3">Informazioni cliente</h3>
+                    <div className="space-y-2 text-sm">
                       <div className="flex justify-between">
-                        <span className="text-muted-foreground">Pagamento:</span>
+                        <span className="text-muted-foreground">Nome:</span>
+                        <span className="font-medium">{selectedOrder.customer_name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Telefono:</span>
+                        <span className="font-medium">{selectedOrder.customer_phone}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Tipo:</span>
                         <span className="font-medium">
-                          {selectedOrder.payment_method === 'card' ? 'Carta (POS)' : 'Contanti'}
+                          {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
                         </span>
                       </div>
-                    )}
-                    {selectedOrder.customer_address && (
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Indirizzo:</span>
-                        <span className="font-medium text-right">{selectedOrder.customer_address}</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-3">Articoli ordinati</h3>
-                  <div className="space-y-2">
-                    {selectedOrder.items.map((item, index) => (
-                      <div key={index} className="flex justify-between text-sm py-2 border-b">
-                        <div>
-                          <span className="font-medium">{item.quantity}x</span> {item.name}
-                          <div className="text-xs text-muted-foreground">{item.price.toFixed(2)}€ cad.</div>
+                      {selectedOrder.order_type === 'delivery' && selectedOrder.payment_method && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Pagamento:</span>
+                          <span className="font-medium">
+                            {selectedOrder.payment_method === 'card' ? 'Carta (POS)' : 'Contanti'}
+                          </span>
                         </div>
-                        <span className="font-medium">{(item.price * item.quantity).toFixed(2)}€</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-
-                <div>
-                  <h3 className="font-semibold mb-3">Riepilogo</h3>
-                  <div className="space-y-2 text-sm">
-                    <div className="flex justify-between">
-                      <span>Subtotale:</span>
-                      <span>{selectedOrder.subtotal.toFixed(2)}€</span>
-                    </div>
-                    {selectedOrder.delivery_fee > 0 && (
-                      <div className="flex justify-between">
-                        <span>Consegna:</span>
-                        <span>{selectedOrder.delivery_fee.toFixed(2)}€</span>
-                      </div>
-                    )}
-                    {selectedOrder.discount_amount > 0 && (
-                      <div className="flex justify-between text-green-600">
-                        <span>Sconto ({selectedOrder.discount_code}):</span>
-                        <span>-{selectedOrder.discount_amount.toFixed(2)}€</span>
-                      </div>
-                    )}
-                    <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                      <span>Totale:</span>
-                      <span>{selectedOrder.total.toFixed(2)}€</span>
+                      )}
+                      {selectedOrder.customer_address && (
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Indirizzo:</span>
+                          <span className="font-medium text-right">{selectedOrder.customer_address}</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
 
-                {selectedOrder.notes && (
                   <div>
-                    <h3 className="font-semibold mb-2">Note:</h3>
-                    <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-                      {selectedOrder.notes}
-                    </p>
+                    <h3 className="font-semibold mb-3">Articoli ordinati</h3>
+                    <div className="space-y-2">
+                      {selectedOrder.items.map((item, index) => (
+                        <div key={index} className="flex justify-between text-sm py-2 border-b">
+                          <div>
+                            <span className="font-medium">{item.quantity}x</span> {item.name}
+                            <div className="text-xs text-muted-foreground">{item.price.toFixed(2)}€ cad.</div>
+                          </div>
+                          <span className="font-medium">{(item.price * item.quantity).toFixed(2)}€</span>
+                        </div>
+                      ))}
+                    </div>
                   </div>
-                )}
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={() => setDetailsOpen(false)}
-                  >
-                    Chiudi
-                  </Button>
-                  <Button
-                    variant="outline"
-                    onClick={() => printReceipt(selectedOrder, storeInfo || undefined)}
-                  >
-                    <Printer className="h-4 w-4 mr-2" />
-                    Stampa
-                  </Button>
-                  {selectedOrder.status !== 'completed' && selectedOrder.status !== 'cancelled' && (
-                    <Button
-                      className="flex-1"
-                      onClick={() => {
-                        const nextStatus: Record<string, Order['status']> = {
-                          pending: 'confirmed',
-                          confirmed: 'preparing',
-                          preparing: 'ready',
-                          ready: 'completed'
-                        }
-                        const next = nextStatus[selectedOrder.status]
-                        if (next) {
-                          handleStatusChange(selectedOrder.id, next)
-                        }
-                      }}
-                    >
-                      {selectedOrder.status === 'pending' && 'Conferma ordine'}
-                      {selectedOrder.status === 'confirmed' && 'Inizia preparazione'}
-                      {selectedOrder.status === 'preparing' && 'Segna come pronto'}
-                      {selectedOrder.status === 'ready' && 'Completa ordine'}
-                    </Button>
+                  <div>
+                    <h3 className="font-semibold mb-3">Riepilogo</h3>
+                    <div className="space-y-2 text-sm">
+                      <div className="flex justify-between">
+                        <span>Subtotale:</span>
+                        <span>{selectedOrder.subtotal.toFixed(2)}€</span>
+                      </div>
+                      {selectedOrder.delivery_fee > 0 && (
+                        <div className="flex justify-between">
+                          <span>Consegna:</span>
+                          <span>{selectedOrder.delivery_fee.toFixed(2)}€</span>
+                        </div>
+                      )}
+                      {selectedOrder.discount_amount > 0 && (
+                        <div className="flex justify-between text-green-600">
+                          <span>Sconto ({selectedOrder.discount_code}):</span>
+                          <span>-{selectedOrder.discount_amount.toFixed(2)}€</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                        <span>Totale:</span>
+                        <span>{selectedOrder.total.toFixed(2)}€</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {selectedOrder.notes && (
+                    <div>
+                      <h3 className="font-semibold mb-2">Note:</h3>
+                      <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                        {selectedOrder.notes}
+                      </p>
+                    </div>
                   )}
+
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => printReceipt(selectedOrder, storeInfo || undefined)}
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Stampa
+                    </Button>
+                    {selectedOrder.status !== 'completed' && selectedOrder.status !== 'cancelled' && (
+                      <div className="flex flex-1 gap-2">
+                        <Button
+                          className="flex-1"
+                          onClick={() => {
+                            const next = getNextStatus(selectedOrder.status)
+                            if (next) {
+                              handleStatusChange(selectedOrder.id, next)
+                            }
+                          }}
+                        >
+                          {getNextStatusLabel(selectedOrder.status)}
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" aria-label="Cambia stato ordine">
+                              <ChevronUp className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="top" align="end">
+                            {getStatusOptions(selectedOrder.status).map((key) => (
+                              <DropdownMenuItem
+                                key={key}
+                                onClick={() => handleStatusChange(selectedOrder.id, key)}
+                              >
+                                {statusConfig[key].label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
+                  </div>
                 </div>
-              </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      )}
     </div>
   )
 }
