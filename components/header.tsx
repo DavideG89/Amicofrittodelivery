@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { ShoppingCart, Info, Search } from 'lucide-react'
+import { ShoppingCart, Info, User } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCart } from '@/lib/cart-context'
@@ -40,9 +40,9 @@ export function Header() {
           </Button>
 
           <Button variant="ghost" size="icon" asChild className="h-10 w-10">
-            <Link href="/track" aria-label="Cerca ordine">
-              <Search className="h-5 w-5" />
-              <span className="sr-only">Cerca ordine</span>
+            <Link href="/utente" aria-label="Utente">
+              <User className="h-5 w-5" />
+              <span className="sr-only">Utente</span>
             </Link>
           </Button>
           

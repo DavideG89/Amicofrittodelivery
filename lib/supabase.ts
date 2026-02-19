@@ -37,7 +37,7 @@ export type StoreInfo = {
   name: string
   address: string | null
   phone: string | null
-  opening_hours: Record<string, string> | null
+  opening_hours: import('@/lib/order-schedule').OpeningHoursValue
   delivery_fee: number
   min_order_delivery: number
   updated_at: string

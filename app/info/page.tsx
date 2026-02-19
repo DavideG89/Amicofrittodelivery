@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { supabase } from '@/lib/supabase'
+import { extractOpeningHours } from '@/lib/order-schedule'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MapPin, Phone, Clock } from 'lucide-react'
@@ -11,7 +12,7 @@ interface StoreInfo {
   name: string
   address: string
   phone: string
-  opening_hours: Record<string, string> | string | null
+  opening_hours: import('@/lib/order-schedule').OpeningHoursValue
 }
 
 export default function InfoPage() {
@@ -118,13 +119,17 @@ export default function InfoPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
+                    {(() => {
+                      const { display } = extractOpeningHours(storeInfo.opening_hours)
+                      if (!display) return null
+                      return (
                     <div className="space-y-2">
-                      {typeof storeInfo.opening_hours === 'string' ? (
+                      {typeof display === 'string' ? (
                         <div className="whitespace-pre-line text-lg">
-                          {storeInfo.opening_hours}
+                          {display}
                         </div>
                       ) : (
-                        Object.entries(storeInfo.opening_hours).map(([day, hours]) => (
+                        Object.entries(display).map(([day, hours]) => (
                           <div key={day} className="flex justify-between items-center">
                             <span className="font-medium capitalize">{day}:</span>
                             <span className="text-muted-foreground">{hours}</span>
@@ -132,6 +137,8 @@ export default function InfoPage() {
                         ))
                       )}
                     </div>
+                      )
+                    })()}
                   </CardContent>
                 </Card>
               )}

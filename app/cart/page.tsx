@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
+import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
 export default function CartPage() {
   const router = useRouter()
@@ -38,7 +39,14 @@ export default function CartPage() {
   const deliveryFee = isDelivery ? (storeInfo?.delivery_fee || 0) : 0
   const total = subtotal + deliveryFee
 
-  const canProceed = items.length > 0 && (!isDelivery || (storeInfo && subtotal >= storeInfo.min_order_delivery))
+  const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
+  const orderStatus = getOrderStatus(schedule)
+  const nextOpenLabel = formatNextOpen(orderStatus.nextOpen)
+
+  const canProceed =
+    items.length > 0 &&
+    orderStatus.isOpen &&
+    (!isDelivery || (storeInfo && subtotal >= storeInfo.min_order_delivery))
 
   const handleCheckout = () => {
     if (canProceed) {
@@ -68,6 +76,14 @@ export default function CartPage() {
             )}
           </div>
         </div>
+
+        {!orderStatus.isOpen && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <p className="font-medium">
+              Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo alle ${nextOpenLabel}.` : ''}
+            </p>
+          </div>
+        )}
 
         {items.length === 0 ? (
           <Card>

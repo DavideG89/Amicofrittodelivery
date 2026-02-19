@@ -7,6 +7,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
 import { toast } from 'sonner'
 import { Save } from 'lucide-react'
 import {
@@ -20,13 +21,22 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import {
+  buildOpeningHoursValue,
+  createEmptySchedule,
+  dayLabels,
+  extractOpeningHours,
+  normalizeSchedule,
+  type DayKey,
+  type OrderSchedule,
+} from '@/lib/order-schedule'
 
 interface StoreInfo {
   id: string
   name: string
   address: string | null
   phone: string | null
-  opening_hours: Record<string, string> | string | null
+  opening_hours: import('@/lib/order-schedule').OpeningHoursValue
   delivery_fee: number
   min_order_delivery: number
   updated_at: string
@@ -45,6 +55,7 @@ export default function SettingsPage() {
     delivery_fee: '0',
     min_order_delivery: '0',
   })
+  const [orderSchedule, setOrderSchedule] = useState<OrderSchedule>(createEmptySchedule())
 
   useEffect(() => {
     fetchStoreInfo()
@@ -62,14 +73,19 @@ export default function SettingsPage() {
 
       if (data) {
         setStoreInfo(data)
+        const { display, schedule } = extractOpeningHours(data.opening_hours)
         setFormData({
           name: data.name || '',
           address: data.address || '',
           phone: data.phone || '',
-          opening_hours: typeof data.opening_hours === 'string' ? data.opening_hours : JSON.stringify(data.opening_hours || {}, null, 2),
+          opening_hours:
+            typeof display === 'string'
+              ? display
+              : JSON.stringify(display || {}, null, 2),
           delivery_fee: data.delivery_fee?.toString() || '0',
           min_order_delivery: data.min_order_delivery?.toString() || '0',
         })
+        setOrderSchedule(schedule ?? createEmptySchedule())
       }
     } catch (error) {
       console.error('[v0] Error fetching store info:', error)
@@ -89,16 +105,19 @@ export default function SettingsPage() {
     try {
       console.log('[v0] Saving store info:', formData)
       
-      // Parse opening_hours if it's a JSON string
-      let openingHours: Record<string, string> | null = null
+      // Parse opening_hours display if it's a JSON string
+      let openingHoursDisplay: Record<string, string> | string | null = null
       if (formData.opening_hours.trim()) {
         try {
-          openingHours = JSON.parse(formData.opening_hours)
+          openingHoursDisplay = JSON.parse(formData.opening_hours)
         } catch {
-          // If not JSON, treat as plain text and convert to object
-          openingHours = { info: formData.opening_hours.trim() }
+          // If not JSON, treat as plain text
+          openingHoursDisplay = formData.opening_hours.trim()
         }
       }
+
+      const cleanedSchedule = normalizeSchedule(orderSchedule)
+      const openingHours = buildOpeningHoursValue(openingHoursDisplay, cleanedSchedule)
 
       const dataToSave = {
         name: formData.name.trim(),
@@ -161,6 +180,28 @@ export default function SettingsPage() {
     } finally {
       setResettingOrders(false)
     }
+  }
+
+  const updateRange = (day: DayKey, index: number, field: 'start' | 'end', value: string) => {
+    setOrderSchedule((prev) => {
+      const next = { ...prev, days: { ...prev.days, [day]: [...prev.days[day]] } }
+      next.days[day][index] = { ...next.days[day][index], [field]: value }
+      return next
+    })
+  }
+
+  const addRange = (day: DayKey) => {
+    setOrderSchedule((prev) => ({
+      ...prev,
+      days: { ...prev.days, [day]: [...prev.days[day], { start: '', end: '' }] },
+    }))
+  }
+
+  const removeRange = (day: DayKey, index: number) => {
+    setOrderSchedule((prev) => ({
+      ...prev,
+      days: { ...prev.days, [day]: prev.days[day].filter((_, i) => i !== index) },
+    }))
   }
 
   if (loading) {
@@ -242,6 +283,67 @@ export default function SettingsPage() {
             <p className="text-sm text-muted-foreground">
               Formato JSON: {`{"lunedi": "11:00-22:00", "martedi": "Chiuso"}`}
             </p>
+          </div>
+
+          <div className="space-y-4 rounded-lg border p-4">
+            <div className="flex items-center justify-between gap-4">
+              <div>
+                <Label>Programmazione Ordini</Label>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Se attiva, gli ordini sono accettati solo negli orari indicati.
+                </p>
+              </div>
+              <Switch
+                checked={orderSchedule.enabled}
+                onCheckedChange={(checked) =>
+                  setOrderSchedule((prev) => ({ ...prev, enabled: checked }))
+                }
+              />
+            </div>
+
+            <div className="space-y-3">
+              {(Object.keys(dayLabels) as DayKey[]).map((day) => (
+                <div key={day} className="space-y-2 rounded-md border p-3">
+                  <div className="flex items-center justify-between">
+                    <span className="font-medium">{dayLabels[day]}</span>
+                    <Button type="button" variant="outline" size="sm" onClick={() => addRange(day)}>
+                      Aggiungi fascia
+                    </Button>
+                  </div>
+                  {orderSchedule.days[day].length === 0 ? (
+                    <p className="text-xs text-muted-foreground">Nessuna fascia impostata.</p>
+                  ) : (
+                    <div className="space-y-2">
+                      {orderSchedule.days[day].map((range, index) => (
+                        <div key={`${day}-${index}`} className="flex flex-wrap items-center gap-2">
+                          <Input
+                            type="time"
+                            value={range.start}
+                            onChange={(e) => updateRange(day, index, 'start', e.target.value)}
+                            className="w-32"
+                          />
+                          <span className="text-sm text-muted-foreground">-</span>
+                          <Input
+                            type="time"
+                            value={range.end}
+                            onChange={(e) => updateRange(day, index, 'end', e.target.value)}
+                            className="w-32"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removeRange(day, index)}
+                          >
+                            Rimuovi
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-4">

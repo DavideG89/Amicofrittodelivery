@@ -5,8 +5,9 @@ import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
 import { UpsellDialog } from '@/components/upsell-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { supabase, Category, Product } from '@/lib/supabase'
+import { supabase, Category, Product, StoreInfo } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
+import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -15,6 +16,7 @@ export default function Home() {
   const [upsellOpen, setUpsellOpen] = useState(false)
   const [triggerProduct, setTriggerProduct] = useState<Product | null>(null)
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
+  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -35,8 +37,17 @@ export default function Home() {
 
         if (productsError) throw productsError
 
+        const { data: storeInfoData, error: storeInfoError } = await supabase
+          .from('store_info')
+          .select('*')
+          .limit(1)
+          .maybeSingle()
+
+        if (storeInfoError) throw storeInfoError
+
         setCategories(categoriesData || [])
         setProducts(productsData || [])
+        setStoreInfo(storeInfoData || null)
       } catch (error) {
         console.error('[v0] Error fetching data:', error)
       } finally {
@@ -115,6 +126,10 @@ export default function Home() {
     )
   }
 
+  const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
+  const orderStatus = getOrderStatus(schedule)
+  const nextOpenLabel = formatNextOpen(orderStatus.nextOpen)
+
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-6">
       <Header />
@@ -128,6 +143,14 @@ export default function Home() {
             I migliori fritti della città
           </p>
         </div>
+
+        {!orderStatus.isOpen && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <p className="font-medium">
+              Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo alle ${nextOpenLabel}.` : ''}
+            </p>
+          </div>
+        )}
 
         {categories.length === 0 ? (
           <div className="text-center py-12">

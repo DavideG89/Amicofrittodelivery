@@ -15,6 +15,7 @@ import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
 import { toast } from 'sonner'
+import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
 function CheckoutForm() {
   const router = useRouter()
@@ -84,6 +85,9 @@ function CheckoutForm() {
 
   const deliveryFee = isDelivery ? (storeInfo?.delivery_fee || 0) : 0
   const total = subtotal + deliveryFee - discountAmount
+  const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
+  const orderStatus = getOrderStatus(schedule)
+  const nextOpenLabel = formatNextOpen(orderStatus.nextOpen)
 
   const handleVerifyDiscount = async () => {
     if (!formData.discountCode.trim()) {
@@ -153,6 +157,11 @@ function CheckoutForm() {
 
     if (isDelivery && !formData.address) {
       toast.error('Inserisci l\'indirizzo di consegna')
+      return
+    }
+
+    if (!orderStatus.isOpen) {
+      toast.error('Ordinazioni chiuse al momento')
       return
     }
 
@@ -240,6 +249,14 @@ function CheckoutForm() {
             </p>
           </div>
         </div>
+
+        {!orderStatus.isOpen && (
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+            <p className="font-medium">
+              Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo alle ${nextOpenLabel}.` : ''}
+            </p>
+          </div>
+        )}
 
         <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
@@ -366,7 +383,7 @@ function CheckoutForm() {
                   type="submit" 
                   className="w-full" 
                   size="lg"
-                  disabled={loading}
+                  disabled={loading || !orderStatus.isOpen}
                 >
                   {loading ? (
                     <>
