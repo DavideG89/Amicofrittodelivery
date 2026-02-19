@@ -205,19 +205,19 @@ export default function OrdersManagementPage() {
   const completedOrders = filterOrdersByStatus('completed')
 
   return (
-    <div className="p-6">
+    <div className="p-6 h-full flex flex-col min-h-0">
       <div className="mb-6">
         <h1 className="text-3xl font-bold">Gestione Ordini</h1>
         <p className="text-muted-foreground">Visualizza e gestisci gli ordini in tempo reale</p>
       </div>
 
-      <Tabs defaultValue="pending" className="w-full">
-        <div className="sticky top-0 z-20 -mx-6 px-6 py-3 bg-background/95 backdrop-blur border-b">
+      <Tabs defaultValue="pending" className="w-full flex-1 min-h-0 flex flex-col">
+        <div className="z-20 -mx-6 px-6 py-3 bg-background/95 backdrop-blur border-b">
           <div className="overflow-x-auto -mx-6 px-6">
-            <TabsList className="inline-flex w-max min-w-max justify-start gap-2 bg-muted/60">
-            <TabsTrigger value="pending">
-              In attesa ({pendingOrders.length})
-            </TabsTrigger>
+            <TabsList className="inline-flex w-max min-w-max justify-start gap-2 bg-muted/60 h-11 sm:h-12">
+              <TabsTrigger value="pending">
+                In attesa ({pendingOrders.length})
+              </TabsTrigger>
             <TabsTrigger value="active">
               Attivi ({activeOrders.length})
             </TabsTrigger>
@@ -234,7 +234,8 @@ export default function OrdersManagementPage() {
           </div>
         </div>
 
-        <TabsContent value="pending" className="mt-6">
+        <div className="flex-1 min-h-0 overflow-y-auto pt-6">
+        <TabsContent value="pending" className="mt-0">
           {pendingOrders.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -250,7 +251,7 @@ export default function OrdersManagementPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="active" className="mt-6">
+        <TabsContent value="active" className="mt-0">
           {activeOrders.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -266,7 +267,7 @@ export default function OrdersManagementPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="delivery" className="mt-6">
+        <TabsContent value="delivery" className="mt-0">
           {deliveryOrders.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -282,7 +283,7 @@ export default function OrdersManagementPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="completed" className="mt-6">
+        <TabsContent value="completed" className="mt-0">
           {completedOrders.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
@@ -298,13 +299,14 @@ export default function OrdersManagementPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="all" className="mt-6">
+        <TabsContent value="all" className="mt-0">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {orders.map(order => (
               <OrderCard key={order.id} order={order} />
             ))}
           </div>
         </TabsContent>
+        </div>
       </Tabs>
 
       {/* Order Details Dialog / Sheet */}
