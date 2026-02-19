@@ -140,7 +140,7 @@ export default function Home() {
             Benvenuto da Amico Fritto
           </h1>
           <p className="text-muted-foreground text-base sm:text-lg">
-            I migliori fritti della città
+            Scopri il nostro menù e ordina i tuoi sfizi preferiti in pochi click!
           </p>
         </div>
 
