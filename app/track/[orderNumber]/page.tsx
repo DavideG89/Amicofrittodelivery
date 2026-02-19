@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle, Clock, Package, Truck, ChefHat, CircleCheckBig, XCircle, RefreshCw } from 'lucide-react'
+import { ArrowLeft, CheckCircle, Clock, Package, Truck, ChefHat, CircleCheckBig, XCircle, RefreshCw, Utensils } from 'lucide-react'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -32,14 +32,14 @@ const statusConfig = {
   },
   ready: {
     label: 'Pronto',
-    icon: Package,
-    color: 'bg-purple-500',
+    icon: Utensils,
+    color: 'bg-green-500',
     description: 'Il tuo ordine è pronto!'
   },
   completed: {
     label: 'Completato',
     icon: CircleCheckBig,
-    color: 'bg-green-500',
+    color: 'bg-yellow-500',
     description: 'Ordine completato. Buon appetito!'
   },
   cancelled: {

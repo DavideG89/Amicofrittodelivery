@@ -200,7 +200,8 @@ export default function OrdersManagementPage() {
   }
 
   const pendingOrders = filterOrdersByStatus('pending')
-  const activeOrders = orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status))
+  const activeOrders = orders.filter(o => ['confirmed', 'preparing'].includes(o.status))
+  const deliveryOrders = orders.filter(o => o.status === 'ready')
   const completedOrders = filterOrdersByStatus('completed')
 
   return (
@@ -212,20 +213,25 @@ export default function OrdersManagementPage() {
 
       <Tabs defaultValue="pending" className="w-full">
         <div className="sticky top-0 z-20 -mx-6 px-6 py-3 bg-background/95 backdrop-blur border-b">
-          <TabsList className="w-full flex-wrap justify-start gap-2 bg-muted/60">
-          <TabsTrigger value="pending">
-            In attesa ({pendingOrders.length})
-          </TabsTrigger>
-          <TabsTrigger value="active">
-            Attivi ({activeOrders.length})
-          </TabsTrigger>
-          <TabsTrigger value="completed">
-            Completati ({completedOrders.length})
-          </TabsTrigger>
-          <TabsTrigger value="all">
-            Tutti ({orders.length})
-          </TabsTrigger>
-          </TabsList>
+          <div className="overflow-x-auto -mx-6 px-6">
+            <TabsList className="inline-flex w-max min-w-max justify-start gap-2 bg-muted/60">
+            <TabsTrigger value="pending">
+              In attesa ({pendingOrders.length})
+            </TabsTrigger>
+            <TabsTrigger value="active">
+              Attivi ({activeOrders.length})
+            </TabsTrigger>
+            <TabsTrigger value="delivery">
+              In consegna ({deliveryOrders.length})
+            </TabsTrigger>
+            <TabsTrigger value="completed">
+              Completati ({completedOrders.length})
+            </TabsTrigger>
+            <TabsTrigger value="all">
+              Tutti ({orders.length})
+            </TabsTrigger>
+            </TabsList>
+          </div>
         </div>
 
         <TabsContent value="pending" className="mt-6">
@@ -254,6 +260,22 @@ export default function OrdersManagementPage() {
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {activeOrders.map(order => (
+                <OrderCard key={order.id} order={order} />
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="delivery" className="mt-6">
+          {deliveryOrders.length === 0 ? (
+            <Card>
+              <CardContent className="py-12 text-center">
+                <p className="text-muted-foreground">Nessun ordine in consegna</p>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+              {deliveryOrders.map(order => (
                 <OrderCard key={order.id} order={order} />
               ))}
             </div>

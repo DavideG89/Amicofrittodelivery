@@ -15,9 +15,34 @@ const geistMono = Geist_Mono({
   variable: '--font-geist-mono'
 })
 
+const siteUrl =
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+
 export const metadata: Metadata = {
+  metadataBase: new URL(siteUrl),
   title: 'Amico Fritto - Food Delivery',
   description: 'Ordina i migliori fritti della città',
+  openGraph: {
+    title: 'Amico Fritto - Food Delivery',
+    description: 'Ordina i migliori fritti della città',
+    url: '/',
+    type: 'website',
+    images: [
+      {
+        url: '/logo.png',
+        width: 1200,
+        height: 630,
+        alt: 'Amico Fritto',
+      },
+    ],
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: 'Amico Fritto - Food Delivery',
+    description: 'Ordina i migliori fritti della città',
+    images: ['/logo.png'],
+  },
 }
 
 export default function RootLayout({
