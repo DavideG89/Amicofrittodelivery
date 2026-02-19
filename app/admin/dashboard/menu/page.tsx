@@ -486,13 +486,15 @@ export default function MenuManagementPage() {
       </div>
 
       <Tabs defaultValue={categories[0]?.id} className="w-full">
-        <TabsList className="mb-4">
-          {categories.map((category) => (
-            <TabsTrigger key={category.id} value={category.id}>
-              {category.name} ({getProductsByCategory(category.id).length})
-            </TabsTrigger>
-          ))}
-        </TabsList>
+        <div className="mb-4 w-full overflow-x-auto rounded-md bg-muted p-1">
+          <TabsList className="w-max justify-start bg-transparent p-0">
+            {categories.map((category) => (
+              <TabsTrigger key={category.id} value={category.id} className="shrink-0">
+                {category.name} ({getProductsByCategory(category.id).length})
+              </TabsTrigger>
+            ))}
+          </TabsList>
+        </div>
 
         {categories.map((category) => {
           const categoryProducts = getProductsByCategory(category.id)

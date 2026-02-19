@@ -206,7 +206,7 @@ export default function SettingsPage() {
 
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="p-6 space-y-6">
         <div>
           <h1 className="text-3xl font-bold">Impostazioni</h1>
           <p className="text-muted-foreground">Caricamento...</p>
@@ -216,7 +216,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="p-6 space-y-6">
       <div>
         <h1 className="text-3xl font-bold">Impostazioni</h1>
         <p className="text-muted-foreground">
@@ -346,7 +346,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label htmlFor="delivery_fee">Costo Consegna (€)</Label>
               <Input
@@ -389,24 +389,6 @@ export default function SettingsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Sicurezza</CardTitle>
-          <CardDescription>
-            Gestisci la password di accesso alla dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <p className="text-sm text-muted-foreground mb-4">
-            La password è configurata tramite variabili d&apos;ambiente (NEXT_PUBLIC_ADMIN_PASSWORD).
-            Per cambiarla, modifica la variabile d&apos;ambiente nel tuo progetto.
-          </p>
-          <div className="bg-muted p-4 rounded-lg">
-            <code className="text-sm">NEXT_PUBLIC_ADMIN_PASSWORD=la_tua_password_sicura</code>
-          </div>
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
           <CardTitle>Azzeramento Dati Ordini</CardTitle>
           <CardDescription>
             Questa azione cancella tutti gli ordini e resetta incassi e contatori
@@ -437,6 +419,24 @@ export default function SettingsPage() {
               </AlertDialogFooter>
             </AlertDialogContent>
           </AlertDialog>
+        </CardContent>
+      </Card>
+
+      <Card className="opacity-70">
+        <CardHeader className="pb-2">
+          <CardTitle className="text-base">Sicurezza</CardTitle>
+          <CardDescription className="text-xs">
+            Gestisci la password di accesso alla dashboard
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="text-xs text-muted-foreground overflow-x-auto">
+          <p className="mb-3">
+            La password è configurata tramite variabili d&apos;ambiente (NEXT_PUBLIC_ADMIN_PASSWORD).
+            Per cambiarla, modifica la variabile d&apos;ambiente nel tuo progetto.
+          </p>
+          <div className="bg-muted/60 p-3 rounded-md">
+            <code className="text-xs break-words">NEXT_PUBLIC_ADMIN_PASSWORD=la_tua_password_sicura</code>
+          </div>
         </CardContent>
       </Card>
     </div>

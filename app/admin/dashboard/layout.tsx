@@ -197,19 +197,10 @@ export default function AdminDashboardLayout({
               priority
             />
             
-            <Sheet>
-              <SheetTrigger asChild>
-                <Button variant="ghost" size="icon">
-                  <MenuIcon className="h-6 w-6" />
-                </Button>
-              </SheetTrigger>
-              <SheetContent side="left" className="p-0 w-64">
-                <SheetHeader className="sr-only">
-                  <SheetTitle>Menu amministrazione</SheetTitle>
-                </SheetHeader>
-                <Sidebar />
-              </SheetContent>
-            </Sheet>
+            <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
+              <LogOut className="h-5 w-5" />
+              Esci
+            </Button>
           </header>
 
           {/* Main Content Area */}
@@ -230,7 +221,7 @@ export default function AdminDashboardLayout({
                 )}
               </div>
             )}
-            <nav className="md:hidden sticky top-0 z-40 border-b bg-card">
+            <nav className="md:hidden sticky top-0 z-40 bg-card p-4">
               <div className="flex gap-2 overflow-x-auto px-4 py-2">
                 {navItems.map((item) => {
                   const isActive = pathname === item.href
