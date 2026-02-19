@@ -20,6 +20,7 @@ export default function OrderPage() {
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
+  const [savedLink, setSavedLink] = useState(false)
 
   useEffect(() => {
     async function fetchOrder() {
@@ -49,15 +50,25 @@ export default function OrderPage() {
     fetchOrder()
   }, [orderNumber, router])
 
-  const handleCopyLink = async () => {
+  const handleCopyCode = async () => {
+    try {
+      await navigator.clipboard.writeText(orderNumber)
+      setCopied(true)
+      toast.success('Codice copiato negli appunti')
+      setTimeout(() => setCopied(false), 2000)
+    } catch (err) {
+      toast.error('Impossibile copiare il codice')
+    }
+  }
+
+  const handleSaveLink = async () => {
     const url = `${window.location.origin}/order/${orderNumber}`
     try {
       await navigator.clipboard.writeText(url)
-      setCopied(true)
-      toast.success('Link copiato negli appunti')
-      setTimeout(() => setCopied(false), 2000)
+      setSavedLink(true)
+      toast.success('Link ordine salvato negli appunti')
     } catch (err) {
-      toast.error('Impossibile copiare il link')
+      toast.error('Impossibile salvare il link ordine')
     }
   }
 
@@ -101,7 +112,7 @@ export default function OrderPage() {
   }
 
   const statusMap = {
-    pending: { label: 'In attesa', emoji: '⏳', color: 'bg-yellow-500' },
+    pending: { label: 'In attesa di conferma', emoji: '⏳', color: 'bg-yellow-500' },
     confirmed: { label: 'Confermato', emoji: '✅', color: 'bg-blue-500' },
     preparing: { label: 'In preparazione', emoji: '🍳', color: 'bg-orange-500' },
     ready: { label: 'Pronto', emoji: '🎉', color: 'bg-green-500' },
@@ -133,12 +144,16 @@ export default function OrderPage() {
 
         {/* Order Number Card */}
         <Card className="mb-4 sm:mb-6 border-2 border-primary">
-          <CardContent className="pt-6">
-            <div className="text-center">
-              <p className="text-sm text-muted-foreground mb-2">Codice</p>
-              <h2 className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4">
+          <CardContent className="py-6">
+            <div className="text-center space-y-4">
+              <p className="text-sm text-muted-foreground mb-2">Clicca per copiare il Codice</p>
+              <button
+                type="button"
+                onClick={handleCopyCode}
+                className="text-3xl sm:text-4xl md:text-5xl font-bold mb-4 focus:outline-none focus:ring-2 focus:ring-primary/60 rounded-md px-2 -mx-2"
+              >
                 #{order.order_number}
-              </h2>
+              </button>
               <div className="flex justify-center">
                 <Badge className={`${currentStatus.color} text-white border-none px-4 py-2 text-base`}>
                   <span className="mr-2">{currentStatus.emoji}</span>
@@ -146,13 +161,8 @@ export default function OrderPage() {
                 </Badge>
               </div>
             </div>
-          </CardContent>
-        </Card>
 
-        {/* Info Card */}
-        <Card className="mb-4 sm:mb-6">
-          <CardContent className="pt-6">
-            <div className="grid sm:grid-cols-2 gap-4">
+            <div className="mt-5 grid grid-cols-2 gap-3 sm:gap-4">
               <div className="flex items-center gap-3">
                 <div className="bg-primary/10 p-3 rounded-full">
                   <Clock className="h-5 w-5 text-primary" />
@@ -173,6 +183,31 @@ export default function OrderPage() {
                   </p>
                 </div>
               </div>
+            </div>
+
+            <div className="mt-5 grid grid-cols-3 gap-2">
+              <Button
+                onClick={handleSaveLink}
+                variant="ghost"
+                className="h-auto w-full flex-col gap-1 py-3 text-xs text-green-600"
+              >
+                <Bookmark className={`h-5 w-5 ${savedLink ? 'text-green-600 fill-green-600' : 'text-green-600'}`} />
+                Salva link ordine
+              </Button>
+
+              <Button asChild className="h-auto w-full flex-col gap-1 py-3 text-xs">
+                <Link href={`/track/${order.order_number}`}>
+                  <Package className="h-5 w-5" />
+                  Traccia ordine
+                </Link>
+              </Button>
+
+              <Button asChild variant="ghost" className="h-auto w-full flex-col gap-1 py-3 text-xs border-0">
+                <Link href="/">
+                  <Home className="h-5 w-5" />
+                  Torna alla home
+                </Link>
+              </Button>
             </div>
           </CardContent>
         </Card>
@@ -249,39 +284,6 @@ export default function OrderPage() {
           </CardContent>
         </Card>
 
-        {/* Actions */}
-        <div className="space-y-3">
-          <Button 
-            onClick={handleCopyLink}
-            variant="outline" 
-            className="w-full"
-            size="lg"
-          >
-            {copied ? (
-              <>
-                <Check className="mr-2 h-5 w-5 text-green-500" />
-                Link copiato
-              </>
-            ) : (
-              <>
-                <Copy className="mr-2 h-5 w-5" />
-                Copia link ordine
-              </>
-            )}
-          </Button>
-
-          <div className="flex items-center justify-center gap-2 text-sm text-green-600">
-            <Bookmark className="h-4 w-4" />
-            <span>Ordine salvato su questo dispositivo</span>
-          </div>
-
-          <Button asChild variant="ghost" className="w-full" size="lg">
-            <Link href="/">
-              <Home className="mr-2 h-4 w-4" />
-              Torna alla home
-            </Link>
-          </Button>
-        </div>
       </main>
     </div>
   )

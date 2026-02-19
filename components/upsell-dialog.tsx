@@ -83,7 +83,7 @@ export function UpsellDialog({
         </DialogHeader>
 
         <ScrollArea className="max-h-[50vh] pr-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-4">
+          <div className="grid grid-cols-2 sm:grid-cols-2 gap-2 sm:gap-3 mt-4 px-1 pb-1 overflow-visible">
             {suggestedProducts.map((product) => {
               const isSelected = selectedProducts.has(product.id)
               
@@ -110,7 +110,7 @@ export function UpsellDialog({
                     </div>
                   )}
 
-                  <div className="relative aspect-video bg-muted rounded-t-md overflow-hidden">
+                  <div className="relative aspect-[4/3] sm:aspect-video bg-muted rounded-t-md overflow-hidden">
                     {product.image_url ? (
                       <Image
                         src={product.image_url}
@@ -126,21 +126,21 @@ export function UpsellDialog({
                     )}
                   </div>
 
-                  <div className="p-3 text-left">
-                    <h3 className="font-semibold text-sm sm:text-base mb-1">
+                  <div className="p-2 sm:p-3 text-left">
+                    <h3 className="font-semibold text-xs sm:text-base mb-1">
                       {product.name}
                     </h3>
                     {product.description && (
-                      <p className="text-xs text-muted-foreground line-clamp-2 mb-2">
+                      <p className="text-[11px] sm:text-xs text-muted-foreground line-clamp-2 mb-2">
                         {product.description}
                       </p>
                     )}
                     <div className="flex items-center justify-between">
-                      <span className="text-lg font-bold text-primary">
+                      <span className="text-base sm:text-lg font-bold text-primary">
                         {product.price.toFixed(2)}€
                       </span>
                       <Plus 
-                        className={`h-5 w-5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
+                        className={`h-4 w-4 sm:h-5 sm:w-5 ${isSelected ? 'text-primary' : 'text-muted-foreground'}`}
                         aria-hidden="true"
                       />
                     </div>

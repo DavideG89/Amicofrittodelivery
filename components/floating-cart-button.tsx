@@ -16,7 +16,7 @@ export function FloatingCartButton() {
   return (
     <Link 
       href="/cart"
-      className="md:hidden fixed bottom-6 right-6 z-50"
+      className="md:hidden fixed bottom-6 left-6 right-auto z-50"
     >
       <Button 
         size="lg"

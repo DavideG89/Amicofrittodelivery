@@ -6,7 +6,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Menu as MenuIcon, Ticket } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { checkAdminAuth, setAdminAuth } from '@/lib/admin-auth'
 import { enableAdminPush, listenForForegroundNotifications } from '@/lib/admin-push'
 import { toast } from 'sonner'
@@ -204,6 +204,9 @@ export default function AdminDashboardLayout({
                 </Button>
               </SheetTrigger>
               <SheetContent side="left" className="p-0 w-64">
+                <SheetHeader className="sr-only">
+                  <SheetTitle>Menu amministrazione</SheetTitle>
+                </SheetHeader>
                 <Sidebar />
               </SheetContent>
             </Sheet>
@@ -227,6 +230,27 @@ export default function AdminDashboardLayout({
                 )}
               </div>
             )}
+            <nav className="md:hidden sticky top-0 z-40 border-b bg-card">
+              <div className="flex gap-2 overflow-x-auto px-4 py-2">
+                {navItems.map((item) => {
+                  const isActive = pathname === item.href
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      className={cn(
+                        'shrink-0 rounded-full border px-3 py-1.5 text-sm transition-colors',
+                        isActive
+                          ? 'bg-primary text-primary-foreground border-primary'
+                          : 'bg-card hover:bg-muted'
+                      )}
+                    >
+                      {item.label}
+                    </Link>
+                  )
+                })}
+              </div>
+            </nav>
             {children}
           </main>
         </div>

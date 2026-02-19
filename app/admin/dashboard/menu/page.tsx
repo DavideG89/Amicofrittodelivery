@@ -267,15 +267,15 @@ export default function MenuManagementPage() {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-3xl font-bold">Gestione Menu</h1>
           <p className="text-muted-foreground">Gestisci categorie e prodotti</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
           <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" onClick={resetCategoryForm}>
+              <Button variant="outline" onClick={resetCategoryForm} className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Nuova Categoria
               </Button>
@@ -320,7 +320,7 @@ export default function MenuManagementPage() {
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogTrigger asChild>
-              <Button onClick={resetProductForm}>
+              <Button onClick={resetProductForm} className="w-full sm:w-auto">
                 <Plus className="mr-2 h-4 w-4" />
                 Nuovo Prodotto
               </Button>
@@ -524,12 +524,12 @@ export default function MenuManagementPage() {
                       Nessun prodotto in questa categoria
                     </p>
                   ) : (
-                    <div className="space-y-4">
+                    <div className="space-y-3">
                       {categoryProducts.map((product) => (
                         <Card key={product.id}>
-                          <CardContent className="p-4">
-                            <div className="flex gap-4">
-                              <div className="relative w-20 h-20 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                          <CardContent className="p-3 sm:p-4">
+                            <div className="flex gap-3 sm:gap-4 items-stretch min-h-[96px] sm:min-h-[104px]">
+                              <div className="relative w-28 sm:w-36 self-stretch min-h-[96px] sm:min-h-[104px] bg-muted rounded-md overflow-hidden flex-shrink-0">
                                 {product.image_url ? (
                                   <Image
                                     src={product.image_url}
@@ -545,18 +545,20 @@ export default function MenuManagementPage() {
                               </div>
 
                               <div className="flex-grow">
-                                <div className="flex items-start justify-between">
-                                  <div>
-                                    <h3 className="font-semibold">{product.name}</h3>
+                                <div>
+                                  <div className="flex items-start justify-between">
+                                    <div>
+                                    <h3 className="font-semibold text-sm sm:text-base">{product.name}</h3>
                                     {product.description && (
-                                      <p className="text-sm text-muted-foreground line-clamp-1">
+                                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
                                         {product.description}
                                       </p>
                                     )}
-                                    <p className="font-bold mt-1">{product.price.toFixed(2)}€</p>
+                                    <p className="font-bold mt-1 text-sm sm:text-base">{product.price.toFixed(2)}€</p>
+                                    </div>
                                   </div>
-                                  
-                                  <div className="flex items-center gap-2">
+
+                                  <div className="flex items-center gap-2 mt-2">
                                     <Button
                                       variant="ghost"
                                       size="icon"
