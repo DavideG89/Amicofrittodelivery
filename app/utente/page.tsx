@@ -154,7 +154,7 @@ export default function UserPage() {
               rel="noreferrer"
               className="font-mono font-semibold text-primary hover:underline"
             >
-              3205671678
+              338 201 2533
             </a>
           </p>
         </div>
