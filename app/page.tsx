@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
 import { UpsellDialog } from '@/components/upsell-dialog'
@@ -17,6 +17,7 @@ export default function Home() {
   const [triggerProduct, setTriggerProduct] = useState<Product | null>(null)
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
+  const categoryTopRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     async function fetchData() {
@@ -163,7 +164,13 @@ export default function Home() {
             </p>
           </div>
         ) : (
-          <Tabs defaultValue={categories[0]?.id} className="w-full">
+          <Tabs
+            defaultValue={categories[0]?.id}
+            className="w-full"
+            onValueChange={() => {
+              categoryTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+            }}
+          >
             <div className="sticky top-16 z-40 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur md:static md:top-auto">
               <div className="h-14 flex items-center">
                 <div className="overflow-x-auto w-full">
@@ -181,6 +188,8 @@ export default function Home() {
                 </div>
               </div>
             </div>
+
+            <div ref={categoryTopRef} className="scroll-mt-[7.5rem]" />
 
             {categories.map((category) => {
               const categoryProducts = getProductsByCategory(category.id)
