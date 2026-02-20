@@ -65,23 +65,27 @@ export async function POST(request: Request) {
 
     const notification = statusText[status]
     if (notification) {
-      const { data: tokensData } = await supabase
-        .from('customer_push_tokens')
-        .select('token')
-        .eq('order_number', order.order_number)
+      try {
+        const { data: tokensData } = await supabase
+          .from('customer_push_tokens')
+          .select('token')
+          .eq('order_number', order.order_number)
 
-      const tokens = (tokensData || []).map((row) => row.token).filter(Boolean)
-      if (tokens.length > 0) {
-        const clickAction = `/order/${order.order_number}`
-        await sendFcmMessages(tokens, {
-          title: notification.title,
-          body: notification.body(order.order_number),
-          clickAction,
-          data: {
-            order_number: order.order_number,
-            status,
-          },
-        })
+        const tokens = (tokensData || []).map((row) => row.token).filter(Boolean)
+        if (tokens.length > 0) {
+          const clickAction = `/order/${order.order_number}`
+          await sendFcmMessages(tokens, {
+            title: notification.title,
+            body: notification.body(order.order_number),
+            clickAction,
+            data: {
+              order_number: order.order_number,
+              status,
+            },
+          })
+        }
+      } catch (pushError) {
+        console.error('[v0] Push notification failed:', pushError)
       }
     }
 
