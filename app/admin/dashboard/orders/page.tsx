@@ -28,6 +28,48 @@ const statusConfig = {
 
 const statusOrder: Order['status'][] = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled']
 
+const toNumber = (value: unknown, fallback = 0) => {
+  if (typeof value === 'number') {
+    return Number.isFinite(value) ? value : fallback
+  }
+  if (typeof value === 'string') {
+    const parsed = Number(value)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+  return fallback
+}
+
+const normalizeItems = (items: Order['items']) =>
+  items.map((item) => ({
+    ...item,
+    price: toNumber(item.price),
+    quantity: toNumber(item.quantity, 1),
+  }))
+
+const toItems = (value: unknown): Order['items'] => {
+  if (Array.isArray(value)) {
+    return normalizeItems(value as Order['items'])
+  }
+  if (typeof value === 'string') {
+    try {
+      const parsed = JSON.parse(value)
+      return Array.isArray(parsed) ? normalizeItems(parsed as Order['items']) : []
+    } catch {
+      return []
+    }
+  }
+  return []
+}
+
+const normalizeOrder = (order: Order): Order => ({
+  ...order,
+  items: toItems(order.items),
+  subtotal: toNumber(order.subtotal),
+  discount_amount: toNumber(order.discount_amount),
+  delivery_fee: toNumber(order.delivery_fee),
+  total: toNumber(order.total),
+})
+
 const getStatusOptions = (current: Order['status']) => {
   if (current === 'ready') {
     return ['ready', 'completed', 'cancelled']
@@ -105,7 +147,8 @@ export default function OrdersManagementPage() {
         .order('created_at', { ascending: false })
 
       if (error) throw error
-      setOrders(data || [])
+      const normalized = (data || []).map(normalizeOrder)
+      setOrders(normalized)
     } catch (error) {
       console.error('[v0] Error fetching orders:', error)
     } finally {

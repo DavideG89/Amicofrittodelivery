@@ -5,7 +5,12 @@ const nextConfig = {
   },
   async headers() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
-    const supabaseOrigin = supabaseUrl ? new URL(supabaseUrl).origin : ''
+    let supabaseOrigin = ''
+    try {
+      if (supabaseUrl) supabaseOrigin = new URL(supabaseUrl).origin
+    } catch {
+      supabaseOrigin = ''
+    }
     const supabaseWildcard = 'https://*.supabase.co'
     const csp = [
       "default-src 'self'",
