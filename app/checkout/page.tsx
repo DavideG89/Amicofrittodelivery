@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
@@ -37,9 +36,9 @@ function CheckoutForm() {
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
-  const [verifyOpen, setVerifyOpen] = useState(false)
   const turnstileRef = useRef<HTMLDivElement>(null)
   const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null)
+  const [turnstileLoaded, setTurnstileLoaded] = useState(false)
   
   const isDelivery = searchParams.get('delivery') === 'true'
   
@@ -84,33 +83,24 @@ function CheckoutForm() {
   }, [])
 
   useEffect(() => {
-    if (!verifyOpen) return
     if (typeof window === 'undefined') return
     const turnstile = (window as any).turnstile
     if (!turnstile || !turnstileRef.current) return
+    if (!turnstileLoaded) return
 
-    turnstile.ready(() => {
-      if (!turnstileRef.current) return
-      if (turnstileWidgetId) {
-        try {
-          turnstile.reset(turnstileWidgetId)
-        } catch {
-          // ignore
-        }
-        return
-      }
+    if (!turnstileRef.current) return
+    if (turnstileWidgetId) return
 
-      const id = turnstile.render(turnstileRef.current, {
-        sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
-        callback: 'onTurnstileSuccess',
-        'expired-callback': 'onTurnstileExpired',
-        'error-callback': 'onTurnstileError',
-        theme: 'light',
-        size: 'compact',
-      })
-      setTurnstileWidgetId(id)
+    const id = turnstile.render(turnstileRef.current, {
+      sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+      callback: 'onTurnstileSuccess',
+      'expired-callback': 'onTurnstileExpired',
+      'error-callback': 'onTurnstileError',
+      theme: 'light',
+      size: 'compact',
     })
-  }, [verifyOpen, turnstileWidgetId])
+    setTurnstileWidgetId(id)
+  }, [turnstileLoaded, turnstileWidgetId])
 
   useEffect(() => {
     if (!orderPlaced && items.length === 0) {
@@ -205,7 +195,8 @@ function CheckoutForm() {
     }
   }
 
-  const submitOrder = async () => {
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
     
     if (!formData.name || !formData.phone) {
       toast.error('Compila tutti i campi obbligatori')
@@ -292,7 +283,6 @@ function CheckoutForm() {
       }
 
       toast.success('Ordine inviato con successo!')
-      setVerifyOpen(false)
       setOrderPlaced(true)
       setPlacedOrderNumber(orderNumber)
       clearCart()
@@ -307,7 +297,11 @@ function CheckoutForm() {
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-6">
       <Header />
-      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
+      <Script
+        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+        strategy="afterInteractive"
+        onLoad={() => setTurnstileLoaded(true)}
+      />
       
       <main className="container px-4 sm:px-6 lg:px-8 py-6 max-w-5xl mx-auto">
         <div className="mb-6 space-y-3">
@@ -334,13 +328,7 @@ function CheckoutForm() {
           </div>
         )}
 
-        <form
-          onSubmit={(e) => {
-            e.preventDefault()
-            setVerifyOpen(true)
-          }}
-          className="grid gap-6 lg:grid-cols-3"
-        >
+        <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-3">
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <Card>
               <CardHeader className="space-y-1">
@@ -488,11 +476,19 @@ function CheckoutForm() {
                 </div>
               </CardContent>
               <CardFooter className="pt-2">
+                <div className="w-full space-y-3">
+                  <div>
+                    <Label>Verifica</Label>
+                    <div ref={turnstileRef} className="min-h-[70px] mt-2" />
+                    <p className="text-xs text-muted-foreground mt-2">
+                      Completa la verifica per abilitare la conferma.
+                    </p>
+                  </div>
                 <Button
                   type="submit"
                   className="w-full"
                   size="lg"
-                  disabled={loading || !orderStatus.isOpen}
+                  disabled={loading || !orderStatus.isOpen || !turnstileToken}
                 >
                   {loading ? (
                     <>
@@ -503,43 +499,11 @@ function CheckoutForm() {
                     'Conferma ordine'
                   )}
                 </Button>
+                </div>
               </CardFooter>
             </Card>
           </div>
         </form>
-
-        <Dialog open={verifyOpen} onOpenChange={setVerifyOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Verifica</DialogTitle>
-              <DialogDescription>
-                Completa la verifica per inviare l&apos;ordine.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-2">
-              <div ref={turnstileRef} />
-              <p className="text-xs text-muted-foreground">
-                Se non compare, ricarica la pagina.
-              </p>
-            </div>
-            <DialogFooter>
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => setVerifyOpen(false)}
-              >
-                Annulla
-              </Button>
-              <Button
-                type="button"
-                onClick={submitOrder}
-                disabled={loading || !orderStatus.isOpen}
-              >
-                {loading ? 'Invio...' : 'Conferma ordine'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
       </main>
     </div>
   )
