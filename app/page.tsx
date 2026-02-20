@@ -5,7 +5,7 @@ import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
 import { UpsellDialog } from '@/components/upsell-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { supabase, Category, Product, StoreInfo } from '@/lib/supabase'
+import { supabase, Category, Product, StoreInfo, UpsellSettings } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
@@ -17,6 +17,7 @@ export default function Home() {
   const [triggerProduct, setTriggerProduct] = useState<Product | null>(null)
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
+  const [upsellSettings, setUpsellSettings] = useState<UpsellSettings | null>(null)
   const categoryTopRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -46,9 +47,16 @@ export default function Home() {
 
         if (storeInfoError) throw storeInfoError
 
+        const { data: upsellSettingsData } = await supabase
+          .from('upsell_settings')
+          .select('*')
+          .eq('id', 'default')
+          .maybeSingle()
+
         setCategories(categoriesData || [])
         setProducts(productsData || [])
         setStoreInfo(storeInfoData || null)
+        setUpsellSettings(upsellSettingsData || null)
       } catch (error) {
         console.error('[v0] Error fetching data:', error)
       } finally {
@@ -59,21 +67,13 @@ export default function Home() {
     fetchData()
   }, [])
 
+  const compareProductName = (a: Product, b: Product) =>
+    a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
+
   const getProductsByCategory = (categoryId: string) => {
     return products
       .filter(p => p.category_id === categoryId)
-      .sort((a, b) => {
-        // Products with label ('sconto' or 'novita') come first
-        const aHasLabel = a.label ? 1 : 0
-        const bHasLabel = b.label ? 1 : 0
-        
-        if (aHasLabel !== bHasLabel) {
-          return bHasLabel - aHasLabel // Products with label first
-        }
-        
-        // If both have label or both don't have label, maintain display_order
-        return a.display_order - b.display_order
-      })
+      .sort(compareProductName)
   }
 
   const handleProductAdded = (product: Product, quantity: number) => {
@@ -94,6 +94,27 @@ export default function Home() {
        categoryName.includes('mini burger'))
     
     if (shouldShowUpsell) {
+      const useCustomUpsell =
+        upsellSettings?.enabled &&
+        Array.isArray(upsellSettings.product_ids) &&
+        upsellSettings.product_ids.length > 0
+
+      if (useCustomUpsell) {
+        const maxItems = upsellSettings.max_items || 6
+        const allowedIds = new Set(upsellSettings.product_ids)
+        const suggestions = products
+          .filter((p) => p.available && allowedIds.has(p.id))
+          .sort(compareProductName)
+          .slice(0, maxItems)
+
+        if (suggestions.length > 0) {
+          setTriggerProduct(product)
+          setSuggestedProducts(suggestions)
+          setUpsellOpen(true)
+        }
+        return
+      }
+
       // Find complementary categories (Fritti, Bevande)
       const complementaryCategories = categories.filter(c => 
         c.slug === 'fritti' || 
@@ -103,10 +124,13 @@ export default function Home() {
       )
       
       // Get products from complementary categories
-      const suggestions = products.filter(p => 
-        complementaryCategories.some(c => c.id === p.category_id) && 
-        p.available
-      ).slice(0, 6) // Max 6 suggestions
+      const suggestions = products
+        .filter(p => 
+          complementaryCategories.some(c => c.id === p.category_id) && 
+          p.available
+        )
+        .sort(compareProductName)
+        .slice(0, 6) // Max 6 suggestions
       
       if (suggestions.length > 0) {
         setTriggerProduct(product)

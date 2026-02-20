@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Menu as MenuIcon, Ticket } from 'lucide-react'
+import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Menu as MenuIcon, Ticket, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { checkAdminAuth, setAdminAuth } from '@/lib/admin-auth'
@@ -16,6 +16,7 @@ const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { href: '/admin/dashboard/orders', label: 'Ordini', icon: ShoppingCart },
   { href: '/admin/dashboard/menu', label: 'Menu', icon: Package },
+  { href: '/admin/dashboard/upsell', label: 'Upsell', icon: Sparkles },
   { href: '/admin/dashboard/discounts', label: 'Sconti', icon: Ticket },
   { href: '/admin/dashboard/settings', label: 'Impostazioni', icon: Settings },
 ]

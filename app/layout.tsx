@@ -23,6 +23,9 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'Amico Fritto - Food Delivery',
   description: 'Ordina i migliori fritti della città',
+  icons: {
+    icon: '/icons/icon-star.svg',
+  },
   openGraph: {
     title: 'Amico Fritto - Food Delivery',
     description: 'Ordina i migliori fritti della città',

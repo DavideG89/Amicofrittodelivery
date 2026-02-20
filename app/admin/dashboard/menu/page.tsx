@@ -257,8 +257,13 @@ export default function MenuManagementPage() {
     }
   }
 
+  const compareProductName = (a: Product, b: Product) =>
+    a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
+
   const getProductsByCategory = (categoryId: string) => {
-    return products.filter(p => p.category_id === categoryId)
+    return products
+      .filter(p => p.category_id === categoryId)
+      .sort(compareProductName)
   }
 
   if (loading) {

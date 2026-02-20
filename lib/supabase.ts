@@ -43,6 +43,14 @@ export type StoreInfo = {
   updated_at: string
 }
 
+export type UpsellSettings = {
+  id: string
+  enabled: boolean
+  product_ids: string[]
+  max_items: number
+  updated_at?: string
+}
+
 export type DiscountCode = {
   id: string
   code: string
