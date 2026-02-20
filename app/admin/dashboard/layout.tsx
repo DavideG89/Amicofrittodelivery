@@ -42,41 +42,7 @@ export default function AdminDashboardLayout({
     }
   }, [])
 
-  useEffect(() => {
-    let interval: number | undefined
-    const checkUpdate = async () => {
-      try {
-        const res = await fetch('/version', { cache: 'no-store' })
-        const data = await res.json()
-        const current = String(data?.version ?? '')
-        if (!current) return
-        const stored = localStorage.getItem('app-version')
-        if (stored && stored !== current) {
-          localStorage.setItem('app-version', current)
-          window.location.reload()
-          return
-        }
-        if (!stored) localStorage.setItem('app-version', current)
-      } catch {
-        // ignore
-      }
-    }
-
-    checkUpdate()
-    interval = window.setInterval(checkUpdate, 5 * 60 * 1000)
-    const onFocus = () => checkUpdate()
-    const onVisibility = () => {
-      if (document.visibilityState === 'visible') checkUpdate()
-    }
-    window.addEventListener('focus', onFocus)
-    document.addEventListener('visibilitychange', onVisibility)
-
-    return () => {
-      if (interval) window.clearInterval(interval)
-      window.removeEventListener('focus', onFocus)
-      document.removeEventListener('visibilitychange', onVisibility)
-    }
-  }, [])
+  // Version checking handled globally in AppVersionChecker
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined

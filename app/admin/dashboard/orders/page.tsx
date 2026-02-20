@@ -113,21 +113,48 @@ export default function OrdersManagementPage() {
   const [alertingPendingIds, setAlertingPendingIds] = useState<Set<string>>(new Set())
   const hasInitializedPendingRef = useRef(false)
   const prevPendingIdsRef = useRef<Set<string>>(new Set())
+  const [realtimeStatus, setRealtimeStatus] = useState<'active' | 'polling'>('active')
 
   useEffect(() => {
     fetchOrders()
     fetchStoreInfo()
 
-    // Subscribe to real-time updates
-    const channel = supabase
-      .channel('orders_changes')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+    const canUseRealtime =
+      typeof window !== 'undefined' &&
+      window.isSecureContext &&
+      typeof WebSocket !== 'undefined'
+
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let pollingId: number | null = null
+
+    const startPolling = () => {
+      if (pollingId !== null) return
+      setRealtimeStatus('polling')
+      pollingId = window.setInterval(() => {
         fetchOrders()
-      })
-      .subscribe()
+      }, 15000)
+    }
+
+    if (canUseRealtime) {
+      try {
+        // Subscribe to real-time updates
+        channel = supabase
+          .channel('orders_changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            fetchOrders()
+          })
+          .subscribe()
+        setRealtimeStatus('active')
+      } catch {
+        startPolling()
+      }
+    } else {
+      startPolling()
+    }
 
     return () => {
-      supabase.removeChannel(channel)
+      if (channel) supabase.removeChannel(channel)
+      if (pollingId !== null) window.clearInterval(pollingId)
     }
   }, [])
 
@@ -213,12 +240,17 @@ export default function OrdersManagementPage() {
 
   const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
     try {
-      const { error } = await supabase
-        .from('orders')
-        .update({ status: newStatus })
-        .eq('id', orderId)
+      const res = await fetch('/api/admin/orders/status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ orderId, status: newStatus }),
+      })
 
-      if (error) throw error
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || 'Errore aggiornamento ordine')
+      }
+
       toast.success('Stato aggiornato')
       fetchOrders()
       
@@ -304,9 +336,16 @@ export default function OrdersManagementPage() {
 
   return (
     <div className="p-6 h-full flex flex-col min-h-0">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold">Gestione Ordini</h1>
-        <p className="text-muted-foreground">Visualizza e gestisci gli ordini in tempo reale</p>
+      <div className="mb-6 space-y-3">
+        {realtimeStatus === 'polling' && (
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+            Realtime non disponibile su questo dispositivo. Aggiornamento automatico ogni 15 secondi.
+          </div>
+        )}
+        <div>
+          <h1 className="text-3xl font-bold">Gestione Ordini</h1>
+          <p className="text-muted-foreground">Visualizza e gestisci gli ordini in tempo reale</p>
+        </div>
       </div>
 
       <Tabs defaultValue="pending" className="w-full flex-1 min-h-0 flex flex-col">

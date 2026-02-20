@@ -52,7 +52,7 @@ function initFirebase(config) {
 
 self.addEventListener('notificationclick', (event) => {
   event.notification?.close()
-  const target = event.notification?.data?.click_action || '/admin/dashboard/orders'
+  const target = event.notification?.data?.click_action || '/'
   event.waitUntil(clients.openWindow(target))
 })
 

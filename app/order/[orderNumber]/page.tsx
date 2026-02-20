@@ -12,6 +12,8 @@ import { Separator } from '@/components/ui/separator'
 import { supabase, Order } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
+import { enableCustomerPush, disableCustomerPush } from '@/lib/customer-push'
+import { Switch } from '@/components/ui/switch'
 
 export default function OrderPage() {
   const params = useParams()
@@ -22,6 +24,8 @@ export default function OrderPage() {
   const [copied, setCopied] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
   const [isTracking, setIsTracking] = useState(false)
+  const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'denied' | 'unsupported' | 'missing' | 'error' | 'loading'>('idle')
+  const [pushEnabled, setPushEnabled] = useState(false)
 
   useEffect(() => {
     async function fetchOrder() {
@@ -50,6 +54,17 @@ export default function OrderPage() {
 
     fetchOrder()
   }, [orderNumber, router])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('Notification' in window)) return
+    if (Notification.permission === 'granted') {
+      setPushStatus('enabled')
+      setPushEnabled(true)
+    } else if (Notification.permission === 'denied') {
+      setPushStatus('denied')
+      setPushEnabled(false)
+    }
+  }, [])
 
   const handleCopyCode = async () => {
     try {
@@ -89,6 +104,46 @@ export default function OrderPage() {
     if (isTracking) return
     setIsTracking(true)
     router.push(`/track/${order.order_number}`)
+  }
+
+  const handleTogglePush = async (checked: boolean) => {
+    if (!orderNumber || pushStatus === 'loading') return
+    setPushStatus('loading')
+    try {
+      if (checked) {
+        const result = await enableCustomerPush(orderNumber)
+        if (result.ok) {
+          setPushStatus('enabled')
+          setPushEnabled(true)
+          toast.success('Notifiche attivate')
+        } else if (result.reason === 'denied') {
+          setPushStatus('denied')
+          setPushEnabled(false)
+          toast.error('Notifiche bloccate dal browser')
+        } else if (result.reason === 'missing_config') {
+          setPushStatus('missing')
+          setPushEnabled(false)
+          toast.error('Configurazione notifiche mancante')
+        } else if (result.reason === 'unsupported') {
+          setPushStatus('unsupported')
+          setPushEnabled(false)
+          toast.error('Notifiche non supportate su questo dispositivo')
+        } else {
+          setPushStatus('error')
+          setPushEnabled(false)
+          toast.error('Errore attivazione notifiche')
+        }
+      } else {
+        await disableCustomerPush(orderNumber)
+        setPushStatus('idle')
+        setPushEnabled(false)
+        toast.success('Notifiche disattivate')
+      }
+    } catch {
+      setPushStatus('error')
+      setPushEnabled(false)
+      toast.error('Errore attivazione notifiche')
+    }
   }
 
   if (loading) {
@@ -169,6 +224,31 @@ export default function OrderPage() {
           >
             {refreshing ? 'Aggiorno...' : 'Aggiorna stato'}
           </Button>
+        </div>
+
+        <div className="mb-4 rounded-lg border bg-card p-3 sm:p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Notifiche ordine</p>
+              <p className="text-xs text-muted-foreground">
+                {pushStatus === 'enabled' && 'Attive per questo ordine.'}
+                {pushStatus === 'denied' && 'Bloccate dal browser.'}
+                {pushStatus === 'unsupported' && 'Non supportate su questo dispositivo.'}
+                {pushStatus === 'missing' && 'Configurazione notifiche mancante.'}
+                {pushStatus === 'error' && 'Errore attivazione notifiche.'}
+                {pushStatus === 'idle' && 'Attivale per ricevere aggiornamenti in tempo reale.'}
+                {pushStatus === 'loading' && 'Attivazione in corso...'}
+              </p>
+            </div>
+            <Switch
+              checked={pushEnabled}
+              onCheckedChange={handleTogglePush}
+              disabled={pushStatus === 'loading' || pushStatus === 'unsupported' || pushStatus === 'missing'}
+            />
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Su iPhone le notifiche funzionano solo se installi l’app: Condividi → Aggiungi a Home.
+          </div>
         </div>
 
         {/* Order Number Card */}
