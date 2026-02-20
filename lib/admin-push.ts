@@ -4,6 +4,15 @@ import { initializeApp, getApps } from 'firebase/app'
 import { getMessaging, getToken, isSupported, onMessage, type MessagePayload } from 'firebase/messaging'
 import { supabase } from '@/lib/supabase'
 
+declare global {
+  // eslint-disable-next-line no-var
+  var __adminPushSubscribers: Set<(payload: MessagePayload) => void> | undefined
+  // eslint-disable-next-line no-var
+  var __adminPushState:
+    | { unsubscribe: null | (() => void); lastMessageId: string; lastMessageAt: number }
+    | undefined
+}
+
 type PushResult =
   | { ok: true; token: string }
   | { ok: false; reason: 'unsupported' | 'denied' | 'missing_config' | 'no_token' | 'error' }
@@ -99,5 +108,47 @@ export async function listenForForegroundNotifications(
 
   const app = getFirebaseApp()
   const messaging = getMessaging(app)
-  return onMessage(messaging, onNotification)
+  if (!globalThis.__adminPushSubscribers) {
+    globalThis.__adminPushSubscribers = new Set()
+  }
+  if (!globalThis.__adminPushState) {
+    globalThis.__adminPushState = {
+      unsubscribe: null as null | (() => void),
+      lastMessageId: '' as string,
+      lastMessageAt: 0 as number,
+    }
+  }
+
+  const subscribers: Set<(payload: MessagePayload) => void> = globalThis.__adminPushSubscribers
+  const state: { unsubscribe: null | (() => void); lastMessageId: string; lastMessageAt: number } =
+    globalThis.__adminPushState
+
+  subscribers.add(onNotification)
+
+  if (!state.unsubscribe) {
+    state.unsubscribe = onMessage(messaging, (payload) => {
+      const messageId =
+        payload.messageId ||
+        payload?.data?.messageId ||
+        payload?.data?.id ||
+        ''
+      const now = Date.now()
+      if (messageId && messageId === state.lastMessageId && now - state.lastMessageAt < 5000) {
+        return
+      }
+      if (messageId) {
+        state.lastMessageId = messageId
+        state.lastMessageAt = now
+      }
+      subscribers.forEach((cb) => cb(payload))
+    })
+  }
+
+  return () => {
+    subscribers.delete(onNotification)
+    if (subscribers.size === 0 && state.unsubscribe) {
+      state.unsubscribe()
+      state.unsubscribe = null
+    }
+  }
 }

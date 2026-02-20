@@ -261,7 +261,7 @@ export default function SettingsPage() {
             <Input
               id="phone"
               type="tel"
-              placeholder="+39 06 1234567"
+              placeholder="+393382012533"
               value={formData.phone}
               onChange={(e) =>
                 setFormData({ ...formData, phone: e.target.value })

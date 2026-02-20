@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { CheckCircle, Home, Loader2, Package, Clock, Copy, Check, Bookmark, MapPin, Phone, User } from 'lucide-react'
+import { Home, Loader2, Package, Clock, MapPin, Phone, User, UtensilsCrossed } from 'lucide-react'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -20,7 +20,8 @@ export default function OrderPage() {
   const [order, setOrder] = useState<Order | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
-  const [savedLink, setSavedLink] = useState(false)
+  const [refreshing, setRefreshing] = useState(false)
+  const [isTracking, setIsTracking] = useState(false)
 
   useEffect(() => {
     async function fetchOrder() {
@@ -61,15 +62,33 @@ export default function OrderPage() {
     }
   }
 
-  const handleSaveLink = async () => {
-    const url = `${window.location.origin}/order/${orderNumber}`
+  const handleRefreshStatus = async () => {
+    if (!orderNumber) return
+    setRefreshing(true)
     try {
-      await navigator.clipboard.writeText(url)
-      setSavedLink(true)
-      toast.success('Link ordine salvato negli appunti')
-    } catch (err) {
-      toast.error('Impossibile salvare il link ordine')
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*')
+        .eq('order_number', orderNumber)
+        .single()
+
+      if (error || !data) {
+        toast.error('Ordine non trovato')
+        return
+      }
+
+      setOrder(data)
+    } catch {
+      toast.error('Errore durante l’aggiornamento')
+    } finally {
+      setRefreshing(false)
     }
+  }
+
+  const handleTrackOrder = () => {
+    if (isTracking) return
+    setIsTracking(true)
+    router.push(`/track/${order.order_number}`)
   }
 
   if (loading) {
@@ -129,11 +148,6 @@ export default function OrderPage() {
       <main className="container py-6 sm:py-12 px-4 max-w-2xl mx-auto">
         {/* Success Header */}
         <div className="text-center mb-6 sm:mb-8">
-          <div className="flex justify-center mb-4">
-            <div className="bg-green-500/10 p-4 rounded-full">
-              <CheckCircle className="h-12 w-12 sm:h-16 sm:w-16 text-green-500" />
-            </div>
-          </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
             Ordine ricevuto ✅
           </h1>
@@ -142,11 +156,26 @@ export default function OrderPage() {
           </p>
         </div>
 
+        <div className="mb-4 rounded-lg border bg-muted/40 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Ricordati di aggiornare la pagina per vedere lo stato dell&apos;ordine.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRefreshStatus}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Aggiorno...' : 'Aggiorna stato'}
+          </Button>
+        </div>
+
         {/* Order Number Card */}
         <Card className="mb-4 sm:mb-6 border-2 border-primary">
           <CardContent className="py-6">
             <div className="text-center space-y-4">
-              <p className="text-sm text-muted-foreground mb-2">Clicca per copiare il Codice</p>
+              <p className="text-sm text-muted-foreground mb-2">Codice</p>
               <button
                 type="button"
                 onClick={handleCopyCode}
@@ -185,21 +214,15 @@ export default function OrderPage() {
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-3 gap-2">
+            <div className="mt-5 grid grid-cols-2 gap-2">
               <Button
-                onClick={handleSaveLink}
-                variant="ghost"
-                className="h-auto w-full flex-col gap-1 py-3 text-xs text-green-600"
+                type="button"
+                onClick={handleTrackOrder}
+                className="h-auto w-full flex-col gap-1 py-3 text-xs"
+                disabled={isTracking}
               >
-                <Bookmark className={`h-5 w-5 ${savedLink ? 'text-green-600 fill-green-600' : 'text-green-600'}`} />
-                Salva link ordine
-              </Button>
-
-              <Button asChild className="h-auto w-full flex-col gap-1 py-3 text-xs">
-                <Link href={`/track/${order.order_number}`}>
-                  <Package className="h-5 w-5" />
-                  Traccia ordine
-                </Link>
+                <UtensilsCrossed className="h-5 w-5" />
+                Traccia ordine
               </Button>
 
               <Button asChild variant="ghost" className="h-auto w-full flex-col gap-1 py-3 text-xs border-0">

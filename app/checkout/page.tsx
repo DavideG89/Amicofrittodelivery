@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, Suspense } from 'react'
+import { useState, useEffect, Suspense, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Script from 'next/script'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
@@ -12,20 +13,33 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
 import { toast } from 'sonner'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
+declare global {
+  interface Window {
+    onTurnstileSuccess?: (token: string) => void
+    onTurnstileExpired?: () => void
+    onTurnstileError?: () => void
+  }
+}
+
 function CheckoutForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const { items, subtotal, clearCart } = useCart()
   const [loading, setLoading] = useState(false)
+  const [turnstileToken, setTurnstileToken] = useState('')
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
+  const [verifyOpen, setVerifyOpen] = useState(false)
+  const turnstileRef = useRef<HTMLDivElement>(null)
+  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null)
   
   const isDelivery = searchParams.get('delivery') === 'true'
   
@@ -55,6 +69,48 @@ function CheckoutForm() {
     }
     fetchStoreInfo()
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.onTurnstileSuccess = (token: string) => {
+      setTurnstileToken(token)
+    }
+    window.onTurnstileExpired = () => {
+      setTurnstileToken('')
+    }
+    window.onTurnstileError = () => {
+      setTurnstileToken('')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!verifyOpen) return
+    if (typeof window === 'undefined') return
+    const turnstile = (window as any).turnstile
+    if (!turnstile || !turnstileRef.current) return
+
+    turnstile.ready(() => {
+      if (!turnstileRef.current) return
+      if (turnstileWidgetId) {
+        try {
+          turnstile.reset(turnstileWidgetId)
+        } catch {
+          // ignore
+        }
+        return
+      }
+
+      const id = turnstile.render(turnstileRef.current, {
+        sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+        callback: 'onTurnstileSuccess',
+        'expired-callback': 'onTurnstileExpired',
+        'error-callback': 'onTurnstileError',
+        theme: 'light',
+        size: 'compact',
+      })
+      setTurnstileWidgetId(id)
+    })
+  }, [verifyOpen, turnstileWidgetId])
 
   useEffect(() => {
     if (!orderPlaced && items.length === 0) {
@@ -149,26 +205,7 @@ function CheckoutForm() {
     }
   }
 
-  const getNextOrderNumber = async () => {
-    const { data, error } = await supabase
-      .from('orders')
-      .select('order_number')
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle()
-
-    if (error) throw error
-
-    const lastNumber = data?.order_number ?? null
-    const match = typeof lastNumber === 'string' ? lastNumber.match(/^AF(\d+)$/) : null
-    const lastNumeric = match ? parseInt(match[1], 10) : 0
-    const nextNumeric = Number.isFinite(lastNumeric) && lastNumeric > 0 ? lastNumeric + 1 : 1
-
-    return `AF${String(nextNumeric).padStart(6, '0')}`
-  }
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
+  const submitOrder = async () => {
     
     if (!formData.name || !formData.phone) {
       toast.error('Compila tutti i campi obbligatori')
@@ -182,6 +219,11 @@ function CheckoutForm() {
 
     if (!orderStatus.isOpen) {
       toast.error('Ordinazioni chiuse al momento')
+      return
+    }
+
+    if (!turnstileToken) {
+      toast.error('Completa la verifica')
       return
     }
 
@@ -200,8 +242,6 @@ function CheckoutForm() {
 
     setLoading(true)
     try {
-      const orderNumber = await getNextOrderNumber()
-
       // Sanitize user input
       const sanitizedData = sanitizeOrderData({
         customer_name: formData.name,
@@ -211,7 +251,6 @@ function CheckoutForm() {
       })
 
       const orderData = {
-        order_number: orderNumber,
         customer_name: sanitizedData.customer_name,
         customer_phone: sanitizedData.customer_phone,
         customer_address: sanitizedData.customer_address,
@@ -232,13 +271,28 @@ function CheckoutForm() {
         payment_method: isDelivery ? formData.paymentMethod : null
       }
 
-      const { error } = await supabase
-        .from('orders')
-        .insert(orderData)
+      const res = await fetch('/api/orders', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          turnstileToken,
+          order: orderData,
+        }),
+      })
 
-      if (error) throw error
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error || 'Ordine rifiutato')
+      }
+
+      const data = await res.json()
+      const orderNumber = data?.orderNumber as string | undefined
+      if (!orderNumber) {
+        throw new Error('Numero ordine mancante')
+      }
 
       toast.success('Ordine inviato con successo!')
+      setVerifyOpen(false)
       setOrderPlaced(true)
       setPlacedOrderNumber(orderNumber)
       clearCart()
@@ -253,6 +307,7 @@ function CheckoutForm() {
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-6">
       <Header />
+      <Script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer />
       
       <main className="container px-4 sm:px-6 lg:px-8 py-6 max-w-5xl mx-auto">
         <div className="mb-6 space-y-3">
@@ -279,7 +334,13 @@ function CheckoutForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-3">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault()
+            setVerifyOpen(true)
+          }}
+          className="grid gap-6 lg:grid-cols-3"
+        >
           <div className="lg:col-span-2 space-y-4 sm:space-y-6">
             <Card>
               <CardHeader className="space-y-1">
@@ -385,6 +446,7 @@ function CheckoutForm() {
                 </div>
               </CardContent>
             </Card>
+
           </div>
 
           <div className="lg:col-span-1">
@@ -426,9 +488,9 @@ function CheckoutForm() {
                 </div>
               </CardContent>
               <CardFooter className="pt-2">
-                <Button 
-                  type="submit" 
-                  className="w-full" 
+                <Button
+                  type="submit"
+                  className="w-full"
                   size="lg"
                   disabled={loading || !orderStatus.isOpen}
                 >
@@ -445,6 +507,39 @@ function CheckoutForm() {
             </Card>
           </div>
         </form>
+
+        <Dialog open={verifyOpen} onOpenChange={setVerifyOpen}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Verifica</DialogTitle>
+              <DialogDescription>
+                Completa la verifica per inviare l&apos;ordine.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-2">
+              <div ref={turnstileRef} />
+              <p className="text-xs text-muted-foreground">
+                Se non compare, ricarica la pagina.
+              </p>
+            </div>
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setVerifyOpen(false)}
+              >
+                Annulla
+              </Button>
+              <Button
+                type="button"
+                onClick={submitOrder}
+                disabled={loading || !orderStatus.isOpen}
+              >
+                {loading ? 'Invio...' : 'Conferma ordine'}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </main>
     </div>
   )
