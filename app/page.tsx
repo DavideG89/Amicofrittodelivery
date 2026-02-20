@@ -164,18 +164,22 @@ export default function Home() {
           </div>
         ) : (
           <Tabs defaultValue={categories[0]?.id} className="w-full">
-            <div className="mb-6 overflow-x-auto -mx-4 px-4 sm:mx-0 sm:px-0">
-              <TabsList className="inline-flex w-max min-w-max sm:w-full sm:min-w-full justify-start h-auto gap-1.5 rounded-2xl border border-muted/60 bg-background/70 p-1.5 shadow-sm backdrop-blur">
-                {categories.map((category) => (
-                  <TabsTrigger 
-                    key={category.id} 
-                    value={category.id}
-                    className="flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
-                  >
-                    {category.name}
-                  </TabsTrigger>
-                ))}
-              </TabsList>
+            <div className="sticky top-16 z-40 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur md:static md:top-auto">
+              <div className="h-14 flex items-center">
+                <div className="overflow-x-auto w-full">
+                  <TabsList className="inline-flex w-max min-w-max sm:w-full sm:min-w-full justify-start h-auto gap-1.5 rounded-2xl border border-muted/60 bg-background/70 p-1.5 shadow-sm backdrop-blur">
+                    {categories.map((category) => (
+                      <TabsTrigger 
+                        key={category.id} 
+                        value={category.id}
+                        className="flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
+                      >
+                        {category.name}
+                      </TabsTrigger>
+                    ))}
+                  </TabsList>
+                </div>
+              </div>
             </div>
 
             {categories.map((category) => {
@@ -183,11 +187,13 @@ export default function Home() {
               
               return (
                 <TabsContent key={category.id} value={category.id} className="mt-0 space-y-6">
-                  <div className="flex items-baseline justify-between">
+                  <div className="sticky top-[7.5rem] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-2 sm:static sm:top-auto sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0">
+                    <div className="flex items-baseline justify-between">
                     <h2 className="text-xl sm:text-2xl font-bold">{category.name}</h2>
                     <span className="text-sm text-muted-foreground">
                       {categoryProducts.length} {categoryProducts.length === 1 ? 'prodotto' : 'prodotti'}
                     </span>
+                    </div>
                   </div>
                   
                   {categoryProducts.length === 0 ? (
