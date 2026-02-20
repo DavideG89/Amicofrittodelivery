@@ -4,6 +4,8 @@ import { verifyAdminSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin-sessi
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { sendFcmMessages } from '@/lib/fcm'
 
+export const runtime = 'nodejs'
+
 const statusText: Record<string, { title: string; body: (orderNumber: string) => string }> = {
   confirmed: {
     title: 'Ordine confermato',
