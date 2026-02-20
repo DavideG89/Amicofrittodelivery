@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { verifyAdminPassword, setAdminAuth } from '@/lib/admin-auth'
+import { loginAdmin } from '@/lib/admin-auth'
 import { toast } from 'sonner'
 
 export default function AdminLoginPage() {
@@ -21,14 +21,14 @@ export default function AdminLoginPage() {
     setLoading(true)
 
     // Simulate loading for better UX
-    await new Promise(resolve => setTimeout(resolve, 500))
+    await new Promise(resolve => setTimeout(resolve, 300))
 
-    if (verifyAdminPassword(password)) {
-      setAdminAuth(true)
+    const result = await loginAdmin(password)
+    if (result.ok) {
       toast.success('Accesso effettuato con successo')
       router.push('/admin/dashboard')
     } else {
-      toast.error('Password non corretta')
+      toast.error(result.error || 'Password non corretta')
       setPassword('')
     }
 

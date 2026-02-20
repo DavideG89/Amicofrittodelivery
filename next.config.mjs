@@ -19,8 +19,11 @@ const nextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://www.google.com https://www.gstatic.com",
       "font-src 'self' data: https://www.gstatic.com",
-      `connect-src 'self' https://www.google.com https://www.gstatic.com ${supabaseOrigin} ${supabaseWildcard}`,
+      `connect-src 'self' https://www.google.com https://www.gstatic.com https://www.googleapis.com https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com ${supabaseOrigin} ${supabaseWildcard}`,
       "frame-src https://www.google.com https://www.gstatic.com",
+      "base-uri 'self'",
+      "object-src 'none'",
+      "frame-ancestors 'none'",
     ].join('; ')
 
     return [
@@ -30,6 +33,30 @@ const nextConfig = {
           {
             key: 'Content-Security-Policy',
             value: csp,
+          },
+          {
+            key: 'X-Content-Type-Options',
+            value: 'nosniff',
+          },
+          {
+            key: 'Referrer-Policy',
+            value: 'strict-origin-when-cross-origin',
+          },
+          {
+            key: 'X-Frame-Options',
+            value: 'DENY',
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=(), interest-cohort=()',
+          },
+          {
+            key: 'Cross-Origin-Opener-Policy',
+            value: 'same-origin',
+          },
+          {
+            key: 'Cross-Origin-Resource-Policy',
+            value: 'same-origin',
           },
         ],
       },

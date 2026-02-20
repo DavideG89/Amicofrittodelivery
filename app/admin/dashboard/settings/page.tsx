@@ -431,11 +431,11 @@ export default function SettingsPage() {
         </CardHeader>
         <CardContent className="text-xs text-muted-foreground overflow-x-auto">
           <p className="mb-3">
-            La password è configurata tramite variabili d&apos;ambiente (NEXT_PUBLIC_ADMIN_PASSWORD).
+            La password è configurata tramite variabili d&apos;ambiente (ADMIN_PASSWORD).
             Per cambiarla, modifica la variabile d&apos;ambiente nel tuo progetto.
           </p>
           <div className="bg-muted/60 p-3 rounded-md">
-            <code className="text-xs break-words">NEXT_PUBLIC_ADMIN_PASSWORD=la_tua_password_sicura</code>
+            <code className="text-xs break-words">ADMIN_PASSWORD=la_tua_password_sicura</code>
           </div>
         </CardContent>
       </Card>

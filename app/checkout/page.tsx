@@ -143,47 +143,25 @@ function CheckoutForm() {
 
     setVerifyingDiscount(true)
     try {
-      const { data, error } = await supabase
-        .from('discount_codes')
-        .select('*')
-        .eq('code', formData.discountCode.toUpperCase())
-        .eq('active', true)
-        .single()
+      const res = await fetch('/api/discounts/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: formData.discountCode, subtotal }),
+      })
+      const data = await res.json().catch(() => ({}))
 
-      if (error || !data) {
-        toast.error('Codice sconto non valido')
+      if (!res.ok) {
+        if (data?.minOrder) {
+          toast.error(`Ordine minimo per questo sconto: ${Number(data.minOrder).toFixed(2)}€`)
+        } else {
+          toast.error(data?.error || 'Codice sconto non valido')
+        }
         setDiscountAmount(0)
         return
       }
 
-      // Check minimum order amount
-      if (subtotal < data.min_order_amount) {
-        toast.error(`Ordine minimo per questo sconto: ${data.min_order_amount.toFixed(2)}€`)
-        setDiscountAmount(0)
-        return
-      }
-
-      // Check validity dates
-      const now = new Date()
-      const validFrom = new Date(data.valid_from)
-      const validUntil = data.valid_until ? new Date(data.valid_until) : null
-
-      if (now < validFrom || (validUntil && now > validUntil)) {
-        toast.error('Codice sconto scaduto o non ancora valido')
-        setDiscountAmount(0)
-        return
-      }
-
-      // Calculate discount
-      let discount = 0
-      if (data.discount_type === 'percentage') {
-        discount = (subtotal * data.discount_value) / 100
-      } else {
-        discount = data.discount_value
-      }
-
-      setDiscountAmount(Math.min(discount, subtotal))
-      toast.success(`Sconto applicato: ${discount.toFixed(2)}€`)
+      setDiscountAmount(Math.min(Number(data.discountAmount || 0), subtotal))
+      toast.success(`Sconto applicato: ${Number(data.discountAmount || 0).toFixed(2)}€`)
     } catch (err) {
       console.error('[v0] Error verifying discount:', err)
       toast.error('Errore durante la verifica del codice sconto')

@@ -3,25 +3,23 @@
 ## Critical Security Improvements Needed
 
 ### 1. Admin Authentication
-**Current State**: Client-side password check with localStorage
-**Risk Level**: 🔴 HIGH
+**Current State**: Server-side verification with httpOnly cookie session
+**Risk Level**: 🟡 MEDIUM
 
-**Issues:**
-- Admin password is visible in client-side bundle (NEXT_PUBLIC_ADMIN_PASSWORD)
-- localStorage can be easily manipulated
-- No server-side verification
+**Implemented:**
+- Server-side login API with rate limiting
+- httpOnly cookie session
+- Middleware protection for `/admin/dashboard/*`
 
-**Recommended Fix:**
-- Implement server-side API route for authentication
-- Use httpOnly cookies for session management
-- Hash passwords server-side
-- Add rate limiting to prevent brute force
+**Still Recommended:**
+- Store a hashed admin password instead of plaintext
+- Add MFA or migrate to Supabase Auth/NextAuth for robust auth
 
 ### 2. Supabase Row Level Security (RLS)
-**Current State**: RLS policies may not be properly configured
-**Risk Level**: 🔴 HIGH
+**Current State**: Depends on your Supabase configuration
+**Risk Level**: 🔴 HIGH if RLS is disabled
 
-**Required RLS Policies:**
+**Recommended RLS Policies (example):**
 ```sql
 -- Orders: Allow insert for anyone, select only own orders
 CREATE POLICY "Enable insert for all users" ON orders
@@ -42,21 +40,19 @@ CREATE POLICY "Enable all for authenticated users only" ON discount_codes
 ```
 
 ### 3. Input Validation
-**Current State**: ✅ Basic validation implemented
+**Current State**: ✅ Server-side validation + sanitization
 **Risk Level**: 🟡 MEDIUM
 
 **Implemented:**
 - Phone number validation
 - String sanitization (XSS prevention)
 - Length limits on all text fields
-
-**Still Needed:**
-- SQL injection prevention (handled by Supabase parameterized queries)
+- Server-side recalculation of order totals
+- CAPTCHA verification
 - Rate limiting on order submission
-- CAPTCHA for high-volume protection
 
 ### 4. Environment Variables
-**Current State**: ⚠️ Using NEXT_PUBLIC_ for sensitive data
+**Current State**: ✅ Sensitive vars moved server-side
 **Risk Level**: 🟡 MEDIUM
 
 **Required Environment Variables:**
@@ -66,8 +62,8 @@ NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 
 # Admin (should be server-side only)
-ADMIN_PASSWORD_HASH=bcrypt-hashed-password
-SESSION_SECRET=random-secret-key
+ADMIN_PASSWORD=strong-password
+ADMIN_SESSION_SECRET=random-secret-key
 ```
 
 ### 5. Data Exposure
@@ -80,29 +76,29 @@ SESSION_SECRET=random-secret-key
 - Consider adding email/phone verification to view orders
 
 ### 6. Rate Limiting
-**Current State**: ❌ No rate limiting
+**Current State**: ✅ Implemented in API routes
 **Risk Level**: 🟡 MEDIUM
 
-**Needed:**
-- Limit order submissions per IP/session
+**Implemented:**
+- Limit order submissions per IP
 - Limit admin login attempts
-- Limit discount code verifications
 
 ## Best Practices Implemented
 
-✅ Input sanitization for XSS prevention
-✅ Phone number validation
-✅ Session expiry (8 hours) for admin
-✅ HTTPS enforced by Vercel
-✅ Supabase parameterized queries (SQL injection prevention)
-✅ CORS handled by Supabase
+✅ Server-side admin auth + httpOnly cookie  
+✅ Input sanitization for XSS prevention  
+✅ Phone number validation  
+✅ Session expiry (8 hours) for admin  
+✅ HTTPS enforced by Vercel  
+✅ Supabase parameterized queries (SQL injection prevention)  
+✅ CORS handled by Supabase  
+✅ Basic rate limiting on sensitive endpoints  
 
-## Immediate Actions Required
+## Immediate Actions Recommended
 
 1. **Configure Supabase RLS policies** (see section 2)
-2. **Move admin auth server-side** (create API route)
-3. **Add rate limiting** using Vercel Edge Config or Upstash
-4. **Monitor for suspicious activity** in Supabase logs
+2. **Hash the admin password** (avoid plaintext in env)
+3. **Monitor for suspicious activity** in Supabase logs
 
 ## Long-term Improvements
 

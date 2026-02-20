@@ -4,10 +4,10 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Menu as MenuIcon, Ticket, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Ticket, Sparkles } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { checkAdminAuth, setAdminAuth } from '@/lib/admin-auth'
+import { logoutAdmin } from '@/lib/admin-auth'
 import { enableAdminPush, listenForForegroundNotifications } from '@/lib/admin-push'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -28,19 +28,7 @@ export default function AdminDashboardLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'denied' | 'unsupported' | 'error' | 'missing'>('idle')
-
-  useEffect(() => {
-    const authenticated = checkAdminAuth()
-    if (!authenticated) {
-      router.push('/admin/login')
-    } else {
-      setIsAuthenticated(true)
-    }
-    setIsLoading(false)
-  }, [router])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
@@ -105,7 +93,7 @@ export default function AdminDashboardLayout({
   }, [])
 
   const handleLogout = () => {
-    setAdminAuth(false)
+    logoutAdmin()
     router.push('/admin/login')
   }
 
@@ -119,10 +107,6 @@ export default function AdminDashboardLayout({
       else if (result.reason === 'missing_config') setPushStatus('missing')
       else setPushStatus('error')
     }
-  }
-
-  if (isLoading || !isAuthenticated) {
-    return null
   }
 
   const Sidebar = () => (
