@@ -342,8 +342,8 @@ function CheckoutForm() {
           </div>
         )}
 
-        <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-3">
-          <div className="lg:col-span-2 space-y-4 sm:space-y-6">
+        <form onSubmit={handleSubmit} className="grid gap-6 lg:grid-cols-5">
+          <div className="lg:col-span-3 space-y-4 sm:space-y-6">
             <Card>
               <CardHeader className="space-y-1">
                 <CardTitle className="text-lg sm:text-xl">Dati del cliente</CardTitle>
@@ -451,7 +451,7 @@ function CheckoutForm() {
 
           </div>
 
-          <div className="lg:col-span-1">
+          <div className="lg:col-span-2">
             <Card className="sticky top-20 shadow-lg">
               <CardHeader className="pb-4">
                 <CardTitle className="text-lg sm:text-xl">Riepilogo</CardTitle>
@@ -495,7 +495,9 @@ function CheckoutForm() {
                     <Label>Verifica</Label>
                     {recaptchaSiteKey ? (
                       <>
-                        <div ref={recaptchaRef} className="min-h-[78px] mt-2" />
+                        <div className="mt-2 max-w-full overflow-hidden">
+                          <div ref={recaptchaRef} className="min-h-[78px] origin-left scale-95 transform" />
+                        </div>
                         <p className="text-xs text-muted-foreground mt-2">
                           Completa la verifica per abilitare la conferma.
                         </p>
