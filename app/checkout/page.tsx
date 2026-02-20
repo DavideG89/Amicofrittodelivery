@@ -39,6 +39,7 @@ function CheckoutForm() {
   const turnstileRef = useRef<HTMLDivElement>(null)
   const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null)
   const [turnstileLoaded, setTurnstileLoaded] = useState(false)
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
   
   const isDelivery = searchParams.get('delivery') === 'true'
   
@@ -84,6 +85,7 @@ function CheckoutForm() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
+    if (!turnstileSiteKey) return
     const turnstile = (window as any).turnstile
     if (!turnstile || !turnstileRef.current) return
     if (!turnstileLoaded) return
@@ -92,7 +94,7 @@ function CheckoutForm() {
     if (turnstileWidgetId) return
 
     const id = turnstile.render(turnstileRef.current, {
-      sitekey: process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY,
+      sitekey: turnstileSiteKey,
       callback: 'onTurnstileSuccess',
       'expired-callback': 'onTurnstileExpired',
       'error-callback': 'onTurnstileError',
@@ -100,7 +102,7 @@ function CheckoutForm() {
       size: 'compact',
     })
     setTurnstileWidgetId(id)
-  }, [turnstileLoaded, turnstileWidgetId])
+  }, [turnstileLoaded, turnstileSiteKey, turnstileWidgetId])
 
   useEffect(() => {
     if (!orderPlaced && items.length === 0) {
@@ -297,11 +299,13 @@ function CheckoutForm() {
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-6">
       <Header />
-      <Script
-        src="https://challenges.cloudflare.com/turnstile/v0/api.js"
-        strategy="afterInteractive"
-        onLoad={() => setTurnstileLoaded(true)}
-      />
+      {turnstileSiteKey && (
+        <Script
+          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          strategy="afterInteractive"
+          onLoad={() => setTurnstileLoaded(true)}
+        />
+      )}
       
       <main className="container px-4 sm:px-6 lg:px-8 py-6 max-w-5xl mx-auto">
         <div className="mb-6 space-y-3">
@@ -479,10 +483,18 @@ function CheckoutForm() {
                 <div className="w-full space-y-3">
                   <div>
                     <Label>Verifica</Label>
-                    <div ref={turnstileRef} className="min-h-[70px] mt-2" />
-                    <p className="text-xs text-muted-foreground mt-2">
-                      Completa la verifica per abilitare la conferma.
-                    </p>
+                    {turnstileSiteKey ? (
+                      <>
+                        <div ref={turnstileRef} className="min-h-[70px] mt-2" />
+                        <p className="text-xs text-muted-foreground mt-2">
+                          Completa la verifica per abilitare la conferma.
+                        </p>
+                      </>
+                    ) : (
+                      <p className="text-xs text-destructive mt-2">
+                        Verifica non configurata. Aggiungi `NEXT_PUBLIC_TURNSTILE_SITE_KEY` nelle env.
+                      </p>
+                    )}
                   </div>
                 <Button
                   type="submit"
