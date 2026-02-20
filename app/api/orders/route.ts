@@ -25,23 +25,33 @@ type OrderPayload = {
   payment_method: 'cash' | 'card' | null
 }
 
-async function verifyTurnstile(token: string) {
-  const secret = process.env.TURNSTILE_SECRET_KEY
+async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = 8000) {
+  const controller = new AbortController()
+  const id = setTimeout(() => controller.abort(), timeoutMs)
+  try {
+    return await fetch(input, { ...init, signal: controller.signal })
+  } finally {
+    clearTimeout(id)
+  }
+}
+
+async function verifyRecaptcha(token: string) {
+  const secret = process.env.RECAPTCHA_SECRET_KEY
   if (!secret) {
-    throw new Error('Missing TURNSTILE_SECRET_KEY')
+    throw new Error('Missing RECAPTCHA_SECRET_KEY')
   }
 
   const form = new URLSearchParams()
   form.append('secret', secret)
   form.append('response', token)
 
-  const res = await fetch('https://challenges.cloudflare.com/turnstile/v0/siteverify', {
+  const res = await fetchWithTimeout('https://www.google.com/recaptcha/api/siteverify', {
     method: 'POST',
     body: form,
-  })
+  }, 8000)
 
   const data = await res.json()
-  return Boolean(data?.success)
+  return data
 }
 
 async function getNextOrderNumber(supabase: ReturnType<typeof getSupabaseServerClient>) {
@@ -65,16 +75,19 @@ async function getNextOrderNumber(supabase: ReturnType<typeof getSupabaseServerC
 export async function POST(request: Request) {
   try {
     const body = await request.json()
-    const turnstileToken = String(body?.turnstileToken || '')
+    const recaptchaToken = String(body?.recaptchaToken || '')
     const order = body?.order as OrderPayload | undefined
 
-    if (!turnstileToken) {
+    if (!recaptchaToken) {
       return NextResponse.json({ error: 'Token captcha mancante' }, { status: 400 })
     }
 
-    const captchaOk = await verifyTurnstile(turnstileToken)
-    if (!captchaOk) {
-      return NextResponse.json({ error: 'Verifica captcha fallita' }, { status: 403 })
+    const captchaResult = await verifyRecaptcha(recaptchaToken)
+    if (!captchaResult?.success) {
+      return NextResponse.json(
+        { error: 'Verifica captcha fallita', details: captchaResult?.['error-codes'] || null },
+        { status: 403 }
+      )
     }
 
     if (!order) {
@@ -131,7 +144,12 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ orderNumber })
-  } catch (error) {
-    return NextResponse.json({ error: 'Errore server' }, { status: 500 })
+  } catch (error: any) {
+    const message = error?.name === 'AbortError' ? 'Timeout verifica captcha' : 'Errore server'
+    const details =
+      process.env.NODE_ENV !== 'production'
+        ? { message: error?.message || String(error), name: error?.name }
+        : undefined
+    return NextResponse.json({ error: message, details }, { status: 500 })
   }
 }

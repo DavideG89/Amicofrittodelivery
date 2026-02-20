@@ -21,9 +21,11 @@ import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order
 
 declare global {
   interface Window {
-    onTurnstileSuccess?: (token: string) => void
-    onTurnstileExpired?: () => void
-    onTurnstileError?: () => void
+    grecaptcha?: {
+      render: (container: HTMLElement, options: { sitekey: string; callback: (token: string) => void }) => number
+      reset: (widgetId?: number) => void
+    }
+    recaptchaOnload?: () => void
   }
 }
 
@@ -32,14 +34,14 @@ function CheckoutForm() {
   const searchParams = useSearchParams()
   const { items, subtotal, clearCart } = useCart()
   const [loading, setLoading] = useState(false)
-  const [turnstileToken, setTurnstileToken] = useState('')
+  const [recaptchaToken, setRecaptchaToken] = useState('')
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [orderPlaced, setOrderPlaced] = useState(false)
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string | null>(null)
-  const turnstileRef = useRef<HTMLDivElement>(null)
-  const [turnstileWidgetId, setTurnstileWidgetId] = useState<string | null>(null)
-  const [turnstileLoaded, setTurnstileLoaded] = useState(false)
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY
+  const recaptchaRef = useRef<HTMLDivElement>(null)
+  const [recaptchaWidgetId, setRecaptchaWidgetId] = useState<number | null>(null)
+  const [recaptchaLoaded, setRecaptchaLoaded] = useState(false)
+  const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
   
   const isDelivery = searchParams.get('delivery') === 'true'
   
@@ -72,37 +74,31 @@ function CheckoutForm() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    window.onTurnstileSuccess = (token: string) => {
-      setTurnstileToken(token)
-    }
-    window.onTurnstileExpired = () => {
-      setTurnstileToken('')
-    }
-    window.onTurnstileError = () => {
-      setTurnstileToken('')
-    }
-  }, [])
+    if (!recaptchaSiteKey) return
+    const grecaptcha = window.grecaptcha
+    if (!grecaptcha || typeof grecaptcha.render !== 'function') return
+    if (!recaptchaRef.current) return
+    if (!recaptchaLoaded) return
+    if (recaptchaWidgetId !== null) return
+
+    const id = grecaptcha.render(recaptchaRef.current, {
+      sitekey: recaptchaSiteKey,
+      callback: (token: string) => setRecaptchaToken(token),
+    })
+    setRecaptchaWidgetId(id)
+  }, [recaptchaLoaded, recaptchaSiteKey, recaptchaWidgetId])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (!turnstileSiteKey) return
-    const turnstile = (window as any).turnstile
-    if (!turnstile || !turnstileRef.current) return
-    if (!turnstileLoaded) return
-
-    if (!turnstileRef.current) return
-    if (turnstileWidgetId) return
-
-    const id = turnstile.render(turnstileRef.current, {
-      sitekey: turnstileSiteKey,
-      callback: 'onTurnstileSuccess',
-      'expired-callback': 'onTurnstileExpired',
-      'error-callback': 'onTurnstileError',
-      theme: 'light',
-      size: 'compact',
-    })
-    setTurnstileWidgetId(id)
-  }, [turnstileLoaded, turnstileSiteKey, turnstileWidgetId])
+    if (recaptchaLoaded) return
+    const id = window.setInterval(() => {
+      if (window.grecaptcha && typeof window.grecaptcha.render === 'function') {
+        setRecaptchaLoaded(true)
+        window.clearInterval(id)
+      }
+    }, 300)
+    return () => window.clearInterval(id)
+  }, [recaptchaLoaded])
 
   useEffect(() => {
     if (!orderPlaced && items.length === 0) {
@@ -215,7 +211,7 @@ function CheckoutForm() {
       return
     }
 
-    if (!turnstileToken) {
+    if (!recaptchaToken) {
       toast.error('Completa la verifica')
       return
     }
@@ -268,13 +264,17 @@ function CheckoutForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          turnstileToken,
+          recaptchaToken,
           order: orderData,
         }),
       })
 
       if (!res.ok) {
         const data = await res.json().catch(() => null)
+        const details = data?.details
+        if (Array.isArray(details) && details.includes('timeout-or-duplicate')) {
+          throw new Error('Verifica scaduta. Ripeti il captcha.')
+        }
         throw new Error(data?.error || 'Ordine rifiutato')
       }
 
@@ -290,7 +290,12 @@ function CheckoutForm() {
       clearCart()
       router.push(`/order/${orderNumber}`)
     } catch (err) {
-      toast.error('Errore durante l\'invio dell\'ordine')
+      const message = err instanceof Error ? err.message : 'Errore durante l\'invio dell\'ordine'
+      toast.error(message)
+      if (recaptchaWidgetId !== null && window.grecaptcha) {
+        window.grecaptcha.reset(recaptchaWidgetId)
+        setRecaptchaToken('')
+      }
     } finally {
       setLoading(false)
     }
@@ -299,11 +304,16 @@ function CheckoutForm() {
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-6">
       <Header />
-      {turnstileSiteKey && (
+      {recaptchaSiteKey && (
         <Script
-          src="https://challenges.cloudflare.com/turnstile/v0/api.js"
+          src="https://www.google.com/recaptcha/api.js?render=explicit&onload=recaptchaOnload"
           strategy="afterInteractive"
-          onLoad={() => setTurnstileLoaded(true)}
+          onLoad={() => {
+            window.recaptchaOnload = () => setRecaptchaLoaded(true)
+            if (window.grecaptcha && typeof window.grecaptcha.render === 'function') {
+              setRecaptchaLoaded(true)
+            }
+          }}
         />
       )}
       
@@ -483,16 +493,21 @@ function CheckoutForm() {
                 <div className="w-full space-y-3">
                   <div>
                     <Label>Verifica</Label>
-                    {turnstileSiteKey ? (
+                    {recaptchaSiteKey ? (
                       <>
-                        <div ref={turnstileRef} className="min-h-[70px] mt-2" />
+                        <div ref={recaptchaRef} className="min-h-[78px] mt-2" />
                         <p className="text-xs text-muted-foreground mt-2">
                           Completa la verifica per abilitare la conferma.
                         </p>
                       </>
                     ) : (
                       <p className="text-xs text-destructive mt-2">
-                        Verifica non configurata. Aggiungi `NEXT_PUBLIC_TURNSTILE_SITE_KEY` nelle env.
+                        Verifica non configurata. Aggiungi `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` nelle env.
+                      </p>
+                    )}
+                    {recaptchaSiteKey && (
+                      <p className="text-[11px] text-muted-foreground mt-2">
+                        Debug: script {recaptchaLoaded ? 'caricato' : 'non caricato'} · grecaptcha {typeof window !== 'undefined' && window.grecaptcha ? 'presente' : 'assente'}
                       </p>
                     )}
                   </div>
@@ -500,7 +515,7 @@ function CheckoutForm() {
                   type="submit"
                   className="w-full"
                   size="lg"
-                  disabled={loading || !orderStatus.isOpen || !turnstileToken}
+                  disabled={loading || !orderStatus.isOpen || !recaptchaToken}
                 >
                   {loading ? (
                     <>
