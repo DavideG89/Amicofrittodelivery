@@ -249,6 +249,13 @@ function OrderConfirmationContent() {
             </Link>
           </Button>
 
+          {/* Apri nella PWA */}
+          <Button asChild variant="secondary" className="w-full" size="lg">
+            <Link href={`/order/${order.order_number}`}>
+              Apri nella PWA
+            </Link>
+          </Button>
+
           {/* 📌 Ordine salvato su questo dispositivo */}
           <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg border text-sm text-muted-foreground">
             <Bookmark className="h-4 w-4" />
