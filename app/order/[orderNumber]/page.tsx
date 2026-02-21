@@ -27,6 +27,21 @@ export default function OrderPage() {
   const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'denied' | 'unsupported' | 'missing' | 'error' | 'loading'>('idle')
   const [pushEnabled, setPushEnabled] = useState(false)
 
+  const updateOrderContext = (number: string, status?: string) => {
+    try {
+      localStorage.setItem('lastOrderNumber', number)
+      const active = status !== 'completed' && status !== 'cancelled'
+      localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
+      const token = localStorage.getItem(`customer-push:${number}`)
+      if (token) {
+        setPushStatus('enabled')
+        setPushEnabled(true)
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }
+
   useEffect(() => {
     async function fetchOrder() {
       if (!orderNumber) {
@@ -49,11 +64,17 @@ export default function OrderPage() {
 
       setOrder(data)
       saveOrderToDevice(data.order_number, data.order_type)
+      updateOrderContext(data.order_number, data.status)
       setLoading(false)
     }
 
     fetchOrder()
   }, [orderNumber, router])
+
+  useEffect(() => {
+    if (!orderNumber) return
+    updateOrderContext(orderNumber)
+  }, [orderNumber])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
@@ -93,6 +114,7 @@ export default function OrderPage() {
       }
 
       setOrder(data)
+      updateOrderContext(data.order_number, data.status)
     } catch {
       toast.error('Errore durante l’aggiornamento')
     } finally {

@@ -1,6 +1,8 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
 import { UpsellDialog } from '@/components/upsell-dialog'
@@ -10,6 +12,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
 export default function Home() {
+  const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -19,7 +22,18 @@ export default function Home() {
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [upsellSettings, setUpsellSettings] = useState<UpsellSettings | null>(null)
   const [pushActive, setPushActive] = useState(false)
+  const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
+  const [lastOrderActive, setLastOrderActive] = useState(false)
   const categoryTopRef = useRef<HTMLDivElement>(null)
+
+  const dismissLastOrder = () => {
+    try {
+      localStorage.setItem('lastOrderActive', 'false')
+    } catch {
+      // ignore storage errors
+    }
+    setLastOrderActive(false)
+  }
 
   useEffect(() => {
     async function fetchData() {
@@ -76,6 +90,24 @@ export default function Home() {
       setPushActive(false)
     }
   }, [])
+
+  useEffect(() => {
+    try {
+      const number = localStorage.getItem('lastOrderNumber')
+      const active = localStorage.getItem('lastOrderActive') === 'true'
+      setLastOrderNumber(number)
+      setLastOrderActive(active)
+
+      const isStandalone =
+        window.matchMedia?.('(display-mode: standalone)').matches ||
+        (window.navigator as Navigator & { standalone?: boolean }).standalone === true
+      if (number && active && isStandalone) {
+        router.replace(`/order/${number}`)
+      }
+    } catch {
+      // ignore storage errors
+    }
+  }, [router])
 
   const compareProductName = (a: Product, b: Product) =>
     a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
@@ -186,6 +218,29 @@ export default function Home() {
         {pushActive && (
           <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
             <p className="font-medium">Notifiche attive su questo dispositivo.</p>
+          </div>
+        )}
+
+        {lastOrderNumber && !lastOrderActive && (
+          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="font-medium">Hai un ordine recente.</p>
+              <div className="flex items-center gap-2">
+                <Link
+                  className="inline-flex h-9 items-center justify-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800"
+                  href={`/order/${lastOrderNumber}`}
+                >
+                  Riprendi ordine
+                </Link>
+                <button
+                  type="button"
+                  className="inline-flex h-9 items-center justify-center rounded-md border border-blue-300 bg-white px-3 text-sm font-medium text-blue-900 hover:bg-blue-100"
+                  onClick={dismissLastOrder}
+                >
+                  Chiudi
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
