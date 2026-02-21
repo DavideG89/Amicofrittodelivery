@@ -8,7 +8,7 @@ import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Ticket, Spark
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { logoutAdmin } from '@/lib/admin-auth'
-import { enableAdminPush, listenForForegroundNotifications } from '@/lib/admin-push'
+import { disableAdminPush, enableAdminPush, listenForForegroundNotifications } from '@/lib/admin-push'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -30,6 +30,7 @@ export default function AdminDashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'denied' | 'unsupported' | 'error' | 'missing'>('idle')
+  const [showPushTooltip, setShowPushTooltip] = useState(false)
   const [pendingToneActive, setPendingToneActive] = useState(false)
   const [alertingPendingIds, setAlertingPendingIds] = useState<Set<string>>(new Set())
   const hasInitializedPendingRef = useRef(false)
@@ -180,6 +181,13 @@ export default function AdminDashboardLayout({
     }
   }
 
+  const handleDisablePush = async () => {
+    await disableAdminPush()
+    setPushStatus('idle')
+    setShowPushTooltip(true)
+    window.setTimeout(() => setShowPushTooltip(false), 2000)
+  }
+
   const Sidebar = () => (
     <div className="flex flex-col h-full">
       <div className="p-6 border-b">
@@ -219,7 +227,33 @@ export default function AdminDashboardLayout({
         </ul>
       </nav>
 
-      <div className="p-4 border-t">
+      <div className="p-4 border-t space-y-2">
+        <div className="relative inline-flex">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleDisablePush}
+            className={cn(
+              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium',
+              pushStatus === 'enabled'
+                ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
+                : 'border-muted text-muted-foreground bg-muted/40'
+            )}
+          >
+            <Bell
+              className={cn(
+                'h-3.5 w-3.5',
+                pushStatus === 'enabled' ? 'text-emerald-600' : 'text-muted-foreground'
+              )}
+            />
+            {pushStatus === 'enabled' ? 'Notifiche attive' : 'Notifiche non attive'}
+          </Button>
+          {showPushTooltip && (
+            <div className="absolute left-0 top-9 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+              Notifiche disattivate
+            </div>
+          )}
+        </div>
         <Button 
           variant="ghost" 
           className="w-full justify-start"
@@ -243,7 +277,7 @@ export default function AdminDashboardLayout({
         {/* Main Content */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Mobile Header */}
-          <header className="md:hidden border-b bg-card p-4 flex items-center justify-between">
+          <header className="md:hidden border-b bg-card p-4 flex items-center justify-between gap-3">
             <Image 
               src="/logo.png" 
               alt="Amico Fritto" 
@@ -252,11 +286,38 @@ export default function AdminDashboardLayout({
               className="h-8 w-auto"
               priority
             />
-            
-            <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
-              <LogOut className="h-5 w-5" />
-              Esci
-            </Button>
+            <div className="flex items-center gap-2">
+              <div className="relative">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleDisablePush}
+                  className={cn(
+                    'inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[11px] font-medium',
+                    pushStatus === 'enabled'
+                      ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
+                      : 'border-muted text-muted-foreground bg-muted/40'
+                  )}
+                >
+                  <Bell
+                    className={cn(
+                      'h-3.5 w-3.5',
+                      pushStatus === 'enabled' ? 'text-emerald-600' : 'text-muted-foreground'
+                    )}
+                  />
+                  {pushStatus === 'enabled' ? 'Attive' : 'Spente'}
+                </Button>
+                {showPushTooltip && (
+                  <div className="absolute left-0 top-9 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                    Notifiche disattivate
+                  </div>
+                )}
+              </div>
+              <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
+                <LogOut className="h-5 w-5" />
+                Esci
+              </Button>
+            </div>
           </header>
 
           {/* Main Content Area */}
@@ -298,24 +359,6 @@ export default function AdminDashboardLayout({
                 })}
               </div>
             </nav>
-            <div className="px-4 pt-3 flex justify-end">
-              <div
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium',
-                  pushStatus === 'enabled'
-                    ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
-                    : 'border-muted text-muted-foreground bg-muted/40'
-                )}
-              >
-                <Bell
-                  className={cn(
-                    'h-3.5 w-3.5',
-                    pushStatus === 'enabled' ? 'text-emerald-600' : 'text-muted-foreground'
-                  )}
-                />
-                {pushStatus === 'enabled' ? 'Notifiche attive' : 'Notifiche non attive'}
-              </div>
-            </div>
             {children}
           </main>
         </div>

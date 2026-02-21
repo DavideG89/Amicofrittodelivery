@@ -1,7 +1,7 @@
 'use client'
 
 import { initializeApp, getApps } from 'firebase/app'
-import { getMessaging, getToken, isSupported, onMessage, type MessagePayload } from 'firebase/messaging'
+import { getMessaging, getToken, isSupported, onMessage, deleteToken, type MessagePayload } from 'firebase/messaging'
 import { supabase } from '@/lib/supabase'
 
 declare global {
@@ -95,8 +95,44 @@ export async function enableAdminPush(): Promise<PushResult> {
     )
 
   if (error) return { ok: false, reason: 'error' }
+  try {
+    localStorage.setItem('admin-push-token', token)
+    localStorage.setItem('admin-push:active', 'true')
+  } catch {
+    // ignore storage errors
+  }
 
   return { ok: true, token }
+}
+
+export async function disableAdminPush() {
+  if (typeof window === 'undefined') return { ok: false }
+  const supported = await isSupported().catch(() => false)
+  if (!supported) return { ok: false }
+
+  const token = localStorage.getItem('admin-push-token') || ''
+  if (!token) {
+    try {
+      localStorage.setItem('admin-push:active', 'false')
+    } catch {
+      // ignore
+    }
+    return { ok: true }
+  }
+
+  const app = getFirebaseApp()
+  const messaging = getMessaging(app)
+  await deleteToken(messaging).catch(() => {})
+
+  await supabase.from('admin_push_tokens').delete().eq('token', token)
+  try {
+    localStorage.removeItem('admin-push-token')
+    localStorage.setItem('admin-push:active', 'false')
+  } catch {
+    // ignore
+  }
+
+  return { ok: true }
 }
 
 export async function listenForForegroundNotifications(
