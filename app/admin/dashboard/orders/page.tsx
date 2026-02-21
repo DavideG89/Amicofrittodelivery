@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Clock, CheckCircle, XCircle, Package, Truck, Printer, X, ChevronUp } from 'lucide-react'
@@ -109,10 +109,6 @@ export default function OrdersManagementPage() {
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [storeInfo, setStoreInfo] = useState<{ name: string; phone?: string | null; address?: string | null } | null>(null)
   const isMobile = useIsMobile()
-  const [pendingToneActive, setPendingToneActive] = useState(false)
-  const [alertingPendingIds, setAlertingPendingIds] = useState<Set<string>>(new Set())
-  const hasInitializedPendingRef = useRef(false)
-  const prevPendingIdsRef = useRef<Set<string>>(new Set())
   const [realtimeStatus, setRealtimeStatus] = useState<'active' | 'polling'>('active')
 
   useEffect(() => {
@@ -157,57 +153,6 @@ export default function OrdersManagementPage() {
       if (pollingId !== null) window.clearInterval(pollingId)
     }
   }, [])
-
-  useEffect(() => {
-    const pendingIds = new Set(
-      orders.filter((order) => order.status === 'pending').map((order) => order.id)
-    )
-
-    if (!hasInitializedPendingRef.current) {
-      hasInitializedPendingRef.current = true
-      prevPendingIdsRef.current = pendingIds
-      return
-    }
-
-    const prevPendingIds = prevPendingIdsRef.current
-    const newPendingIds = new Set<string>()
-    pendingIds.forEach((id) => {
-      if (!prevPendingIds.has(id)) newPendingIds.add(id)
-    })
-
-    if (newPendingIds.size > 0) {
-      setAlertingPendingIds((prev) => {
-        const next = new Set(prev)
-        newPendingIds.forEach((id) => next.add(id))
-        return next
-      })
-    }
-
-    setAlertingPendingIds((prev) => {
-      if (prev.size === 0) return prev
-      const next = new Set<string>()
-      prev.forEach((id) => {
-        if (pendingIds.has(id)) next.add(id)
-      })
-      return next
-    })
-
-    prevPendingIdsRef.current = pendingIds
-  }, [orders])
-
-  useEffect(() => {
-    setPendingToneActive(alertingPendingIds.size > 0)
-  }, [alertingPendingIds])
-
-  useEffect(() => {
-    if (!pendingToneActive) return
-
-    const interval = window.setInterval(() => {
-      playNotificationSound()
-    }, 5000)
-
-    return () => window.clearInterval(interval)
-  }, [pendingToneActive])
 
   async function fetchStoreInfo() {
     const { data } = await supabase
@@ -747,15 +692,4 @@ export default function OrdersManagementPage() {
       )}
     </div>
   )
-}
-
-function playNotificationSound() {
-  if (typeof window === 'undefined') return
-  try {
-    const audio = new Audio('/sounds/notifica_sound.wav')
-    audio.volume = 0.8
-    void audio.play()
-  } catch {
-    // ignore
-  }
 }

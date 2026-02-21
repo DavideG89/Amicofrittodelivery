@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -9,6 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { logoutAdmin } from '@/lib/admin-auth'
 import { enableAdminPush, listenForForegroundNotifications } from '@/lib/admin-push'
+import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
@@ -29,6 +30,10 @@ export default function AdminDashboardLayout({
   const router = useRouter()
   const pathname = usePathname()
   const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'denied' | 'unsupported' | 'error' | 'missing'>('idle')
+  const [pendingToneActive, setPendingToneActive] = useState(false)
+  const [alertingPendingIds, setAlertingPendingIds] = useState<Set<string>>(new Set())
+  const hasInitializedPendingRef = useRef(false)
+  const prevPendingIdsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
@@ -57,6 +62,102 @@ export default function AdminDashboardLayout({
     start()
     return () => unsubscribe?.()
   }, [])
+
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let pollingId: number | null = null
+
+    const updatePendingIds = (nextIds: Set<string>) => {
+      if (!hasInitializedPendingRef.current) {
+        hasInitializedPendingRef.current = true
+        prevPendingIdsRef.current = nextIds
+        return
+      }
+
+      const prevPendingIds = prevPendingIdsRef.current
+      const newPendingIds = new Set<string>()
+      nextIds.forEach((id) => {
+        if (!prevPendingIds.has(id)) newPendingIds.add(id)
+      })
+
+      if (newPendingIds.size > 0) {
+        setAlertingPendingIds((prev) => {
+          const next = new Set(prev)
+          newPendingIds.forEach((id) => next.add(id))
+          return next
+        })
+      }
+
+      setAlertingPendingIds((prev) => {
+        if (prev.size === 0) return prev
+        const next = new Set<string>()
+        prev.forEach((id) => {
+          if (nextIds.has(id)) next.add(id)
+        })
+        return next
+      })
+
+      prevPendingIdsRef.current = nextIds
+    }
+
+    const fetchPendingIds = async () => {
+      const { data } = await supabase
+        .from('orders')
+        .select('id')
+        .eq('status', 'pending')
+
+      const nextIds = new Set<string>((data ?? []).map((row) => row.id))
+      updatePendingIds(nextIds)
+    }
+
+    const startPolling = () => {
+      if (pollingId !== null) return
+      pollingId = window.setInterval(() => {
+        void fetchPendingIds()
+      }, 15000)
+    }
+
+    const canUseRealtime =
+      typeof window !== 'undefined' &&
+      window.isSecureContext &&
+      typeof WebSocket !== 'undefined'
+
+    void fetchPendingIds()
+
+    if (canUseRealtime) {
+      try {
+        channel = supabase
+          .channel('admin_pending_orders')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            void fetchPendingIds()
+          })
+          .subscribe()
+      } catch {
+        startPolling()
+      }
+    } else {
+      startPolling()
+    }
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+      if (pollingId !== null) window.clearInterval(pollingId)
+    }
+  }, [])
+
+  useEffect(() => {
+    setPendingToneActive(alertingPendingIds.size > 0)
+  }, [alertingPendingIds])
+
+  useEffect(() => {
+    if (!pendingToneActive) return
+
+    const interval = window.setInterval(() => {
+      playNotificationSound()
+    }, 5000)
+
+    return () => window.clearInterval(interval)
+  }, [pendingToneActive])
 
   const handleLogout = () => {
     logoutAdmin()

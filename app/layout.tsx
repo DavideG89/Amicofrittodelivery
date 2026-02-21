@@ -4,6 +4,7 @@ import { CartProvider } from '@/lib/cart-context'
 import { Toaster } from '@/components/ui/sonner'
 import { FloatingCartButton } from '@/components/floating-cart-button'
 import { AppVersionChecker } from '@/components/app-version-checker'
+import { InstallBanner } from '@/components/install-banner'
 
 import './globals.css'
 
@@ -24,8 +25,15 @@ export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'Amico Fritto - Food Delivery',
   description: 'Ordina i migliori fritti della città',
+  manifest: '/manifest.webmanifest',
   icons: {
     icon: '/icons/icon-star.svg',
+    apple: '/logo.png',
+  },
+  appleWebApp: {
+    capable: true,
+    title: 'Amico Fritto',
+    statusBarStyle: 'default',
   },
   openGraph: {
     title: 'Amico Fritto - Food Delivery',
@@ -59,6 +67,7 @@ export default function RootLayout({
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
         <CartProvider>
           <AppVersionChecker />
+          <InstallBanner />
           {children}
           <FloatingCartButton />
           <Toaster />

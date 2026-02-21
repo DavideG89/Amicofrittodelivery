@@ -19,19 +19,19 @@ const statusConfig = {
     description: 'Il tuo ordine è stato ricevuto ed è in attesa di conferma'
   },
   confirmed: {
-    label: 'Confermato',
+    label: 'Ordine confermato',
     icon: CheckCircle,
     color: 'bg-blue-500',
     description: 'Il tuo ordine è stato confermato e sarà presto in preparazione'
   },
   preparing: {
-    label: 'In preparazione',
+    label: 'Stiamo preparando',
     icon: ChefHat,
     color: 'bg-orange-500',
     description: 'Stiamo preparando il tuo ordine con cura'
   },
   ready: {
-    label: 'Pronto',
+    label: 'In Consegna',
     icon: Utensils,
     color: 'bg-green-500',
     description: 'Il tuo ordine è pronto!'

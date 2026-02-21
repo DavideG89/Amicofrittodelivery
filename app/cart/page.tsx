@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useCart } from '@/lib/cart-context'
-import { supabase, StoreInfo } from '@/lib/supabase'
+import { supabase, StoreInfo, Order } from '@/lib/supabase'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
 export default function CartPage() {
@@ -20,6 +20,10 @@ export default function CartPage() {
   const { items, updateQuantity, removeItem, subtotal } = useCart()
   const [isDelivery, setIsDelivery] = useState(false)
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
+  const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
+  const [lastOrderActive, setLastOrderActive] = useState(false)
+  const [lastOrderStatus, setLastOrderStatus] = useState<Order['status'] | null>(null)
+  const [lastOrderLoading, setLastOrderLoading] = useState(false)
 
   useEffect(() => {
     async function fetchStoreInfo() {
@@ -36,6 +40,54 @@ export default function CartPage() {
     fetchStoreInfo()
   }, [])
 
+  useEffect(() => {
+    try {
+      const number = localStorage.getItem('lastOrderNumber')
+      const active = localStorage.getItem('lastOrderActive') === 'true'
+      setLastOrderNumber(number)
+      setLastOrderActive(active)
+    } catch {
+      // ignore storage errors
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!lastOrderNumber) return
+    let cancelled = false
+    setLastOrderLoading(true)
+    supabase
+      .from('orders')
+      .select('status')
+      .eq('order_number', lastOrderNumber)
+      .single()
+      .then(({ data }) => {
+        if (cancelled) return
+        const status = (data?.status as Order['status']) || null
+        setLastOrderStatus(status)
+        if (status) {
+          const active = status !== 'completed' && status !== 'cancelled'
+          setLastOrderActive(active)
+          try {
+            localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
+          } catch {
+            // ignore storage errors
+          }
+        }
+      })
+      .catch(() => {
+        if (cancelled) return
+        setLastOrderStatus(null)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLastOrderLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [lastOrderNumber])
+
   const deliveryFee = isDelivery ? (storeInfo?.delivery_fee || 0) : 0
   const total = subtotal + deliveryFee
 
@@ -43,9 +95,18 @@ export default function CartPage() {
   const orderStatus = getOrderStatus(schedule)
   const nextOpenLabel = formatNextOpen(orderStatus.nextOpen)
 
+  const hasActiveOrder =
+    Boolean(lastOrderNumber) &&
+    (lastOrderLoading ||
+      lastOrderActive ||
+      (lastOrderStatus !== null &&
+        lastOrderStatus !== 'completed' &&
+        lastOrderStatus !== 'cancelled'))
+
   const canProceed =
     items.length > 0 &&
     orderStatus.isOpen &&
+    !hasActiveOrder &&
     (!isDelivery || (storeInfo && subtotal >= storeInfo.min_order_delivery))
 
   const handleCheckout = () => {
@@ -82,6 +143,32 @@ export default function CartPage() {
             <p className="font-medium">
               Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo alle ${nextOpenLabel}.` : ''}
             </p>
+          </div>
+        )}
+
+        {hasActiveOrder && (
+          <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <p className="font-medium">
+                Hai già un ordine in corso. Attendi il completamento dell&apos;ordine precedente
+                {lastOrderNumber ? (
+                  <>
+                    {' '}
+                    (codice <span className="font-mono">{lastOrderNumber}</span>).
+                  </>
+                ) : (
+                  '.'
+                )}
+              </p>
+              {lastOrderNumber && (
+                <Button asChild size="sm" variant="outline" className="border-amber-300 text-amber-900">
+                  <Link href={`/order/${lastOrderNumber}`}>Traccia ordine</Link>
+                </Button>
+              )}
+            </div>
+            {lastOrderLoading && (
+              <p className="text-sm text-amber-800 mt-1">Verifica ordine in corso...</p>
+            )}
           </div>
         )}
 
