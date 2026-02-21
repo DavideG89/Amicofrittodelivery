@@ -22,6 +22,7 @@ BEGIN
     COUNT(*) AS orders_count,
     NOW()
   FROM orders
+  WHERE status <> 'cancelled'
   GROUP BY 1
   ON CONFLICT (day)
   DO UPDATE SET
