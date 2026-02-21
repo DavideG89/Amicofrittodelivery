@@ -2,13 +2,33 @@
 
 import Link from 'next/link'
 import Image from 'next/image'
-import { ShoppingCart, Info, User } from 'lucide-react'
+import { ShoppingCart, Info, User, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { useCart } from '@/lib/cart-context'
+import { useEffect, useState } from 'react'
 
 export function Header() {
   const { totalItems } = useCart()
+  const [pushActive, setPushActive] = useState(false)
+
+  useEffect(() => {
+    const readPushState = () => {
+      try {
+        setPushActive(localStorage.getItem('customer-push:active') === 'true')
+      } catch {
+        setPushActive(false)
+      }
+    }
+
+    readPushState()
+    window.addEventListener('storage', readPushState)
+    window.addEventListener('focus', readPushState)
+    return () => {
+      window.removeEventListener('storage', readPushState)
+      window.removeEventListener('focus', readPushState)
+    }
+  }, [])
 
   return (
     <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
@@ -38,6 +58,19 @@ export function Header() {
               <span className="sr-only">Informazioni</span>
             </Link>
           </Button>
+
+          <div className="h-10 w-10 inline-flex items-center justify-center">
+            <Bell
+              className={
+                pushActive
+                  ? 'h-5 w-5 text-emerald-600 fill-emerald-500'
+                  : 'h-5 w-5 text-gray-400'
+              }
+            />
+            <span className="sr-only">
+              {pushActive ? 'Notifiche attive' : 'Notifiche disattivate'}
+            </span>
+          </div>
 
           <Button variant="ghost" size="icon" asChild className="h-10 w-10">
             <Link href="/utente" aria-label="Utente">

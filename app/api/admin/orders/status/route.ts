@@ -9,23 +9,23 @@ export const runtime = 'nodejs'
 const statusText: Record<string, { title: string; body: (orderNumber: string) => string }> = {
   confirmed: {
     title: 'Ordine confermato',
-    body: (orderNumber) => `Il tuo ordine ${orderNumber} è stato confermato. Stiamo iniziando a prepararlo.`,
+    body: (orderNumber) => `Il tuo ordine ${orderNumber} è stato confermato.  `,
   },
   preparing: {
     title: 'Ordine in preparazione',
-    body: (orderNumber) => `Il tuo ordine ${orderNumber} è in preparazione.`,
+    body: (orderNumber) => `Il tuo ordine ${orderNumber} è in preparazione. 🍳`,
   },
   ready: {
     title: 'Ordine pronto',
-    body: (orderNumber) => `Il rider ha preso l’ordine ${orderNumber} in consegna.`,
+    body: (orderNumber) => `Il rider ha preso l’ordine ${orderNumber} in consegna. 🛵`,
   },
   completed: {
     title: 'Ordine completato',
-    body: (orderNumber) => `Il tuo ordine ${orderNumber} è stato completato. Grazie!`,
+    body: (orderNumber) => `Il tuo ordine ${orderNumber} è stato completato. Buon appetito! 😊`,
   },
   cancelled: {
     title: 'Ordine annullato',
-    body: (orderNumber) => `Il tuo ordine ${orderNumber} è stato annullato.`,
+    body: (orderNumber) => `Il tuo ordine ${orderNumber} è stato annullato.❌`,
   },
 }
 

@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
@@ -12,7 +11,6 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
 export default function Home() {
-  const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [loading, setLoading] = useState(true)
@@ -21,12 +19,30 @@ export default function Home() {
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [upsellSettings, setUpsellSettings] = useState<UpsellSettings | null>(null)
-  const [pushActive, setPushActive] = useState(false)
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
   const [lastOrderActive, setLastOrderActive] = useState(false)
   const [lastOrderStatus, setLastOrderStatus] = useState<Order['status'] | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
   const categoryTopRef = useRef<HTMLDivElement>(null)
+
+  const getOrderStatusLabel = (status: Order['status'] | null) => {
+    switch (status) {
+      case 'pending':
+        return 'In attesa'
+      case 'confirmed':
+        return 'Confermato'
+      case 'preparing':
+        return 'In preparazione'
+      case 'ready':
+        return 'in consegna'
+      case 'completed':
+        return 'Completato'
+      case 'cancelled':
+        return 'Annullato'
+      default:
+        return null
+    }
+  }
 
   const dismissLastOrder = () => {
     try {
@@ -86,15 +102,6 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const active = localStorage.getItem('customer-push:active') === 'true'
-      setPushActive(active)
-    } catch {
-      setPushActive(false)
-    }
-  }, [])
-
-  useEffect(() => {
-    try {
       const number = localStorage.getItem('lastOrderNumber')
       const active = localStorage.getItem('lastOrderActive') === 'true'
       setLastOrderNumber(number)
@@ -130,6 +137,7 @@ export default function Home() {
       cancelled = true
     }
   }, [lastOrderNumber])
+
 
   const compareProductName = (a: Product, b: Product) =>
     a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
@@ -237,22 +245,7 @@ export default function Home() {
           </p>
         </div>
 
-        {lastOrderNumber && (
-          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
-            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
-              <p className="font-medium">
-                {pushActive ? 'Notifiche attive su questo dispositivo.' : 'Notifiche non attive su questo dispositivo.'}
-              </p>
-              <p className="text-sm text-emerald-800/80">
-                {lastOrderLoading && 'Stato ordine in aggiornamento...'}
-                {!lastOrderLoading && lastOrderStatus && `Stato ordine: ${lastOrderStatus}`}
-                {!lastOrderLoading && !lastOrderStatus && 'Stato ordine non disponibile'}
-              </p>
-            </div>
-          </div>
-        )}
-
-        {lastOrderNumber && !lastOrderActive && (
+        {lastOrderNumber && !lastOrderActive && lastOrderStatus !== 'completed' && lastOrderStatus !== 'cancelled' && (
           <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p className="font-medium">Hai un ordine recente.</p>
@@ -352,6 +345,23 @@ export default function Home() {
           </Tabs>
         )}
       </main>
+
+      {lastOrderNumber && lastOrderStatus !== 'completed' && lastOrderStatus !== 'cancelled' && (
+        <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
+          <div className="mx-auto max-w-7xl rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-900 shadow-sm">
+            <div className="flex items-center gap-3">
+              <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+              <p className="text-sm sm:text-base">
+                {lastOrderLoading && 'Stato ordine in aggiornamento...'}
+                {!lastOrderLoading &&
+                  lastOrderStatus &&
+                  `Stato ordine: ${getOrderStatusLabel(lastOrderStatus) || lastOrderStatus}`}
+                {!lastOrderLoading && !lastOrderStatus && 'Stato ordine non disponibile'}
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       <UpsellDialog
         open={upsellOpen}
