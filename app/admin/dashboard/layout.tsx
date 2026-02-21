@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Ticket, Sparkles, Bell } from 'lucide-react'
+import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Ticket, Sparkles, Bell, Star } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { logoutAdmin } from '@/lib/admin-auth'
@@ -66,7 +66,11 @@ export default function AdminDashboardLayout({
       unsubscribe = await listenForForegroundNotifications((payload) => {
         const title = payload.notification?.title ?? 'Nuovo ordine'
         const body = payload.notification?.body ?? 'È arrivato un nuovo ordine'
-        toast(title, { description: body })
+        toast(title, {
+          description: body,
+          duration: 8000,
+          icon: <Star className="h-4 w-4 text-[#ff7900]" />,
+        })
         playNotificationSound()
       })
     }
