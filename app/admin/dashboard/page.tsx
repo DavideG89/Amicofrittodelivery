@@ -45,12 +45,12 @@ export default function AdminDashboardPage() {
           total: Number(row.total || 0),
         }))
 
-        // Calculate today's revenue (fallback to orders if daily table is empty)
+        // Calculate today's revenue (fallback to orders if daily table has no entry for today)
         let revenue = 0
-        if (dailyRows.length > 0) {
-          const todayKey = new Date().toLocaleDateString('it-IT')
-          const todayRow = dailyRows.find((row) => row.date === todayKey)
-          revenue = todayRow?.total || 0
+        const todayKey = new Date().toLocaleDateString('it-IT')
+        const todayRow = dailyRows.find((row) => row.date === todayKey)
+        if (todayRow) {
+          revenue = todayRow.total || 0
         } else {
           const today = new Date()
           today.setHours(0, 0, 0, 0)
