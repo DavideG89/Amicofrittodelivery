@@ -38,11 +38,21 @@ export default function AdminDashboardLayout({
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
+    let adminPushActive = true
+    try {
+      adminPushActive = localStorage.getItem('admin-push:active') !== 'false'
+    } catch {
+      adminPushActive = true
+    }
     if (Notification.permission === 'granted') {
-      enableAdminPush().then((result) => {
-        if (result.ok) setPushStatus('enabled')
-        else if (result.reason === 'missing_config') setPushStatus('missing')
-      })
+      if (adminPushActive) {
+        enableAdminPush().then((result) => {
+          if (result.ok) setPushStatus('enabled')
+          else if (result.reason === 'missing_config') setPushStatus('missing')
+        })
+      } else {
+        setPushStatus('idle')
+      }
     } else if (Notification.permission === 'denied') {
       setPushStatus('denied')
     }
