@@ -19,6 +19,7 @@ export function InstallBanner() {
   const [dismissed, setDismissed] = useState(true)
   const [installReady, setInstallReady] = useState(false)
   const [isIosDevice, setIsIosDevice] = useState(false)
+  const [showAndroidHelp, setShowAndroidHelp] = useState(false)
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null)
 
   const shouldHide = useMemo(() => pathname.startsWith('/admin'), [pathname])
@@ -54,7 +55,13 @@ export function InstallBanner() {
 
   const handleInstall = async () => {
     const prompt = deferredPromptRef.current
-    if (!prompt) return
+    if (!prompt) {
+      if (!isIosDevice) {
+        setShowAndroidHelp(true)
+        window.setTimeout(() => setShowAndroidHelp(false), 6000)
+      }
+      return
+    }
     await prompt.prompt()
     try {
       await prompt.userChoice
@@ -66,26 +73,37 @@ export function InstallBanner() {
   }
 
   return (
-    <div className="sticky top-0 z-50 border-b border-amber-200 bg-amber-50 text-amber-900">
-      <div className="container px-4 sm:px-6 lg:px-8 py-3 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-        <div className="text-sm sm:text-base">
-          <span className="font-medium">Installa l&apos;app per un accesso rapido.</span>{' '}
-          {isIosDevice ? (
-            <span>Su iPhone: Condividi → Aggiungi a Home.</span>
-          ) : (
-            <span>Su Android puoi aggiungerla alla schermata home.</span>
-          )}
-        </div>
-        <div className="flex items-center gap-2">
-          {installReady && (
+    <div className="border-b border-amber-200 bg-amber-50 text-amber-900">
+      <div className="container relative px-4 sm:px-6 lg:px-8 py-2.5">
+        <Button
+          size="icon"
+          variant="ghost"
+          onClick={handleDismiss}
+          aria-label="Chiudi"
+          className="absolute right-2 top-2 h-7 w-7"
+        >
+          <X className="h-4 w-4" />
+        </Button>
+        <div className="flex flex-col gap-2 pr-8 sm:flex-row sm:items-center sm:justify-between">
+          <div className="text-sm sm:text-base">
+            <span className="font-medium">Installa l&apos;app per un accesso rapido.</span>{' '}
+            {isIosDevice ? (
+              <span>Su iPhone: Condividi → Aggiungi a Home.</span>
+            ) : (
+              <span>Su Android puoi aggiungerla alla schermata home.</span>
+            )}
+          </div>
+          {!isIosDevice && (
             <Button size="sm" onClick={handleInstall}>
               Installa app
             </Button>
           )}
-          <Button size="sm" variant="ghost" onClick={handleDismiss} aria-label="Chiudi">
-            <X className="h-4 w-4" />
-          </Button>
         </div>
+        {!isIosDevice && showAndroidHelp && (
+          <p className="mt-2 text-xs text-amber-800">
+            Apri il menu del browser e scegli “Aggiungi a schermata Home”.
+          </p>
+        )}
       </div>
     </div>
   )

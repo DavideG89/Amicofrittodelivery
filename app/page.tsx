@@ -62,7 +62,15 @@ export default function Home() {
           .select('*')
           .order('display_order', { ascending: true })
 
-        if (categoriesError) throw categoriesError
+        if (categoriesError) {
+          console.error('[v0] Categories fetch error:', {
+            message: categoriesError.message,
+            details: categoriesError.details,
+            hint: categoriesError.hint,
+            code: categoriesError.code,
+          })
+          throw categoriesError
+        }
 
         // Fetch products
         const { data: productsData, error: productsError } = await supabase
@@ -70,7 +78,15 @@ export default function Home() {
           .select('*')
           .order('display_order', { ascending: true })
 
-        if (productsError) throw productsError
+        if (productsError) {
+          console.error('[v0] Products fetch error:', {
+            message: productsError.message,
+            details: productsError.details,
+            hint: productsError.hint,
+            code: productsError.code,
+          })
+          throw productsError
+        }
 
         const { data: storeInfoData, error: storeInfoError } = await supabase
           .from('store_info')
@@ -78,7 +94,15 @@ export default function Home() {
           .limit(1)
           .maybeSingle()
 
-        if (storeInfoError) throw storeInfoError
+        if (storeInfoError) {
+          console.error('[v0] Store info fetch error:', {
+            message: storeInfoError.message,
+            details: storeInfoError.details,
+            hint: storeInfoError.hint,
+            code: storeInfoError.code,
+          })
+          throw storeInfoError
+        }
 
         const { data: upsellSettingsData } = await supabase
           .from('upsell_settings')
@@ -91,7 +115,12 @@ export default function Home() {
         setStoreInfo(storeInfoData || null)
         setUpsellSettings(upsellSettingsData || null)
       } catch (error) {
-        console.error('[v0] Error fetching data:', error)
+        const err = error as { message?: string; name?: string; stack?: string }
+        console.error('[v0] Error fetching data:', {
+          message: err?.message,
+          name: err?.name,
+          stack: err?.stack,
+        })
       } finally {
         setLoading(false)
       }
