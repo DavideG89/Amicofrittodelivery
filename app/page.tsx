@@ -18,6 +18,7 @@ export default function Home() {
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [upsellSettings, setUpsellSettings] = useState<UpsellSettings | null>(null)
+  const [pushActive, setPushActive] = useState(false)
   const categoryTopRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -65,6 +66,15 @@ export default function Home() {
     }
 
     fetchData()
+  }, [])
+
+  useEffect(() => {
+    try {
+      const active = localStorage.getItem('customer-push:active') === 'true'
+      setPushActive(active)
+    } catch {
+      setPushActive(false)
+    }
   }, [])
 
   const compareProductName = (a: Product, b: Product) =>
@@ -172,6 +182,12 @@ export default function Home() {
             Scopri il nostro menù e ordina i tuoi sfizi preferiti in pochi click!
           </p>
         </div>
+
+        {pushActive && (
+          <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
+            <p className="font-medium">Notifiche attive su questo dispositivo.</p>
+          </div>
+        )}
 
         {!orderStatus.isOpen && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">

@@ -80,7 +80,7 @@ export async function POST(request: Request) {
 
         const tokens = (tokensData || []).map((row) => row.token).filter(Boolean)
         if (tokens.length > 0) {
-          const clickAction = `/order/${order.order_number}`
+          const clickAction = `/track/${order.order_number}`
           await sendFcmMessages(tokens, {
             title: notification.title,
             body: notification.body(order.order_number),

@@ -69,6 +69,7 @@ export async function enableCustomerPush(orderNumber: string) {
 
   try {
     localStorage.setItem(`customer-push:${orderNumber}`, token)
+    localStorage.setItem('customer-push:active', 'true')
   } catch {
     // ignore storage errors
   }
@@ -114,6 +115,7 @@ export async function disableCustomerPush(orderNumber: string) {
 
   try {
     localStorage.removeItem(`customer-push:${orderNumber}`)
+    localStorage.removeItem('customer-push:active')
   } catch {
     // ignore
   }
