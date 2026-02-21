@@ -12,7 +12,8 @@ import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order
 
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([])
-  const [products, setProducts] = useState<Product[]>([])
+  const [productsByCategory, setProductsByCategory] = useState<Record<string, Product[]>>({})
+  const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [upsellOpen, setUpsellOpen] = useState(false)
   const [triggerProduct, setTriggerProduct] = useState<Product | null>(null)
@@ -55,6 +56,26 @@ export default function Home() {
     setLastOrderActive(false)
   }
 
+  const fetchProductsForCategory = async (categoryId: string) => {
+    if (!categoryId) return
+    if (productsByCategory[categoryId]) return
+    const { data, error } = await supabase
+      .from('products')
+      .select('id, category_id, name, description, price, image_url, ingredients, allergens, available, label, display_order')
+      .eq('category_id', categoryId)
+      .order('display_order', { ascending: true })
+    if (error) {
+      console.error('[v0] Products fetch error:', {
+        message: error.message,
+        details: error.details,
+        hint: error.hint,
+        code: error.code,
+      })
+      return
+    }
+    setProductsByCategory((prev) => ({ ...prev, [categoryId]: data || [] }))
+  }
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -62,19 +83,25 @@ export default function Home() {
           const raw = localStorage.getItem(cacheKey)
           if (raw) {
             try {
-              const cached = JSON.parse(raw) as {
+          const cached = JSON.parse(raw) as {
                 ts: number
                 categories: Category[]
-                products: Product[]
+                productsByCategory: Record<string, Product[]>
                 storeInfo: StoreInfo | null
                 upsellSettings: UpsellSettings | null
+                activeCategory: string | null
               }
               if (Date.now() - cached.ts < cacheTtlMs) {
                 setCategories(cached.categories || [])
-                setProducts(cached.products || [])
+                setProductsByCategory(cached.productsByCategory || {})
                 setStoreInfo(cached.storeInfo || null)
                 setUpsellSettings(cached.upsellSettings || null)
+                const cachedActive = cached.activeCategory ?? cached.categories?.[0]?.id ?? null
+                setActiveCategory(cachedActive)
                 setLoading(false)
+                if (cachedActive && !cached.productsByCategory?.[cachedActive]) {
+                  void fetchProductsForCategory(cachedActive)
+                }
                 return
               }
             } catch {
@@ -96,22 +123,6 @@ export default function Home() {
             code: categoriesError.code,
           })
           throw categoriesError
-        }
-
-        // Fetch products
-        const { data: productsData, error: productsError } = await supabase
-          .from('products')
-          .select('id, category_id, name, description, price, image_url, ingredients, allergens, available, label, display_order')
-          .order('display_order', { ascending: true })
-
-        if (productsError) {
-          console.error('[v0] Products fetch error:', {
-            message: productsError.message,
-            details: productsError.details,
-            hint: productsError.hint,
-            code: productsError.code,
-          })
-          throw productsError
         }
 
         const { data: storeInfoData, error: storeInfoError } = await supabase
@@ -137,24 +148,12 @@ export default function Home() {
           .maybeSingle()
 
         setCategories(categoriesData || [])
-        setProducts(productsData || [])
         setStoreInfo(storeInfoData || null)
         setUpsellSettings(upsellSettingsData || null)
-        if (typeof window !== 'undefined') {
-          try {
-            localStorage.setItem(
-              cacheKey,
-              JSON.stringify({
-                ts: Date.now(),
-                categories: categoriesData || [],
-                products: productsData || [],
-                storeInfo: storeInfoData || null,
-                upsellSettings: upsellSettingsData || null,
-              })
-            )
-          } catch {
-            // ignore storage errors
-          }
+        const firstCategory = categoriesData?.[0]?.id ?? null
+        setActiveCategory(firstCategory)
+        if (firstCategory) {
+          void fetchProductsForCategory(firstCategory)
         }
       } catch (error) {
         const err = error as { message?: string; name?: string; stack?: string }
@@ -170,6 +169,26 @@ export default function Home() {
 
     fetchData()
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (categories.length === 0) return
+    try {
+      localStorage.setItem(
+        cacheKey,
+        JSON.stringify({
+          ts: Date.now(),
+          categories,
+          productsByCategory,
+          storeInfo,
+          upsellSettings,
+          activeCategory,
+        })
+      )
+    } catch {
+      // ignore storage errors
+    }
+  }, [categories, productsByCategory, storeInfo, upsellSettings, activeCategory])
 
   useEffect(() => {
     try {
@@ -233,9 +252,7 @@ export default function Home() {
     a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
 
   const getProductsByCategory = (categoryId: string) => {
-    return products
-      .filter(p => p.category_id === categoryId)
-      .sort(compareProductName)
+    return (productsByCategory[categoryId] || []).sort(compareProductName)
   }
 
   const handleProductAdded = (product: Product, quantity: number) => {
@@ -261,10 +278,12 @@ export default function Home() {
         Array.isArray(upsellSettings.product_ids) &&
         upsellSettings.product_ids.length > 0
 
+      const allProducts = Object.values(productsByCategory).flat()
+
       if (useCustomUpsell) {
         const maxItems = upsellSettings.max_items || 6
         const allowedIds = new Set(upsellSettings.product_ids)
-        const suggestions = products
+        const suggestions = allProducts
           .filter((p) => p.available && allowedIds.has(p.id))
           .sort(compareProductName)
           .slice(0, maxItems)
@@ -286,7 +305,7 @@ export default function Home() {
       )
       
       // Get products from complementary categories
-      const suggestions = products
+      const suggestions = allProducts
         .filter(p => 
           complementaryCategories.some(c => c.id === p.category_id) && 
           p.available
@@ -374,27 +393,27 @@ export default function Home() {
           </div>
         ) : (
           <Tabs
-            defaultValue={categories[0]?.id}
+            value={activeCategory ?? categories[0]?.id}
             className="w-full"
-            onValueChange={() => {
+            onValueChange={(value) => {
+              setActiveCategory(value)
+              void fetchProductsForCategory(value)
               categoryTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
           >
             <div className="sticky top-16 z-40 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur md:static md:top-auto">
-              <div className="h-14 flex items-center">
-                <div className="overflow-x-auto w-full no-scrollbar">
-                  <TabsList className="inline-flex w-max min-w-max sm:w-full sm:min-w-full justify-start h-auto gap-1.5 rounded-2xl border border-muted/60 bg-background/70 p-1.5 shadow-sm backdrop-blur">
-                    {categories.map((category) => (
-                      <TabsTrigger 
-                        key={category.id} 
-                        value={category.id}
-                        className="flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
-                      >
-                        {category.name}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                </div>
+              <div className="overflow-x-auto w-full no-scrollbar py-2">
+                <TabsList className="inline-flex w-max min-w-max sm:w-full sm:min-w-full justify-start h-auto gap-1.5 rounded-2xl bg-background/70 p-1.5 shadow-sm backdrop-blur">
+                  {categories.map((category) => (
+                    <TabsTrigger 
+                      key={category.id} 
+                      value={category.id}
+                      className="flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
+                    >
+                      {category.name}
+                    </TabsTrigger>
+                  ))}
+                </TabsList>
               </div>
             </div>
 
@@ -402,6 +421,9 @@ export default function Home() {
 
             {categories.map((category) => {
               const categoryProducts = getProductsByCategory(category.id)
+              const isActiveCategory =
+                (activeCategory ?? categories[0]?.id) === category.id
+              const isCategoryLoading = isActiveCategory && !productsByCategory[category.id]
               
               return (
                 <TabsContent key={category.id} value={category.id} className="mt-0 space-y-6">
@@ -414,7 +436,13 @@ export default function Home() {
                     </div>
                   </div>
                   
-                  {categoryProducts.length === 0 ? (
+                  {isCategoryLoading ? (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                      {[1, 2, 3].map((i) => (
+                        <Skeleton key={i} className="h-64 w-full" />
+                      ))}
+                    </div>
+                  ) : categoryProducts.length === 0 ? (
                     <p className="text-muted-foreground text-center py-12 text-sm sm:text-base">
                       Nessun prodotto disponibile in questa categoria.
                     </p>
