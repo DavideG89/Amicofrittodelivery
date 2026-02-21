@@ -177,6 +177,23 @@ export default function OrderTrackingDetailsPage() {
           </Button>
         </div>
 
+        <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <p className="font-medium">Attiva le notifiche dell’ordine</p>
+              <p className="text-sm text-blue-800/80">
+                Su iPhone funziona solo se installi l’app: Condividi → Aggiungi a Home.
+              </p>
+            </div>
+            <Link
+              className="inline-flex h-9 items-center justify-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800"
+              href={`/order/${order.order_number}`}
+            >
+              Attiva notifiche
+            </Link>
+          </div>
+        </div>
+
         {/* Order Header */}
         <Card className="mb-4 sm:mb-6">
           <CardHeader className="pb-3 sm:pb-6">
