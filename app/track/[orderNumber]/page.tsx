@@ -72,7 +72,7 @@ export default function OrderTrackingDetailsPage() {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at')
         .eq('order_number', orderNumber)
         .single()
 
@@ -192,7 +192,8 @@ export default function OrderTrackingDetailsPage() {
             Aggiorna
           </Button>
         </div>
-
+        
+        {/*
         <div className="mb-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -208,7 +209,7 @@ export default function OrderTrackingDetailsPage() {
               Attiva notifiche
             </Link>
           </div>
-        </div>
+        </div> */}
 
         {/* Order Header */}
         <Card className="mb-4 sm:mb-6">

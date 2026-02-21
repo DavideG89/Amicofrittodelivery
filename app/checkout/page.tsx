@@ -42,6 +42,13 @@ function CheckoutForm() {
   const [recaptchaWidgetId, setRecaptchaWidgetId] = useState<number | null>(null)
   const [recaptchaLoaded, setRecaptchaLoaded] = useState(false)
   const recaptchaSiteKey = process.env.NEXT_PUBLIC_RECAPTCHA_SITE_KEY
+  const isLocalhost =
+    typeof window !== 'undefined' &&
+    (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1')
+  const disableRecaptcha =
+    process.env.NEXT_PUBLIC_DISABLE_RECAPTCHA === 'true' ||
+    process.env.NODE_ENV === 'development' ||
+    isLocalhost
   
   const isDelivery = searchParams.get('delivery') === 'true'
   
@@ -61,7 +68,7 @@ function CheckoutForm() {
     async function fetchStoreInfo() {
       const { data, error } = await supabase
         .from('store_info')
-        .select('*')
+        .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery')
         .limit(1)
         .maybeSingle()
       
@@ -74,7 +81,7 @@ function CheckoutForm() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (!recaptchaSiteKey) return
+    if (!recaptchaSiteKey || disableRecaptcha) return
     const grecaptcha = window.grecaptcha
     if (!grecaptcha || typeof grecaptcha.render !== 'function') return
     if (!recaptchaRef.current) return
@@ -86,11 +93,11 @@ function CheckoutForm() {
       callback: (token: string) => setRecaptchaToken(token),
     })
     setRecaptchaWidgetId(id)
-  }, [recaptchaLoaded, recaptchaSiteKey, recaptchaWidgetId])
+  }, [disableRecaptcha, recaptchaLoaded, recaptchaSiteKey, recaptchaWidgetId])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    if (recaptchaLoaded) return
+    if (recaptchaLoaded || disableRecaptcha) return
     const id = window.setInterval(() => {
       if (window.grecaptcha && typeof window.grecaptcha.render === 'function') {
         setRecaptchaLoaded(true)
@@ -98,7 +105,7 @@ function CheckoutForm() {
       }
     }, 300)
     return () => window.clearInterval(id)
-  }, [recaptchaLoaded])
+  }, [disableRecaptcha, recaptchaLoaded])
 
   useEffect(() => {
     if (!orderPlaced && items.length === 0) {
@@ -189,7 +196,7 @@ function CheckoutForm() {
       return
     }
 
-    if (!recaptchaToken) {
+    if (!disableRecaptcha && !recaptchaToken) {
       toast.error('Completa la verifica')
       return
     }
@@ -270,7 +277,7 @@ function CheckoutForm() {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Errore durante l\'invio dell\'ordine'
       toast.error(message)
-      if (recaptchaWidgetId !== null && window.grecaptcha) {
+      if (!disableRecaptcha && recaptchaWidgetId !== null && window.grecaptcha) {
         window.grecaptcha.reset(recaptchaWidgetId)
         setRecaptchaToken('')
       }
@@ -282,7 +289,7 @@ function CheckoutForm() {
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-6">
       <Header />
-      {recaptchaSiteKey && (
+      {recaptchaSiteKey && !disableRecaptcha && (
         <Script
           src="https://www.google.com/recaptcha/api.js?render=explicit&onload=recaptchaOnload"
           strategy="afterInteractive"
@@ -471,7 +478,7 @@ function CheckoutForm() {
                 <div className="w-full space-y-3">
                   <div>
                     <Label>Verifica</Label>
-                    {recaptchaSiteKey ? (
+                    {recaptchaSiteKey && !disableRecaptcha ? (
                       <>
                         <div className="mt-2 max-w-full overflow-hidden">
                           <div ref={recaptchaRef} className="min-h-[78px] origin-left scale-95 transform" />
@@ -485,7 +492,7 @@ function CheckoutForm() {
                         Verifica non configurata. Aggiungi `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` nelle env.
                       </p>
                     )}
-                    {recaptchaSiteKey && (
+                    {recaptchaSiteKey && !disableRecaptcha && (
                       <p className="text-[11px] text-muted-foreground mt-2">
                         Debug: script {recaptchaLoaded ? 'caricato' : 'non caricato'} · grecaptcha {typeof window !== 'undefined' && window.grecaptcha ? 'presente' : 'assente'}
                       </p>
@@ -495,7 +502,7 @@ function CheckoutForm() {
                   type="submit"
                   className="w-full"
                   size="lg"
-                  disabled={loading || !orderStatus.isOpen || !recaptchaToken}
+                  disabled={loading || !orderStatus.isOpen || (!disableRecaptcha && !recaptchaToken)}
                 >
                   {loading ? (
                     <>

@@ -34,38 +34,33 @@ export default function AdminDashboardPage() {
           .select('*', { count: 'exact', head: true })
           .eq('status', 'pending')
 
-        // Calculate today's revenue
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const { data: todayOrders } = await supabase
-          .from('orders')
-          .select('total')
-          .gte('created_at', today.toISOString())
-          .neq('status', 'cancelled')
+        // Daily revenue table (preferred)
+        const { data: dailyRevenueData } = await supabase
+          .from('daily_revenue')
+          .select('day, total')
+          .order('day', { ascending: false })
 
-        const revenue = todayOrders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0
+        const dailyRows = (dailyRevenueData || []).map((row) => ({
+          date: new Date(row.day).toLocaleDateString('it-IT'),
+          total: Number(row.total || 0),
+        }))
 
-        // Daily revenue table
-        const { data: allOrders } = await supabase
-          .from('orders')
-          .select('total, created_at, status')
-          .neq('status', 'cancelled')
-
-        const revenueByDay = new Map<string, number>()
-        if (allOrders) {
-          allOrders.forEach((order) => {
-            const dateKey = new Date(order.created_at).toLocaleDateString('it-IT')
-            revenueByDay.set(dateKey, (revenueByDay.get(dateKey) || 0) + (order.total || 0))
-          })
+        // Calculate today's revenue (fallback to orders if daily table is empty)
+        let revenue = 0
+        if (dailyRows.length > 0) {
+          const todayKey = new Date().toLocaleDateString('it-IT')
+          const todayRow = dailyRows.find((row) => row.date === todayKey)
+          revenue = todayRow?.total || 0
+        } else {
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          const { data: todayOrders } = await supabase
+            .from('orders')
+            .select('total')
+            .gte('created_at', today.toISOString())
+            .neq('status', 'cancelled')
+          revenue = todayOrders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0
         }
-
-        const dailyRows = Array.from(revenueByDay.entries())
-          .map(([date, total]) => ({ date, total }))
-          .sort((a, b) => {
-            const da = new Date(a.date.split('/').reverse().join('-')).getTime()
-            const db = new Date(b.date.split('/').reverse().join('-')).getTime()
-            return db - da
-          })
 
         setDailyRevenue(dailyRows)
 

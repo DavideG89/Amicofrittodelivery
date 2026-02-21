@@ -46,6 +46,7 @@ export default function SettingsPage() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [resettingOrders, setResettingOrders] = useState(false)
+  const [purgingOrders, setPurgingOrders] = useState(false)
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [formData, setFormData] = useState({
     name: '',
@@ -179,6 +180,20 @@ export default function SettingsPage() {
       toast.error('Errore durante l’azzeramento degli ordini')
     } finally {
       setResettingOrders(false)
+    }
+  }
+
+  async function handlePurgeOldOrders() {
+    setPurgingOrders(true)
+    try {
+      const { error } = await supabase.rpc('rollup_and_purge_orders', { keep_days: 7 })
+      if (error) throw error
+      toast.success('Pulizia completata: incassi salvati e ordini vecchi eliminati')
+    } catch (error) {
+      console.error('[v0] Error purging orders:', error)
+      toast.error('Errore durante la pulizia degli ordini')
+    } finally {
+      setPurgingOrders(false)
     }
   }
 
@@ -391,13 +406,34 @@ export default function SettingsPage() {
         <CardHeader>
           <CardTitle>Azzeramento Dati Ordini</CardTitle>
           <CardDescription>
-            Questa azione cancella tutti gli ordini e resetta incassi e contatori
+            Cancella tutti gli ordini. Lo storico incassi resta solo se è salvato in daily_revenue.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-sm text-muted-foreground">
-            Usa questa funzione solo per ripulire dati di test. L’operazione è irreversibile.
+            Usa questa funzione solo dopo aver salvato gli incassi giornalieri. L’operazione è irreversibile.
           </p>
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="secondary" disabled={purgingOrders}>
+                {purgingOrders ? 'Pulizia...' : 'Pulisci ordini vecchi (7 giorni)'}
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Confermi la pulizia?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  Salva gli incassi giornalieri in daily_revenue e cancella gli ordini più vecchi di 7 giorni.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Annulla</AlertDialogCancel>
+                <AlertDialogAction onClick={handlePurgeOldOrders}>
+                  Conferma pulizia
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="destructive" disabled={resettingOrders}>
@@ -408,7 +444,7 @@ export default function SettingsPage() {
               <AlertDialogHeader>
                 <AlertDialogTitle>Confermi l’azzeramento?</AlertDialogTitle>
                 <AlertDialogDescription>
-                  Verranno cancellati tutti gli ordini. Questa azione non può essere annullata.
+                  Verranno cancellati tutti gli ordini. Lo storico incassi rimane solo se è stato salvato in daily_revenue.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter>

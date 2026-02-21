@@ -105,14 +105,18 @@ const getNextStatusLabel = (current: Order['status']) => {
 export default function OrdersManagementPage() {
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [storeInfo, setStoreInfo] = useState<{ name: string; phone?: string | null; address?: string | null } | null>(null)
   const isMobile = useIsMobile()
   const [realtimeStatus, setRealtimeStatus] = useState<'active' | 'polling'>('active')
+  const [page, setPage] = useState(0)
+  const [hasMore, setHasMore] = useState(true)
+  const pageSize = 20
 
   useEffect(() => {
-    fetchOrders()
+    fetchOrders(true)
     fetchStoreInfo()
 
     const canUseRealtime =
@@ -127,8 +131,8 @@ export default function OrdersManagementPage() {
       if (pollingId !== null) return
       setRealtimeStatus('polling')
       pollingId = window.setInterval(() => {
-        fetchOrders()
-      }, 15000)
+        fetchOrders(true)
+      }, 20000)
     }
 
     if (canUseRealtime) {
@@ -137,10 +141,17 @@ export default function OrdersManagementPage() {
         channel = supabase
           .channel('orders_changes')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-            fetchOrders()
+            fetchOrders(true)
           })
-          .subscribe()
-        setRealtimeStatus('active')
+          .subscribe((status) => {
+            if (status === 'SUBSCRIBED') {
+              setRealtimeStatus('active')
+              return
+            }
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              startPolling()
+            }
+          })
       } catch {
         startPolling()
       }
@@ -166,21 +177,40 @@ export default function OrdersManagementPage() {
     }
   }
 
-  async function fetchOrders() {
+  async function fetchOrders(reset = false, pageOverride?: number) {
     try {
+      const nextPage = reset ? 0 : (pageOverride ?? page)
+      const from = nextPage * pageSize
+      const to = from + pageSize - 1
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('id, order_number, customer_name, customer_phone, customer_address, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, status, notes, created_at')
         .order('created_at', { ascending: false })
+        .range(from, to)
 
       if (error) throw error
       const normalized = (data || []).map(normalizeOrder)
-      setOrders(normalized)
+      if (reset) {
+        setOrders(normalized)
+        setPage(0)
+      } else {
+        setOrders((prev) => [...prev, ...normalized])
+      }
+      setHasMore((data || []).length === pageSize)
     } catch (error) {
       console.error('[v0] Error fetching orders:', error)
     } finally {
       setLoading(false)
+      setLoadingMore(false)
     }
+  }
+
+  const handleLoadMore = () => {
+    if (loadingMore || !hasMore) return
+    setLoadingMore(true)
+    const nextPage = page + 1
+    setPage(nextPage)
+    fetchOrders(false, nextPage)
   }
 
   const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
@@ -197,7 +227,7 @@ export default function OrdersManagementPage() {
       }
 
       toast.success('Stato aggiornato')
-      fetchOrders()
+      fetchOrders(true)
       
       // Update selected order if it's open
       if (selectedOrder?.id === orderId) {
@@ -284,7 +314,7 @@ export default function OrdersManagementPage() {
       <div className="mb-6 space-y-3">
         {realtimeStatus === 'polling' && (
           <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-            Realtime non disponibile su questo dispositivo. Aggiornamento automatico ogni 15 secondi.
+            Realtime non disponibile su questo dispositivo. Aggiornamento automatico ogni 20 secondi.
           </div>
         )}
         <div>
@@ -301,7 +331,7 @@ export default function OrdersManagementPage() {
                 In attesa ({pendingOrders.length})
               </TabsTrigger>
             <TabsTrigger value="active">
-              Attivi ({activeOrders.length})
+              Confermati ({activeOrders.length})
             </TabsTrigger>
             <TabsTrigger value="delivery">
               In consegna ({deliveryOrders.length})
@@ -388,6 +418,13 @@ export default function OrdersManagementPage() {
             ))}
           </div>
         </TabsContent>
+        {hasMore && (
+          <div className="mt-6 flex justify-center">
+            <Button variant="outline" onClick={handleLoadMore} disabled={loadingMore}>
+              {loadingMore ? 'Caricamento...' : 'Carica altri ordini'}
+            </Button>
+          </div>
+        )}
         </div>
       </Tabs>
 

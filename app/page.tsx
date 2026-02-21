@@ -24,6 +24,8 @@ export default function Home() {
   const [lastOrderStatus, setLastOrderStatus] = useState<Order['status'] | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
   const categoryTopRef = useRef<HTMLDivElement>(null)
+  const cacheKey = 'af:home-cache:v1'
+  const cacheTtlMs = 10 * 60 * 1000
 
   const getOrderStatusLabel = (status: Order['status'] | null) => {
     switch (status) {
@@ -56,10 +58,34 @@ export default function Home() {
   useEffect(() => {
     async function fetchData() {
       try {
+        if (typeof window !== 'undefined') {
+          const raw = localStorage.getItem(cacheKey)
+          if (raw) {
+            try {
+              const cached = JSON.parse(raw) as {
+                ts: number
+                categories: Category[]
+                products: Product[]
+                storeInfo: StoreInfo | null
+                upsellSettings: UpsellSettings | null
+              }
+              if (Date.now() - cached.ts < cacheTtlMs) {
+                setCategories(cached.categories || [])
+                setProducts(cached.products || [])
+                setStoreInfo(cached.storeInfo || null)
+                setUpsellSettings(cached.upsellSettings || null)
+                setLoading(false)
+                return
+              }
+            } catch {
+              // ignore cache errors
+            }
+          }
+        }
         // Fetch categories
         const { data: categoriesData, error: categoriesError } = await supabase
           .from('categories')
-          .select('*')
+          .select('id, name, slug, display_order')
           .order('display_order', { ascending: true })
 
         if (categoriesError) {
@@ -75,7 +101,7 @@ export default function Home() {
         // Fetch products
         const { data: productsData, error: productsError } = await supabase
           .from('products')
-          .select('*')
+          .select('id, category_id, name, description, price, image_url, ingredients, allergens, available, label, display_order')
           .order('display_order', { ascending: true })
 
         if (productsError) {
@@ -90,7 +116,7 @@ export default function Home() {
 
         const { data: storeInfoData, error: storeInfoError } = await supabase
           .from('store_info')
-          .select('*')
+          .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery')
           .limit(1)
           .maybeSingle()
 
@@ -106,7 +132,7 @@ export default function Home() {
 
         const { data: upsellSettingsData } = await supabase
           .from('upsell_settings')
-          .select('*')
+          .select('id, enabled, product_ids, max_items')
           .eq('id', 'default')
           .maybeSingle()
 
@@ -114,6 +140,22 @@ export default function Home() {
         setProducts(productsData || [])
         setStoreInfo(storeInfoData || null)
         setUpsellSettings(upsellSettingsData || null)
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem(
+              cacheKey,
+              JSON.stringify({
+                ts: Date.now(),
+                categories: categoriesData || [],
+                products: productsData || [],
+                storeInfo: storeInfoData || null,
+                upsellSettings: upsellSettingsData || null,
+              })
+            )
+          } catch {
+            // ignore storage errors
+          }
+        }
       } catch (error) {
         const err = error as { message?: string; name?: string; stack?: string }
         console.error('[v0] Error fetching data:', {
@@ -143,29 +185,48 @@ export default function Home() {
   useEffect(() => {
     if (!lastOrderNumber) return
     let cancelled = false
-    setLastOrderLoading(true)
-    supabase
-      .from('orders')
-      .select('status')
-      .eq('order_number', lastOrderNumber)
-      .single()
-      .then(({ data }) => {
+    const refreshStatus = async () => {
+      setLastOrderLoading(true)
+      try {
+        const { data } = await supabase
+          .from('orders')
+          .select('status')
+          .eq('order_number', lastOrderNumber)
+          .single()
         if (cancelled) return
         setLastOrderStatus((data?.status as Order['status']) || null)
-      })
-      .catch(() => {
+      } catch {
         if (cancelled) return
         setLastOrderStatus(null)
-      })
-      .finally(() => {
+      } finally {
         if (cancelled) return
         setLastOrderLoading(false)
-      })
+      }
+    }
+
+    void refreshStatus()
 
     return () => {
       cancelled = true
     }
   }, [lastOrderNumber])
+
+  const handleRefreshLastOrder = async () => {
+    if (!lastOrderNumber || lastOrderLoading) return
+    setLastOrderLoading(true)
+    try {
+      const { data } = await supabase
+        .from('orders')
+        .select('status')
+        .eq('order_number', lastOrderNumber)
+        .single()
+      setLastOrderStatus((data?.status as Order['status']) || null)
+    } catch {
+      setLastOrderStatus(null)
+    } finally {
+      setLastOrderLoading(false)
+    }
+  }
 
 
   const compareProductName = (a: Product, b: Product) =>
@@ -377,16 +438,26 @@ export default function Home() {
 
       {lastOrderNumber && lastOrderStatus !== 'completed' && lastOrderStatus !== 'cancelled' && (
         <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-          <div className="mx-auto max-w-7xl rounded-full border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-900 shadow-sm">
-            <div className="flex items-center gap-3">
-              <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
-              <p className="text-sm sm:text-base">
-                {lastOrderLoading && 'Stato ordine in aggiornamento...'}
-                {!lastOrderLoading &&
-                  lastOrderStatus &&
-                  `Stato ordine: ${getOrderStatusLabel(lastOrderStatus) || lastOrderStatus}`}
-                {!lastOrderLoading && !lastOrderStatus && 'Stato ordine non disponibile'}
-              </p>
+          <div className="mx-auto max-w-7xl rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-900 shadow-sm">
+            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+              <div className="flex items-center gap-3 sm:justify-start justify-center">
+                <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                <p className="text-sm sm:text-base text-center sm:text-left">
+                  {lastOrderLoading && 'Stato ordine in aggiornamento...'}
+                  {!lastOrderLoading &&
+                    lastOrderStatus &&
+                    `Stato ordine: ${getOrderStatusLabel(lastOrderStatus) || lastOrderStatus}`}
+                  {!lastOrderLoading && !lastOrderStatus && 'Stato ordine non disponibile'}
+                </p>
+              </div>
+              <button
+                type="button"
+                className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-300 bg-white px-3 text-xs font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-60"
+                onClick={handleRefreshLastOrder}
+                disabled={lastOrderLoading}
+              >
+                Aggiorna stato
+              </button>
             </div>
           </div>
         </div>

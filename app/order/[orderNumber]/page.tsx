@@ -52,7 +52,7 @@ export default function OrderPage() {
 
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, notes, customer_name, customer_phone, customer_address, created_at')
         .eq('order_number', orderNumber)
         .single()
 
@@ -104,7 +104,7 @@ export default function OrderPage() {
     try {
       const { data, error } = await supabase
         .from('orders')
-        .select('*')
+        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, notes, customer_name, customer_phone, customer_address, created_at')
         .eq('order_number', orderNumber)
         .single()
 
@@ -231,46 +231,6 @@ export default function OrderPage() {
           <p className="text-muted-foreground text-sm sm:text-base">
             Grazie per il tuo ordine!
           </p>
-        </div>
-
-        <div className="mb-4 rounded-lg border bg-muted/40 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <p className="text-sm text-muted-foreground">
-            Ricordati di aggiornare la pagina per vedere lo stato dell&apos;ordine.
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            size="sm"
-            onClick={handleRefreshStatus}
-            disabled={refreshing}
-          >
-            {refreshing ? 'Aggiorno...' : 'Aggiorna stato'}
-          </Button>
-        </div>
-
-        <div className="mb-4 rounded-lg border bg-card p-3 sm:p-4 flex flex-col gap-3">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <p className="text-sm font-medium">Notifiche ordine</p>
-              <p className="text-xs text-muted-foreground">
-                {pushStatus === 'enabled' && 'Attive per questo ordine.'}
-                {pushStatus === 'denied' && 'Bloccate dal browser.'}
-                {pushStatus === 'unsupported' && 'Non supportate su questo dispositivo.'}
-                {pushStatus === 'missing' && 'Configurazione notifiche mancante.'}
-                {pushStatus === 'error' && 'Errore attivazione notifiche.'}
-                {pushStatus === 'idle' && 'Attivale per ricevere aggiornamenti in tempo reale.'}
-                {pushStatus === 'loading' && 'Attivazione in corso...'}
-              </p>
-            </div>
-            <Switch
-              checked={pushEnabled}
-              onCheckedChange={handleTogglePush}
-              disabled={pushStatus === 'loading' || pushStatus === 'unsupported' || pushStatus === 'missing'}
-            />
-          </div>
-          <div className="text-xs text-muted-foreground">
-            Su iPhone le notifiche funzionano solo se installi l’app: Condividi → Aggiungi a Home.
-          </div>
         </div>
 
         {/* Order Number Card */}
@@ -408,6 +368,45 @@ export default function OrderPage() {
             </div>
           </CardContent>
         </Card>
+        <div className="mb-4 rounded-lg border bg-muted/40 p-3 sm:p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+          <p className="text-sm text-muted-foreground">
+            Ricordati di aggiornare la pagina per vedere lo stato dell&apos;ordine.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            onClick={handleRefreshStatus}
+            disabled={refreshing}
+          >
+            {refreshing ? 'Aggiorno...' : 'Aggiorna stato'}
+          </Button>
+        </div>
+
+        <div className="mb-4 rounded-lg border bg-card p-3 sm:p-4 flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <p className="text-sm font-medium">Notifiche ordine</p>
+              <p className="text-xs text-muted-foreground">
+                {pushStatus === 'enabled' && 'Attive per questo ordine.'}
+                {pushStatus === 'denied' && 'Bloccate dal browser.'}
+                {pushStatus === 'unsupported' && 'Non supportate su questo dispositivo.'}
+                {pushStatus === 'missing' && 'Configurazione notifiche mancante.'}
+                {pushStatus === 'error' && 'Errore attivazione notifiche.'}
+                {pushStatus === 'idle' && 'Attivale per ricevere aggiornamenti in tempo reale.'}
+                {pushStatus === 'loading' && 'Attivazione in corso...'}
+              </p>
+            </div>
+            <Switch
+              checked={pushEnabled}
+              onCheckedChange={handleTogglePush}
+              disabled={pushStatus === 'loading' || pushStatus === 'unsupported' || pushStatus === 'missing'}
+            />
+          </div>
+          <div className="text-xs text-muted-foreground">
+            Su iPhone le notifiche funzionano solo se installi l’app: Condividi → Aggiungi a Home.
+          </div>
+        </div>
 
       </main>
     </div>

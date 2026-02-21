@@ -114,7 +114,7 @@ export default function AdminDashboardLayout({
       if (pollingId !== null) return
       pollingId = window.setInterval(() => {
         void fetchPendingIds()
-      }, 15000)
+      }, 20000)
     }
 
     const canUseRealtime =
@@ -131,7 +131,11 @@ export default function AdminDashboardLayout({
           .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
             void fetchPendingIds()
           })
-          .subscribe()
+          .subscribe((status) => {
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              startPolling()
+            }
+          })
       } catch {
         startPolling()
       }

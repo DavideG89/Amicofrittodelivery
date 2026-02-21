@@ -95,17 +95,21 @@ export async function POST(request: Request) {
     const body = await request.json()
     const recaptchaToken = String(body?.recaptchaToken || '')
     const order = body?.order as OrderPayload | undefined
+    const disableRecaptcha =
+      process.env.DISABLE_RECAPTCHA === 'true' || process.env.NODE_ENV === 'development'
 
-    if (!recaptchaToken) {
-      return NextResponse.json({ error: 'Token captcha mancante' }, { status: 400 })
-    }
+    if (!disableRecaptcha) {
+      if (!recaptchaToken) {
+        return NextResponse.json({ error: 'Token captcha mancante' }, { status: 400 })
+      }
 
-    const captchaResult = await verifyRecaptcha(recaptchaToken)
-    if (!captchaResult?.success) {
-      return NextResponse.json(
-        { error: 'Verifica captcha fallita', details: captchaResult?.['error-codes'] || null },
-        { status: 403 }
-      )
+      const captchaResult = await verifyRecaptcha(recaptchaToken)
+      if (!captchaResult?.success) {
+        return NextResponse.json(
+          { error: 'Verifica captcha fallita', details: captchaResult?.['error-codes'] || null },
+          { status: 403 }
+        )
+      }
     }
 
     if (!order) {
