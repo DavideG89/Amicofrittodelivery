@@ -139,6 +139,18 @@ export default function AdminDashboardLayout({
 
     void fetchPendingIds()
 
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchPendingIds()
+      }
+    }
+    const handleFocus = () => {
+      void fetchPendingIds()
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('focus', handleFocus)
+
     if (canUseRealtime) {
       try {
         channel = supabase
@@ -159,6 +171,8 @@ export default function AdminDashboardLayout({
     }
 
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', handleFocus)
       if (channel) supabase.removeChannel(channel)
       if (pollingId !== null) window.clearInterval(pollingId)
     }

@@ -159,7 +159,22 @@ export default function OrdersManagementPage() {
       startPolling()
     }
 
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        fetchOrders(true)
+      }
+    }
+
+    const handleFocus = () => {
+      fetchOrders(true)
+    }
+
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('focus', handleFocus)
+
     return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', handleFocus)
       if (channel) supabase.removeChannel(channel)
       if (pollingId !== null) window.clearInterval(pollingId)
     }
