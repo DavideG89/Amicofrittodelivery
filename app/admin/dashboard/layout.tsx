@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Ticket, Sparkles } from 'lucide-react'
+import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Ticket, Sparkles, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { logoutAdmin } from '@/lib/admin-auth'
@@ -298,6 +298,24 @@ export default function AdminDashboardLayout({
                 })}
               </div>
             </nav>
+            <div className="px-4 pt-3 flex justify-end">
+              <div
+                className={cn(
+                  'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium',
+                  pushStatus === 'enabled'
+                    ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
+                    : 'border-muted text-muted-foreground bg-muted/40'
+                )}
+              >
+                <Bell
+                  className={cn(
+                    'h-3.5 w-3.5',
+                    pushStatus === 'enabled' ? 'text-emerald-600' : 'text-muted-foreground'
+                  )}
+                />
+                {pushStatus === 'enabled' ? 'Notifiche attive' : 'Notifiche non attive'}
+              </div>
+            </div>
             {children}
           </main>
         </div>
