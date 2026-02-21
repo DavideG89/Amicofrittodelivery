@@ -13,12 +13,14 @@ type BeforeInstallPromptEvent = Event & {
 const DISMISS_KEY = 'install-banner-dismissed'
 
 const isIOS = (ua: string) => /iphone|ipad|ipod/i.test(ua)
+const isAndroid = (ua: string) => /android/i.test(ua)
 
 export function InstallBanner() {
   const pathname = usePathname()
   const [dismissed, setDismissed] = useState(true)
   const [installReady, setInstallReady] = useState(false)
   const [isIosDevice, setIsIosDevice] = useState(false)
+  const [isAndroidDevice, setIsAndroidDevice] = useState(false)
   const [showAndroidHelp, setShowAndroidHelp] = useState(false)
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null)
 
@@ -26,9 +28,12 @@ export function InstallBanner() {
 
   useEffect(() => {
     if (typeof window === 'undefined') return
-    const dismissedValue = localStorage.getItem(DISMISS_KEY) === 'true'
-    setDismissed(dismissedValue)
-    setIsIosDevice(isIOS(window.navigator.userAgent))
+    const ua = window.navigator.userAgent
+    const isIos = isIOS(ua)
+    const isAnd = isAndroid(ua)
+    setDismissed(false)
+    setIsIosDevice(isIos)
+    setIsAndroidDevice(isAnd)
 
     const handleBeforeInstall = (event: Event) => {
       event.preventDefault()
@@ -46,7 +51,7 @@ export function InstallBanner() {
 
   const handleDismiss = () => {
     try {
-      localStorage.setItem(DISMISS_KEY, 'true')
+      // keep banner shown on every refresh
     } catch {
       // ignore storage errors
     }

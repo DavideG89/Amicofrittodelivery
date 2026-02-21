@@ -382,7 +382,7 @@ export default function Home() {
           >
             <div className="sticky top-16 z-40 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur md:static md:top-auto">
               <div className="h-14 flex items-center">
-                <div className="overflow-x-auto w-full">
+                <div className="overflow-x-auto w-full no-scrollbar">
                   <TabsList className="inline-flex w-max min-w-max sm:w-full sm:min-w-full justify-start h-auto gap-1.5 rounded-2xl border border-muted/60 bg-background/70 p-1.5 shadow-sm backdrop-blur">
                     {categories.map((category) => (
                       <TabsTrigger 
