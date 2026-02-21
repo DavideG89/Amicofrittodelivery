@@ -30,13 +30,18 @@ const statusText: Record<string, { title: string; body: (orderNumber: string) =>
 }
 
 export async function POST(request: Request) {
+  const cookieStore = await cookies()
   const sessionSecret = process.env.ADMIN_SESSION_SECRET || ''
-  const token = cookies().get(ADMIN_SESSION_COOKIE)?.value || ''
+  const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value || ''
   if (!sessionSecret || !token || !verifyAdminSessionToken(token, sessionSecret)) {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
   }
 
   try {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      return NextResponse.json({ error: 'Supabase env mancanti' }, { status: 500 })
+    }
+
     const body = await request.json()
     const orderId = typeof body?.orderId === 'string' ? body.orderId : ''
     const status = typeof body?.status === 'string' ? body.status : ''

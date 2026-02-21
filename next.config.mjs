@@ -19,7 +19,7 @@ const nextConfig = {
       "style-src 'self' 'unsafe-inline'",
       "img-src 'self' data: https://www.google.com https://www.gstatic.com",
       "font-src 'self' data: https://www.gstatic.com",
-      `connect-src 'self' https://www.google.com https://www.gstatic.com https://www.googleapis.com https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com ${supabaseOrigin} ${supabaseWildcard}`,
+      `connect-src 'self' https://www.google.com https://www.gstatic.com https://www.googleapis.com https://firebaseinstallations.googleapis.com https://fcmregistrations.googleapis.com ${supabaseOrigin} ${supabaseWildcard} wss://*.supabase.co ${supabaseOrigin ? supabaseOrigin.replace('https://', 'wss://') : ''}`,
       "frame-src https://www.google.com https://www.gstatic.com",
       "base-uri 'self'",
       "object-src 'none'",
