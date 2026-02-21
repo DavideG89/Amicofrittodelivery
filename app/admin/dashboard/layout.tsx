@@ -188,6 +188,14 @@ export default function AdminDashboardLayout({
     window.setTimeout(() => setShowPushTooltip(false), 2000)
   }
 
+  const handlePushToggle = async () => {
+    if (pushStatus === 'enabled') {
+      await handleDisablePush()
+      return
+    }
+    await handleEnablePush()
+  }
+
   const Sidebar = () => (
     <div className="flex flex-col h-full">
       <div className="p-6 border-b">
@@ -232,9 +240,9 @@ export default function AdminDashboardLayout({
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleDisablePush}
+            onClick={handlePushToggle}
             className={cn(
-              'inline-flex items-center gap-2 rounded-full border px-3 py-1 text-xs font-medium',
+              'inline-flex flex-col items-center gap-0.5 rounded-full border px-3 py-1 text-[11px] font-medium leading-none',
               pushStatus === 'enabled'
                 ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
                 : 'border-muted text-muted-foreground bg-muted/40'
@@ -246,7 +254,7 @@ export default function AdminDashboardLayout({
                 pushStatus === 'enabled' ? 'text-emerald-600' : 'text-muted-foreground'
               )}
             />
-            {pushStatus === 'enabled' ? 'Notifiche attive' : 'Notifiche non attive'}
+            <span>{pushStatus === 'enabled' ? 'On' : 'Off'}</span>
           </Button>
           {showPushTooltip && (
             <div className="absolute left-0 top-9 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
@@ -291,9 +299,9 @@ export default function AdminDashboardLayout({
                 <Button
                   variant="ghost"
                   size="sm"
-                  onClick={handleDisablePush}
+                  onClick={handlePushToggle}
                   className={cn(
-                    'inline-flex items-center gap-2 rounded-full border px-2 py-1 text-[11px] font-medium',
+                    'inline-flex flex-col items-center gap-0.5 rounded-full border px-2 py-1 text-[10px] font-medium leading-none',
                     pushStatus === 'enabled'
                       ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
                       : 'border-muted text-muted-foreground bg-muted/40'
@@ -305,7 +313,7 @@ export default function AdminDashboardLayout({
                       pushStatus === 'enabled' ? 'text-emerald-600' : 'text-muted-foreground'
                     )}
                   />
-                  {pushStatus === 'enabled' ? 'Attive' : 'Spente'}
+                  <span>{pushStatus === 'enabled' ? 'On' : 'Off'}</span>
                 </Button>
                 {showPushTooltip && (
                   <div className="absolute left-0 top-9 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">

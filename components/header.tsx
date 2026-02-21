@@ -81,7 +81,7 @@ export function Header() {
             <Button
               variant="ghost"
               size="icon"
-              className="h-10 w-10"
+              className="h-10 w-10 flex flex-col gap-0.5"
               onClick={handleDisableNotifications}
               aria-label="Disattiva notifiche"
             >
@@ -92,6 +92,9 @@ export function Header() {
                     : 'h-5 w-5 text-gray-400'
                 }
               />
+              <span className="text-[10px] leading-none text-muted-foreground">
+                {pushActive ? 'On' : 'Off'}
+              </span>
             </Button>
             {showPushTooltip && (
               <div className="absolute right-0 top-11 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
