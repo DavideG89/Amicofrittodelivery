@@ -7,7 +7,7 @@ import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
 import { UpsellDialog } from '@/components/upsell-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { supabase, Category, Product, StoreInfo, UpsellSettings } from '@/lib/supabase'
+import { supabase, Category, Product, StoreInfo, UpsellSettings, Order } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
@@ -24,6 +24,8 @@ export default function Home() {
   const [pushActive, setPushActive] = useState(false)
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
   const [lastOrderActive, setLastOrderActive] = useState(false)
+  const [lastOrderStatus, setLastOrderStatus] = useState<Order['status'] | null>(null)
+  const [lastOrderLoading, setLastOrderLoading] = useState(false)
   const categoryTopRef = useRef<HTMLDivElement>(null)
 
   const dismissLastOrder = () => {
@@ -97,17 +99,37 @@ export default function Home() {
       const active = localStorage.getItem('lastOrderActive') === 'true'
       setLastOrderNumber(number)
       setLastOrderActive(active)
-
-      const isStandalone =
-        window.matchMedia?.('(display-mode: standalone)').matches ||
-        (window.navigator as Navigator & { standalone?: boolean }).standalone === true
-      if (number && active && isStandalone) {
-        router.replace(`/order/${number}`)
-      }
     } catch {
       // ignore storage errors
     }
-  }, [router])
+  }, [])
+
+  useEffect(() => {
+    if (!lastOrderNumber) return
+    let cancelled = false
+    setLastOrderLoading(true)
+    supabase
+      .from('orders')
+      .select('status')
+      .eq('order_number', lastOrderNumber)
+      .single()
+      .then(({ data }) => {
+        if (cancelled) return
+        setLastOrderStatus((data?.status as Order['status']) || null)
+      })
+      .catch(() => {
+        if (cancelled) return
+        setLastOrderStatus(null)
+      })
+      .finally(() => {
+        if (cancelled) return
+        setLastOrderLoading(false)
+      })
+
+    return () => {
+      cancelled = true
+    }
+  }, [lastOrderNumber])
 
   const compareProductName = (a: Product, b: Product) =>
     a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
@@ -215,9 +237,18 @@ export default function Home() {
           </p>
         </div>
 
-        {pushActive && (
+        {lastOrderNumber && (
           <div className="mb-6 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-800">
-            <p className="font-medium">Notifiche attive su questo dispositivo.</p>
+            <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
+              <p className="font-medium">
+                {pushActive ? 'Notifiche attive su questo dispositivo.' : 'Notifiche non attive su questo dispositivo.'}
+              </p>
+              <p className="text-sm text-emerald-800/80">
+                {lastOrderLoading && 'Stato ordine in aggiornamento...'}
+                {!lastOrderLoading && lastOrderStatus && `Stato ordine: ${lastOrderStatus}`}
+                {!lastOrderLoading && !lastOrderStatus && 'Stato ordine non disponibile'}
+              </p>
+            </div>
           </div>
         )}
 

@@ -58,6 +58,16 @@ export default function OrderTrackingDetailsPage() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
+  useEffect(() => {
+    if (!orderNumber) return
+    try {
+      localStorage.setItem('lastOrderNumber', orderNumber)
+      localStorage.setItem('lastOrderActive', 'true')
+    } catch {
+      // ignore storage errors
+    }
+  }, [orderNumber])
+
   const fetchOrder = async () => {
     try {
       const { data, error } = await supabase
@@ -69,6 +79,12 @@ export default function OrderTrackingDetailsPage() {
       if (error) throw error
       
       setOrder(data)
+      try {
+        const active = data.status !== 'completed' && data.status !== 'cancelled'
+        localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
+      } catch {
+        // ignore storage errors
+      }
     } catch (error) {
       console.error('[v0] Error fetching order:', error)
       setOrder(null)
