@@ -5,6 +5,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { FloatingCartButton } from '@/components/floating-cart-button'
 import { AppVersionChecker } from '@/components/app-version-checker'
 import { InstallBanner } from '@/components/install-banner'
+import { SplashScreen } from '@/components/splash-screen'
 
 import './globals.css'
 
@@ -67,6 +68,7 @@ export default function RootLayout({
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
         <CartProvider>
           <AppVersionChecker />
+          <SplashScreen />
           <InstallBanner />
           {children}
           <FloatingCartButton />
