@@ -178,6 +178,30 @@ export default function InfoPage() {
                   </div>
                 </CardContent>
               </Card>
+
+              {/* Installazione app */}
+              <Card>
+                <CardHeader>
+                  <CardTitle>Come installare l&apos;app</CardTitle>
+                  <CardDescription>
+                    Aggiungi Amico Fritto alla schermata Home
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <div>
+                    <p className="font-semibold">iPhone (Safari)</p>
+                    <p className="text-muted-foreground">
+                      Apri il sito in Safari, tocca Condividi e scegli “Aggiungi a Home”.
+                    </p>
+                  </div>
+                  <div>
+                    <p className="font-semibold">Android (Chrome)</p>
+                    <p className="text-muted-foreground">
+                      Tocca il menu del browser e seleziona “Installa app” o “Aggiungi a schermata Home”.
+                    </p>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
         </div>
