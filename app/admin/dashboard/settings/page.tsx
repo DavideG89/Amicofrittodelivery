@@ -170,7 +170,7 @@ export default function SettingsPage() {
       const { error } = await supabase
         .from('orders')
         .delete()
-        .neq('id', '')
+        .not('id', 'is', null)
 
       if (error) throw error
 
