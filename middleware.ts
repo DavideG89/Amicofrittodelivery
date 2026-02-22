@@ -46,6 +46,13 @@ async function isValidSession(token: string, secret: string) {
 }
 
 export async function middleware(request: NextRequest) {
+  // If Supabase Auth is configured for admin access, let the client-side
+  // session check in the dashboard layout handle gating.
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || ''
+  if (adminEmail) {
+    return NextResponse.next()
+  }
+
   const secret = process.env.ADMIN_SESSION_SECRET || ''
   const token = request.cookies.get(SESSION_COOKIE)?.value || ''
 
