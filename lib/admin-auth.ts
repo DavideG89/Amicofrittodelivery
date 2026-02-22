@@ -1,20 +1,24 @@
 'use client'
 
-export async function loginAdmin(password: string) {
-  const res = await fetch('/api/admin/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ password }),
-  })
+import { supabase } from '@/lib/supabase'
 
-  if (!res.ok) {
-    const data = await res.json().catch(() => ({}))
-    return { ok: false, error: data?.error || 'Accesso non riuscito' }
+export async function loginAdmin(password: string) {
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || ''
+  if (!adminEmail) {
+    return { ok: false, error: 'Email admin non configurata' }
+  }
+  if (!password) {
+    return { ok: false, error: 'Password obbligatoria' }
+  }
+
+  const { error } = await supabase.auth.signInWithPassword({ email: adminEmail, password })
+  if (error) {
+    return { ok: false, error: error.message || 'Accesso non riuscito' }
   }
 
   return { ok: true }
 }
 
 export async function logoutAdmin() {
-  await fetch('/api/admin/logout', { method: 'POST' })
+  await supabase.auth.signOut()
 }

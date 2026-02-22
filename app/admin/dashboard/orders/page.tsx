@@ -230,9 +230,18 @@ export default function OrdersManagementPage() {
 
   const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
     try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) {
+        throw new Error('Sessione admin non valida')
+      }
+
       const res = await fetch('/api/admin/orders/status', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
         body: JSON.stringify({ orderId, status: newStatus }),
       })
 

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Lock, Loader2 } from 'lucide-react'
@@ -9,12 +9,26 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { loginAdmin } from '@/lib/admin-auth'
+import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 export default function AdminLoginPage() {
   const router = useRouter()
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    let mounted = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return
+      if (data.session) {
+        router.replace('/admin/dashboard')
+      }
+    })
+    return () => {
+      mounted = false
+    }
+  }, [router])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

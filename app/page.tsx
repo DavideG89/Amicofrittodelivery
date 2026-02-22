@@ -6,7 +6,7 @@ import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
 import { UpsellDialog } from '@/components/upsell-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { supabase, Category, Product, StoreInfo, UpsellSettings, Order } from '@/lib/supabase'
+import { supabase, Category, Product, StoreInfo, UpsellSettings, OrderStatus } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
@@ -22,13 +22,13 @@ export default function Home() {
   const [upsellSettings, setUpsellSettings] = useState<UpsellSettings | null>(null)
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
   const [lastOrderActive, setLastOrderActive] = useState(false)
-  const [lastOrderStatus, setLastOrderStatus] = useState<Order['status'] | null>(null)
+  const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
   const categoryTopRef = useRef<HTMLDivElement>(null)
   const cacheKey = 'af:home-cache:v1'
   const cacheTtlMs = 10 * 60 * 1000
 
-  const getOrderStatusLabel = (status: Order['status'] | null) => {
+  const getOrderStatusLabel = (status: OrderStatus | null) => {
     switch (status) {
       case 'pending':
         return 'In attesa'
@@ -208,12 +208,12 @@ export default function Home() {
       setLastOrderLoading(true)
       try {
         const { data } = await supabase
-          .from('orders')
+          .from('orders_public')
           .select('status')
           .eq('order_number', lastOrderNumber)
           .single()
         if (cancelled) return
-        setLastOrderStatus((data?.status as Order['status']) || null)
+        setLastOrderStatus((data?.status as OrderStatus) || null)
       } catch {
         if (cancelled) return
         setLastOrderStatus(null)
@@ -235,11 +235,11 @@ export default function Home() {
     setLastOrderLoading(true)
     try {
       const { data } = await supabase
-        .from('orders')
+        .from('orders_public')
         .select('status')
         .eq('order_number', lastOrderNumber)
         .single()
-      setLastOrderStatus((data?.status as Order['status']) || null)
+      setLastOrderStatus((data?.status as OrderStatus) || null)
     } catch {
       setLastOrderStatus(null)
     } finally {

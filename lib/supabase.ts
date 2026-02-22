@@ -73,6 +73,8 @@ export type OrderItem = {
   quantity: number
 }
 
+export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+
 export type Order = {
   id: string
   order_number: string
@@ -87,8 +89,23 @@ export type Order = {
   discount_amount: number
   delivery_fee: number
   total: number
-  status: 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled'
+  status: OrderStatus
   notes: string | null
   created_at: string
   updated_at: string
+}
+
+export type PublicOrder = {
+  order_number: string
+  order_type: 'delivery' | 'takeaway'
+  payment_method: 'cash' | 'card' | null
+  items: OrderItem[]
+  subtotal: number
+  discount_code: string | null
+  discount_amount: number
+  delivery_fee: number
+  total: number
+  status: OrderStatus
+  created_at: string
+  updated_at?: string
 }

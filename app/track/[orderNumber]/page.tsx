@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
-import { supabase, Order } from '@/lib/supabase'
+import { supabase, PublicOrder } from '@/lib/supabase'
 
 const statusConfig = {
   pending: {
@@ -54,7 +54,7 @@ export default function OrderTrackingDetailsPage() {
   const params = useParams()
   const router = useRouter()
   const orderNumber = params.orderNumber as string
-  const [order, setOrder] = useState<Order | null>(null)
+  const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
 
@@ -71,8 +71,8 @@ export default function OrderTrackingDetailsPage() {
   const fetchOrder = async () => {
     try {
       const { data, error } = await supabase
-        .from('orders')
-        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at')
+        .from('orders_public')
+        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
         .eq('order_number', orderNumber)
         .single()
 
@@ -307,25 +307,11 @@ export default function OrderTrackingDetailsPage() {
           <CardContent className="space-y-3 sm:space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">Cliente</p>
-                <p className="font-medium">{order.customer_name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Telefono</p>
-                <p className="font-medium">{order.customer_phone}</p>
-              </div>
-              <div>
                 <p className="text-sm text-muted-foreground">Tipo ordine</p>
                 <p className="font-medium">
                   {order.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
                 </p>
               </div>
-              {order.customer_address && (
-                <div className="sm:col-span-2">
-                  <p className="text-sm text-muted-foreground">Indirizzo</p>
-                  <p className="font-medium">{order.customer_address}</p>
-                </div>
-              )}
             </div>
 
             <div className="border-t pt-4">
@@ -363,12 +349,6 @@ export default function OrderTrackingDetailsPage() {
               </div>
             </div>
 
-            {order.notes && (
-              <div className="border-t pt-4">
-                <p className="text-sm text-muted-foreground mb-1">Note</p>
-                <p className="text-sm">{order.notes}</p>
-              </div>
-            )}
           </CardContent>
         </Card>
 

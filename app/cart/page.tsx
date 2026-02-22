@@ -12,7 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useCart } from '@/lib/cart-context'
-import { supabase, StoreInfo, Order } from '@/lib/supabase'
+import { supabase, StoreInfo, OrderStatus } from '@/lib/supabase'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
 export default function CartPage() {
@@ -22,7 +22,7 @@ export default function CartPage() {
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
   const [lastOrderActive, setLastOrderActive] = useState(false)
-  const [lastOrderStatus, setLastOrderStatus] = useState<Order['status'] | null>(null)
+  const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
 
   useEffect(() => {
@@ -56,13 +56,13 @@ export default function CartPage() {
     let cancelled = false
     setLastOrderLoading(true)
     supabase
-      .from('orders')
+      .from('orders_public')
       .select('status')
       .eq('order_number', lastOrderNumber)
       .single()
       .then(({ data }) => {
         if (cancelled) return
-        const status = (data?.status as Order['status']) || null
+        const status = (data?.status as OrderStatus) || null
         setLastOrderStatus(status)
         if (status) {
           const active = status !== 'completed' && status !== 'cancelled'

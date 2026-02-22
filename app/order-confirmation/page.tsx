@@ -8,7 +8,7 @@ import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { supabase, Order } from '@/lib/supabase'
+import { supabase, PublicOrder } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
 
@@ -19,7 +19,7 @@ function OrderConfirmationContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const orderNumber = searchParams.get('orderNumber')
-  const [order, setOrder] = useState<Order | null>(null)
+  const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
 
@@ -33,8 +33,8 @@ function OrderConfirmationContent() {
       }
 
       const { data, error } = await supabase
-        .from('orders')
-        .select('*')
+        .from('orders_public')
+        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
         .eq('order_number', orderNumber)
         .single()
 

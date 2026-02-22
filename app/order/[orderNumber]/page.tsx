@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
-import { Home, Loader2, Package, Clock, MapPin, Phone, User, UtensilsCrossed } from 'lucide-react'
+import { Home, Loader2, Package, Clock, UtensilsCrossed } from 'lucide-react'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { supabase, Order } from '@/lib/supabase'
+import { supabase, PublicOrder } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
 import { enableCustomerPush, disableCustomerPush } from '@/lib/customer-push'
@@ -19,7 +19,7 @@ export default function OrderPage() {
   const params = useParams()
   const router = useRouter()
   const orderNumber = params.orderNumber as string
-  const [order, setOrder] = useState<Order | null>(null)
+  const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
   const [refreshing, setRefreshing] = useState(false)
@@ -51,8 +51,8 @@ export default function OrderPage() {
       }
 
       const { data, error } = await supabase
-        .from('orders')
-        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, notes, customer_name, customer_phone, customer_address, created_at')
+        .from('orders_public')
+        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
         .eq('order_number', orderNumber)
         .single()
 
@@ -103,8 +103,8 @@ export default function OrderPage() {
     setRefreshing(true)
     try {
       const { data, error } = await supabase
-        .from('orders')
-        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, notes, customer_name, customer_phone, customer_address, created_at')
+        .from('orders_public')
+        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
         .eq('order_number', orderNumber)
         .single()
 
@@ -303,20 +303,19 @@ export default function OrderPage() {
             <CardTitle className="text-lg sm:text-xl">Riepilogo ordine</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Customer Info */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-sm">
-                <User className="h-4 w-4 text-muted-foreground" />
-                <span className="font-medium">{order.customer_name}</span>
+            <div className="grid gap-2 text-sm">
+              <div className="flex items-center gap-2">
+                <UtensilsCrossed className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">
+                  {order.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
+                </span>
               </div>
-              <div className="flex items-center gap-2 text-sm">
-                <Phone className="h-4 w-4 text-muted-foreground" />
-                <span>{order.customer_phone}</span>
-              </div>
-              {order.customer_address && (
-                <div className="flex items-start gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-muted-foreground mt-0.5" />
-                  <span>{order.customer_address}</span>
+              {order.payment_method && (
+                <div className="flex items-center gap-2">
+                  <Package className="h-4 w-4 text-muted-foreground" />
+                  <span>
+                    Pagamento: {order.payment_method === 'cash' ? 'Contanti' : 'Carta (POS)'}
+                  </span>
                 </div>
               )}
             </div>

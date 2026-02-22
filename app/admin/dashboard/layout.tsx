@@ -29,12 +29,36 @@ export default function AdminDashboardLayout({
 }) {
   const router = useRouter()
   const pathname = usePathname()
+  const [authChecked, setAuthChecked] = useState(false)
   const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'denied' | 'unsupported' | 'error' | 'missing'>('idle')
   const [showPushTooltip, setShowPushTooltip] = useState(false)
   const [pendingToneActive, setPendingToneActive] = useState(false)
   const [alertingPendingIds, setAlertingPendingIds] = useState<Set<string>>(new Set())
   const hasInitializedPendingRef = useRef(false)
   const prevPendingIdsRef = useRef<Set<string>>(new Set())
+
+  useEffect(() => {
+    let mounted = true
+    supabase.auth.getSession().then(({ data }) => {
+      if (!mounted) return
+      if (!data.session) {
+        router.replace('/admin/login')
+      } else {
+        setAuthChecked(true)
+      }
+    })
+    const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.replace('/admin/login')
+      } else {
+        setAuthChecked(true)
+      }
+    })
+    return () => {
+      mounted = false
+      subscription.subscription.unsubscribe()
+    }
+  }, [router])
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
@@ -193,8 +217,9 @@ export default function AdminDashboardLayout({
   }, [pendingToneActive])
 
   const handleLogout = () => {
-    logoutAdmin()
-    router.push('/admin/login')
+    logoutAdmin().finally(() => {
+      router.push('/admin/login')
+    })
   }
 
   const handleEnablePush = async () => {
@@ -301,6 +326,10 @@ export default function AdminDashboardLayout({
       </div>
     </div>
   )
+
+  if (!authChecked) {
+    return <div className="p-6">Verifica accesso...</div>
+  }
 
   return (
     <div className="min-h-screen bg-background">

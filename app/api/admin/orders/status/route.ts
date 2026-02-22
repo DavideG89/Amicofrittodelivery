@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
-import { cookies } from 'next/headers'
-import { verifyAdminSessionToken, ADMIN_SESSION_COOKIE } from '@/lib/admin-session'
+import { createClient } from '@supabase/supabase-js'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { sendFcmMessages } from '@/lib/fcm'
 
@@ -30,16 +29,48 @@ const statusText: Record<string, { title: string; body: (orderNumber: string) =>
 }
 
 export async function POST(request: Request) {
-  const cookieStore = await cookies()
-  const sessionSecret = process.env.ADMIN_SESSION_SECRET || ''
-  const token = cookieStore.get(ADMIN_SESSION_COOKIE)?.value || ''
-  if (!sessionSecret || !token || !verifyAdminSessionToken(token, sessionSecret)) {
+  const authHeader = request.headers.get('authorization') || ''
+  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
+  if (!token) {
     return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
   }
 
   try {
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+    if (
+      !process.env.SUPABASE_SERVICE_ROLE_KEY ||
+      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
+      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+    ) {
       return NextResponse.json({ error: 'Supabase env mancanti' }, { status: 500 })
+    }
+
+    const authClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      {
+        auth: { persistSession: false },
+        global: {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        },
+      }
+    )
+
+    const { data: authData, error: authError } = await authClient.auth.getUser()
+    if (authError || !authData?.user) {
+      return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+    }
+
+    const supabase = getSupabaseServerClient()
+    const { data: adminUser } = await supabase
+      .from('admin_users')
+      .select('user_id')
+      .eq('user_id', authData.user.id)
+      .maybeSingle()
+
+    if (!adminUser) {
+      return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
     }
 
     const body = await request.json()
@@ -50,7 +81,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 })
     }
 
-    const supabase = getSupabaseServerClient()
     const { data: order, error: orderError } = await supabase
       .from('orders')
       .select('id, order_number, status')
