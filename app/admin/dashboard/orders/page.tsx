@@ -117,6 +117,8 @@ export default function OrdersManagementPage() {
   const lastFetchAtRef = useRef(0)
   const minFetchIntervalMs = 30000
   const pollingIntervalMs = 60000
+  const pollingIdRef = useRef<number | null>(null)
+  const isLeaderRef = useRef(false)
 
   useEffect(() => {
     maybeFetchOrders(true)
@@ -128,14 +130,125 @@ export default function OrdersManagementPage() {
       typeof WebSocket !== 'undefined'
 
     let channel: ReturnType<typeof supabase.channel> | null = null
-    let pollingId: number | null = null
+    let leaderHeartbeatId: number | null = null
+    let leaderChannel: BroadcastChannel | null = null
+    const leaderKey = 'af:admin-poll-leader'
+    const leaderTtlMs = 90000
+    const leaderHeartbeatMs = 30000
+
+    const getTabId = () => {
+      try {
+        const existing = sessionStorage.getItem('af:admin-tab-id')
+        if (existing) return existing
+        const generated =
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+        sessionStorage.setItem('af:admin-tab-id', generated)
+        return generated
+      } catch {
+        return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      }
+    }
+
+    const tabId = getTabId()
+
+    const readLeader = () => {
+      try {
+        const raw = localStorage.getItem(leaderKey)
+        if (!raw) return null
+        const parsed = JSON.parse(raw) as { id?: string; ts?: number }
+        if (!parsed?.id || !parsed?.ts) return null
+        return parsed
+      } catch {
+        return null
+      }
+    }
+
+    const writeLeader = (id: string) => {
+      try {
+        localStorage.setItem(leaderKey, JSON.stringify({ id, ts: Date.now() }))
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    const clearLeader = () => {
+      try {
+        const current = readLeader()
+        if (current?.id === tabId) {
+          localStorage.removeItem(leaderKey)
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    const stopPolling = () => {
+      if (pollingIdRef.current === null) return
+      window.clearInterval(pollingIdRef.current)
+      pollingIdRef.current = null
+    }
 
     const startPolling = () => {
-      if (pollingId !== null) return
+      if (!isLeaderRef.current) return
+      if (pollingIdRef.current !== null) return
       setRealtimeStatus('polling')
-      pollingId = window.setInterval(() => {
+      pollingIdRef.current = window.setInterval(() => {
         maybeFetchOrders()
       }, pollingIntervalMs)
+    }
+
+    const becomeLeader = () => {
+      if (isLeaderRef.current) return
+      isLeaderRef.current = true
+      writeLeader(tabId)
+      startPolling()
+      if (leaderHeartbeatId === null) {
+        leaderHeartbeatId = window.setInterval(() => {
+          writeLeader(tabId)
+        }, leaderHeartbeatMs)
+      }
+      leaderChannel?.postMessage({ type: 'leader', id: tabId })
+    }
+
+    const resignLeader = () => {
+      if (!isLeaderRef.current) return
+      isLeaderRef.current = false
+      stopPolling()
+      if (leaderHeartbeatId !== null) {
+        window.clearInterval(leaderHeartbeatId)
+        leaderHeartbeatId = null
+      }
+      clearLeader()
+    }
+
+    const tryClaimLeadership = () => {
+      const current = readLeader()
+      const now = Date.now()
+      if (!current || now - current.ts > leaderTtlMs) {
+        becomeLeader()
+        return
+      }
+      if (current.id === tabId) {
+        becomeLeader()
+        return
+      }
+      // another tab is leader
+      resignLeader()
+    }
+
+    const handleLeaderMessage = (event: MessageEvent) => {
+      const data = event.data as { type?: string; id?: string }
+      if (data?.type === 'leader' && data.id !== tabId) {
+        tryClaimLeadership()
+      }
+    }
+
+    tryClaimLeadership()
+    if (typeof BroadcastChannel !== 'undefined') {
+      leaderChannel = new BroadcastChannel('af:admin-poll')
+      leaderChannel.addEventListener('message', handleLeaderMessage)
     }
 
     if (canUseRealtime) {
@@ -165,21 +278,35 @@ export default function OrdersManagementPage() {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         maybeFetchOrders()
+        tryClaimLeadership()
       }
     }
 
     const handleFocus = () => {
       maybeFetchOrders()
+      tryClaimLeadership()
+    }
+
+    const handleBeforeUnload = () => {
+      resignLeader()
     }
 
     document.addEventListener('visibilitychange', handleVisibility)
     window.addEventListener('focus', handleFocus)
+    window.addEventListener('beforeunload', handleBeforeUnload)
 
     return () => {
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('focus', handleFocus)
+      window.removeEventListener('beforeunload', handleBeforeUnload)
       if (channel) supabase.removeChannel(channel)
-      if (pollingId !== null) window.clearInterval(pollingId)
+      if (pollingIdRef.current !== null) window.clearInterval(pollingIdRef.current)
+      pollingIdRef.current = null
+      if (leaderHeartbeatId !== null) window.clearInterval(leaderHeartbeatId)
+      leaderHeartbeatId = null
+      leaderChannel?.removeEventListener('message', handleLeaderMessage)
+      leaderChannel?.close()
+      resignLeader()
     }
   }, [])
 

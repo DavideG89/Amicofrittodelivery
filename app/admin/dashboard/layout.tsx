@@ -39,6 +39,8 @@ export default function AdminDashboardLayout({
   const lastPendingFetchAtRef = useRef(0)
   const minPendingFetchIntervalMs = 30000
   const pendingPollingIntervalMs = 60000
+  const pendingPollingIdRef = useRef<number | null>(null)
+  const isLeaderRef = useRef(false)
 
   useEffect(() => {
     let mounted = true
@@ -107,7 +109,111 @@ export default function AdminDashboardLayout({
 
   useEffect(() => {
     let channel: ReturnType<typeof supabase.channel> | null = null
-    let pollingId: number | null = null
+    let leaderHeartbeatId: number | null = null
+    let leaderChannel: BroadcastChannel | null = null
+    const leaderKey = 'af:admin-poll-leader'
+    const leaderTtlMs = 90000
+    const leaderHeartbeatMs = 30000
+
+    const getTabId = () => {
+      try {
+        const existing = sessionStorage.getItem('af:admin-tab-id')
+        if (existing) return existing
+        const generated =
+          typeof crypto !== 'undefined' && 'randomUUID' in crypto
+            ? crypto.randomUUID()
+            : `${Date.now()}-${Math.random().toString(16).slice(2)}`
+        sessionStorage.setItem('af:admin-tab-id', generated)
+        return generated
+      } catch {
+        return `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      }
+    }
+
+    const tabId = getTabId()
+
+    const readLeader = () => {
+      try {
+        const raw = localStorage.getItem(leaderKey)
+        if (!raw) return null
+        const parsed = JSON.parse(raw) as { id?: string; ts?: number }
+        if (!parsed?.id || !parsed?.ts) return null
+        return parsed
+      } catch {
+        return null
+      }
+    }
+
+    const writeLeader = (id: string) => {
+      try {
+        localStorage.setItem(leaderKey, JSON.stringify({ id, ts: Date.now() }))
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    const clearLeader = () => {
+      try {
+        const current = readLeader()
+        if (current?.id === tabId) {
+          localStorage.removeItem(leaderKey)
+        }
+      } catch {
+        // ignore storage errors
+      }
+    }
+
+    const stopPolling = () => {
+      if (pendingPollingIdRef.current === null) return
+      window.clearInterval(pendingPollingIdRef.current)
+      pendingPollingIdRef.current = null
+    }
+
+    const startPolling = () => {
+      if (!isLeaderRef.current) return
+      if (pendingPollingIdRef.current !== null) return
+      pendingPollingIdRef.current = window.setInterval(() => {
+        void fetchPendingIds()
+      }, pendingPollingIntervalMs)
+    }
+
+    const becomeLeader = () => {
+      if (isLeaderRef.current) return
+      isLeaderRef.current = true
+      writeLeader(tabId)
+      startPolling()
+      if (leaderHeartbeatId === null) {
+        leaderHeartbeatId = window.setInterval(() => {
+          writeLeader(tabId)
+        }, leaderHeartbeatMs)
+      }
+      leaderChannel?.postMessage({ type: 'leader', id: tabId })
+    }
+
+    const resignLeader = () => {
+      if (!isLeaderRef.current) return
+      isLeaderRef.current = false
+      stopPolling()
+      if (leaderHeartbeatId !== null) {
+        window.clearInterval(leaderHeartbeatId)
+        leaderHeartbeatId = null
+      }
+      clearLeader()
+    }
+
+    const tryClaimLeadership = () => {
+      const current = readLeader()
+      const now = Date.now()
+      if (!current || now - current.ts > leaderTtlMs) {
+        becomeLeader()
+        return
+      }
+      if (current.id === tabId) {
+        becomeLeader()
+        return
+      }
+      resignLeader()
+    }
 
     const updatePendingIds = (nextIds: Set<string>) => {
       if (!hasInitializedPendingRef.current) {
@@ -160,13 +266,6 @@ export default function AdminDashboardLayout({
       updatePendingIds(nextIds)
     }
 
-    const startPolling = () => {
-      if (pollingId !== null) return
-      pollingId = window.setInterval(() => {
-        void fetchPendingIds()
-      }, pendingPollingIntervalMs)
-    }
-
     const canUseRealtime =
       typeof window !== 'undefined' &&
       window.isSecureContext &&
@@ -174,13 +273,26 @@ export default function AdminDashboardLayout({
 
     void fetchPendingIds(true)
 
+    tryClaimLeadership()
+    if (typeof BroadcastChannel !== 'undefined') {
+      leaderChannel = new BroadcastChannel('af:admin-poll')
+      leaderChannel.addEventListener('message', (event) => {
+        const data = event.data as { type?: string; id?: string }
+        if (data?.type === 'leader' && data.id !== tabId) {
+          tryClaimLeadership()
+        }
+      })
+    }
+
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
         void fetchPendingIds()
+        tryClaimLeadership()
       }
     }
     const handleFocus = () => {
       void fetchPendingIds()
+      tryClaimLeadership()
     }
 
     document.addEventListener('visibilitychange', handleVisibility)
@@ -209,7 +321,12 @@ export default function AdminDashboardLayout({
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('focus', handleFocus)
       if (channel) supabase.removeChannel(channel)
-      if (pollingId !== null) window.clearInterval(pollingId)
+      if (pendingPollingIdRef.current !== null) window.clearInterval(pendingPollingIdRef.current)
+      pendingPollingIdRef.current = null
+      if (leaderHeartbeatId !== null) window.clearInterval(leaderHeartbeatId)
+      leaderHeartbeatId = null
+      leaderChannel?.close()
+      resignLeader()
     }
   }, [])
 
