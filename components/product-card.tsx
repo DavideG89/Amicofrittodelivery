@@ -13,9 +13,10 @@ import { Product } from '@/lib/supabase'
 type ProductCardProps = {
   product: Product
   onAddToCart?: (product: Product, quantity: number) => void
+  imageFit?: 'cover' | 'contain'
 }
 
-export function ProductCard({ product, onAddToCart }: ProductCardProps) {
+export function ProductCard({ product, onAddToCart, imageFit = 'cover' }: ProductCardProps) {
   const { addItem, items } = useCart()
   const [quantity, setQuantity] = useState(1)
   
@@ -40,15 +41,27 @@ export function ProductCard({ product, onAddToCart }: ProductCardProps) {
 
   return (
     <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
-      <div className="relative aspect-[4/3] bg-muted">
+      <div className="relative aspect-[4/3] bg-white">
         {product.image_url ? (
-          <Image
-            src={product.image_url}
-            alt={product.name}
-            fill
-            className="object-cover"
-            sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          />
+          imageFit === 'contain' ? (
+            <div className="absolute inset-4">
+              <Image
+                src={product.image_url}
+                alt={product.name}
+                fill
+                className="object-contain"
+                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              />
+            </div>
+          ) : (
+            <Image
+              src={product.image_url}
+              alt={product.name}
+              fill
+              className="object-cover"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+            />
+          )
         ) : (
           <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
             Nessuna immagine

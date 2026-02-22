@@ -485,13 +485,20 @@ export default function Home() {
                     </p>
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                      {categoryProducts.map((product) => (
-                        <ProductCard 
-                          key={product.id} 
-                          product={product}
-                          onAddToCart={handleProductAdded}
-                        />
-                      ))}
+                      {categoryProducts.map((product) => {
+                        const isSaucesCategory =
+                          (category.slug || '').toLowerCase() === 'salse' ||
+                          (category.name || '').toLowerCase().includes('salse') ||
+                          (category.name || '').toLowerCase().includes('salsa')
+                        return (
+                          <ProductCard
+                            key={product.id}
+                            product={product}
+                            onAddToCart={handleProductAdded}
+                            imageFit={isSaucesCategory ? 'contain' : 'cover'}
+                          />
+                        )
+                      })}
                     </div>
                   )}
                 </TabsContent>
