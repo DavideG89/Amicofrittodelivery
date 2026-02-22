@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { loginAdmin } from '@/lib/admin-auth'
+import { loginAdmin, requestAdminPasswordReset } from '@/lib/admin-auth'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 
@@ -16,6 +16,7 @@ export default function AdminLoginPage() {
   const router = useRouter()
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
+  const [resetLoading, setResetLoading] = useState(false)
 
   useEffect(() => {
     let mounted = true
@@ -47,6 +48,25 @@ export default function AdminLoginPage() {
     }
 
     setLoading(false)
+  }
+
+  const handleResetPassword = async () => {
+    if (resetLoading) return
+    setResetLoading(true)
+    try {
+      const origin = window.location.origin
+      const redirectTo = `${origin}/admin/reset-password`
+      const result = await requestAdminPasswordReset(redirectTo)
+      if (result.ok) {
+        toast.success('Link di reset inviato via email')
+      } else {
+        toast.error(result.error || 'Impossibile inviare il link')
+      }
+    } catch {
+      toast.error('Impossibile inviare il link')
+    } finally {
+      setResetLoading(false)
+    }
   }
 
   return (
@@ -94,6 +114,15 @@ export default function AdminLoginPage() {
               ) : (
                 'Accedi'
               )}
+            </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={handleResetPassword}
+              disabled={resetLoading}
+            >
+              {resetLoading ? 'Invio link...' : 'Hai dimenticato la password?'}
             </Button>
           </form>
         </CardContent>

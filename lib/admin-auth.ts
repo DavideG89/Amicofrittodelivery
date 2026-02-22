@@ -19,6 +19,18 @@ export async function loginAdmin(password: string) {
   return { ok: true }
 }
 
+export async function requestAdminPasswordReset(redirectTo: string) {
+  const adminEmail = process.env.NEXT_PUBLIC_ADMIN_EMAIL || ''
+  if (!adminEmail) {
+    return { ok: false, error: 'Email admin non configurata' }
+  }
+  const { error } = await supabase.auth.resetPasswordForEmail(adminEmail, { redirectTo })
+  if (error) {
+    return { ok: false, error: error.message || 'Impossibile inviare il link' }
+  }
+  return { ok: true }
+}
+
 export async function logoutAdmin() {
   await supabase.auth.signOut()
 }
