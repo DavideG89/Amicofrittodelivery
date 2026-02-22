@@ -23,11 +23,11 @@ export type Product = {
   id: string
   category_id: string
   name: string
-  description: string | null
+  description?: string | null
   price: number
   image_url: string | null
-  ingredients: string | null
-  allergens: string | null
+  ingredients?: string | null
+  allergens?: string | null
   available: boolean
   label: 'sconto' | 'novita' | null
   display_order: number

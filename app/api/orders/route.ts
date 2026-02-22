@@ -207,7 +207,7 @@ export async function POST(request: Request) {
       const now = new Date().toISOString()
       const { data: discount, error: discountError } = await supabase
         .from('discount_codes')
-        .select('*')
+        .select('discount_type, discount_value, min_order_amount')
         .eq('code', discountCode)
         .eq('active', true)
         .lte('valid_from', now)

@@ -54,7 +54,7 @@ export default function DiscountsPage() {
     try {
       const { data, error } = await supabase
         .from('discount_codes')
-        .select('*')
+        .select('id, code, discount_type, discount_value, min_order_amount, active, valid_from, valid_until, created_at')
         .order('created_at', { ascending: false })
 
       if (error) throw error

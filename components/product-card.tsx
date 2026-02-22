@@ -8,7 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
 import { useCart } from '@/lib/cart-context'
-import { Product } from '@/lib/supabase'
+import { Product, supabase } from '@/lib/supabase'
 
 type ProductCardProps = {
   product: Product
@@ -19,6 +19,22 @@ type ProductCardProps = {
 export function ProductCard({ product, onAddToCart, imageFit = 'cover' }: ProductCardProps) {
   const { addItem, items } = useCart()
   const [quantity, setQuantity] = useState(1)
+  const [details, setDetails] = useState<{
+    description?: string | null
+    ingredients?: string | null
+    allergens?: string | null
+  } | null>(() => {
+    if (product.description || product.ingredients || product.allergens) {
+      return {
+        description: product.description ?? null,
+        ingredients: product.ingredients ?? null,
+        allergens: product.allergens ?? null,
+      }
+    }
+    return null
+  })
+  const [detailsLoading, setDetailsLoading] = useState(false)
+  const [detailsOpen, setDetailsOpen] = useState(false)
   
   const cartItem = items.find(item => item.product.id === product.id)
   const inCartQuantity = cartItem?.quantity || 0
@@ -38,6 +54,32 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover' }: Produc
 
   const handleIncrement = () => setQuantity(prev => prev + 1)
   const handleDecrement = () => setQuantity(prev => Math.max(1, prev - 1))
+  const hasDetails = Boolean(details?.description || details?.ingredients || details?.allergens)
+
+  const ensureDetails = async () => {
+    if (details || detailsLoading) return
+    setDetailsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('products')
+        .select('description, ingredients, allergens')
+        .eq('id', product.id)
+        .single()
+      if (!error) {
+        setDetails({
+          description: data?.description ?? null,
+          ingredients: data?.ingredients ?? null,
+          allergens: data?.allergens ?? null,
+        })
+      } else {
+        setDetails({ description: null, ingredients: null, allergens: null })
+      }
+    } catch {
+      setDetails({ description: null, ingredients: null, allergens: null })
+    } finally {
+      setDetailsLoading(false)
+    }
+  }
 
   return (
     <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
@@ -98,50 +140,60 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover' }: Produc
           <CardTitle className="text-base sm:text-lg leading-tight text-pretty">
             {product.name}
           </CardTitle>
-          {(product.ingredients || product.allergens) && (
-            <Dialog>
-              <DialogTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 -mt-1">
-                  <Info className="h-3.5 w-3.5" />
-                  <span className="sr-only">Informazioni prodotto</span>
-                </Button>
-              </DialogTrigger>
-              <DialogContent className="max-w-md">
-                <DialogHeader>
-                  <DialogTitle>{product.name}</DialogTitle>
-                  <DialogDescription className="text-pretty">
-                    {product.description}
-                  </DialogDescription>
-                </DialogHeader>
-                <div className="space-y-4">
-                  {product.ingredients && (
-                    <div>
-                      <h4 className="font-semibold mb-2 text-sm">Ingredienti:</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {product.ingredients}
-                      </p>
+          <Dialog
+            open={detailsOpen}
+            onOpenChange={(open) => {
+              setDetailsOpen(open)
+              if (open) void ensureDetails()
+            }}
+          >
+            <DialogTrigger asChild>
+              <Button variant="ghost" size="icon" className="h-7 w-7 shrink-0 -mt-1">
+                <Info className="h-3.5 w-3.5" />
+                <span className="sr-only">Informazioni prodotto</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-md">
+              <DialogHeader>
+                <DialogTitle>{product.name}</DialogTitle>
+                <DialogDescription className="text-pretty">
+                  {detailsLoading ? 'Caricamento dettagli...' : details?.description}
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                {detailsLoading && (
+                  <p className="text-sm text-muted-foreground">Recupero informazioni...</p>
+                )}
+                {!detailsLoading && !hasDetails && (
+                  <p className="text-sm text-muted-foreground">Nessun dettaglio disponibile.</p>
+                )}
+                {details?.ingredients && (
+                  <div>
+                    <h4 className="font-semibold mb-2 text-sm">Ingredienti:</h4>
+                    <p className="text-sm text-muted-foreground leading-relaxed">
+                      {details.ingredients}
+                    </p>
+                  </div>
+                )}
+                {details?.allergens && (
+                  <div>
+                    <h4 className="font-semibold mb-2 text-sm">Allergeni:</h4>
+                    <div className="flex flex-wrap gap-2">
+                      {details.allergens.split(',').map((allergen, i) => (
+                        <Badge key={i} variant="secondary" className="text-xs">
+                          {allergen.trim()}
+                        </Badge>
+                      ))}
                     </div>
-                  )}
-                  {product.allergens && (
-                    <div>
-                      <h4 className="font-semibold mb-2 text-sm">Allergeni:</h4>
-                      <div className="flex flex-wrap gap-2">
-                        {product.allergens.split(',').map((allergen, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
-                            {allergen.trim()}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </DialogContent>
-            </Dialog>
-          )}
+                  </div>
+                )}
+              </div>
+            </DialogContent>
+          </Dialog>
         </div>
-        {product.description && (
+        {details?.description && (
           <CardDescription className="line-clamp-2 text-sm leading-relaxed">
-            {product.description}
+            {details.description}
           </CardDescription>
         )}
       </CardHeader>

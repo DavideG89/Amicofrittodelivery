@@ -49,12 +49,12 @@ export default function MenuManagementPage() {
     try {
       const { data: categoriesData } = await supabase
         .from('categories')
-        .select('*')
+        .select('id, name, slug, display_order, created_at, updated_at')
         .order('display_order', { ascending: true })
 
       const { data: productsData } = await supabase
         .from('products')
-        .select('*')
+        .select('id, category_id, name, description, price, image_url, ingredients, allergens, available, label, display_order, created_at, updated_at')
         .order('display_order', { ascending: true })
 
       setCategories(categoriesData || [])

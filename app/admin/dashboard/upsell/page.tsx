@@ -36,13 +36,13 @@ export default function UpsellPage() {
           { data: categoriesData, error: categoriesError },
         ] =
           await Promise.all([
-            supabase.from('products').select('*'),
+            supabase.from('products').select('id, category_id, name, price, image_url, available'),
             supabase
               .from('upsell_settings')
-              .select('*')
+              .select('id, enabled, product_ids, max_items')
               .eq('id', DEFAULT_UPSELL_ID)
               .maybeSingle(),
-            supabase.from('categories').select('*'),
+            supabase.from('categories').select('id, name, slug'),
           ])
 
         if (productsError) throw productsError

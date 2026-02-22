@@ -21,17 +21,17 @@ export default function AdminDashboardPage() {
         // Count products
         const { count: productsCount } = await supabase
           .from('products')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
 
         // Count all orders
         const { count: ordersCount } = await supabase
           .from('orders')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
 
         // Count pending orders
         const { count: pendingCount } = await supabase
           .from('orders')
-          .select('*', { count: 'exact', head: true })
+          .select('id', { count: 'exact', head: true })
           .eq('status', 'pending')
 
         // Daily revenue table (preferred)

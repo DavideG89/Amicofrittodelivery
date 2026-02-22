@@ -104,7 +104,7 @@ export default function OrderPage() {
     try {
       const { data, error } = await supabase
         .from('orders_public')
-        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
+        .select('order_number, status, updated_at')
         .eq('order_number', orderNumber)
         .single()
 
@@ -113,7 +113,11 @@ export default function OrderPage() {
         return
       }
 
-      setOrder(data)
+      setOrder((prev) =>
+        prev
+          ? { ...prev, status: data.status, updated_at: data.updated_at }
+          : (data as PublicOrder)
+      )
       updateOrderContext(data.order_number, data.status)
     } catch {
       toast.error('Errore durante l’aggiornamento')

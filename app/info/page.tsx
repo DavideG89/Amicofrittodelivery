@@ -24,7 +24,7 @@ export default function InfoPage() {
       try {
         const { data, error } = await supabase
           .from('store_info')
-          .select('*')
+          .select('name, address, phone, opening_hours')
           .limit(1)
           .maybeSingle()
 

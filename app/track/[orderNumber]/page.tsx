@@ -68,17 +68,25 @@ export default function OrderTrackingDetailsPage() {
     }
   }, [orderNumber])
 
-  const fetchOrder = async () => {
+  const fetchOrder = async (light = false) => {
     try {
       const { data, error } = await supabase
         .from('orders_public')
-        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
+        .select(
+          light
+            ? 'order_number, status, updated_at'
+            : 'order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at'
+        )
         .eq('order_number', orderNumber)
         .single()
 
       if (error) throw error
       
-      setOrder(data)
+      setOrder((prev) =>
+        light && prev
+          ? { ...prev, status: data.status, updated_at: data.updated_at }
+          : data
+      )
       try {
         const active = data.status !== 'completed' && data.status !== 'cancelled'
         localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
@@ -100,7 +108,7 @@ export default function OrderTrackingDetailsPage() {
     // Auto-refresh every 60 seconds if order is not completed/cancelled
     const interval = setInterval(() => {
       if (order && order.status !== 'completed' && order.status !== 'cancelled') {
-        fetchOrder()
+        fetchOrder(true)
       }
     }, 60000)
 
@@ -109,7 +117,7 @@ export default function OrderTrackingDetailsPage() {
 
   const handleRefresh = async () => {
     setRefreshing(true)
-    await fetchOrder()
+    await fetchOrder(true)
   }
 
   if (loading) {

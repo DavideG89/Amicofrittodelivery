@@ -29,7 +29,7 @@ export default function CartPage() {
     async function fetchStoreInfo() {
       const { data, error } = await supabase
         .from('store_info')
-        .select('*')
+        .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery')
         .limit(1)
         .maybeSingle()
       
