@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Clock, CheckCircle, XCircle, Package, Truck, Printer, X, ChevronUp } from 'lucide-react'
