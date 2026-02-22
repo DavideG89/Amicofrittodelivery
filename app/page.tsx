@@ -204,6 +204,19 @@ export default function Home() {
   useEffect(() => {
     if (!lastOrderNumber) return
     let cancelled = false
+    const clearLastOrder = () => {
+      try {
+        localStorage.removeItem('lastOrderNumber')
+        localStorage.removeItem('lastOrderActive')
+      } catch {
+        // ignore storage errors
+      }
+      if (cancelled) return
+      setLastOrderNumber(null)
+      setLastOrderActive(false)
+      setLastOrderStatus(null)
+    }
+
     const refreshStatus = async () => {
       setLastOrderLoading(true)
       try {
@@ -213,10 +226,14 @@ export default function Home() {
           .eq('order_number', lastOrderNumber)
           .single()
         if (cancelled) return
-        setLastOrderStatus((data?.status as OrderStatus) || null)
+        if (!data?.status) {
+          clearLastOrder()
+          return
+        }
+        setLastOrderStatus(data.status as OrderStatus)
       } catch {
         if (cancelled) return
-        setLastOrderStatus(null)
+        clearLastOrder()
       } finally {
         if (cancelled) return
         setLastOrderLoading(false)
@@ -239,8 +256,28 @@ export default function Home() {
         .select('status')
         .eq('order_number', lastOrderNumber)
         .single()
-      setLastOrderStatus((data?.status as OrderStatus) || null)
+      if (!data?.status) {
+        try {
+          localStorage.removeItem('lastOrderNumber')
+          localStorage.removeItem('lastOrderActive')
+        } catch {
+          // ignore storage errors
+        }
+        setLastOrderNumber(null)
+        setLastOrderActive(false)
+        setLastOrderStatus(null)
+        return
+      }
+      setLastOrderStatus(data.status as OrderStatus)
     } catch {
+      try {
+        localStorage.removeItem('lastOrderNumber')
+        localStorage.removeItem('lastOrderActive')
+      } catch {
+        // ignore storage errors
+      }
+      setLastOrderNumber(null)
+      setLastOrderActive(false)
       setLastOrderStatus(null)
     } finally {
       setLastOrderLoading(false)
