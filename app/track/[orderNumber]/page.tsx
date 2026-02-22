@@ -97,12 +97,12 @@ export default function OrderTrackingDetailsPage() {
   useEffect(() => {
     fetchOrder()
 
-    // Auto-refresh every 30 seconds if order is not completed/cancelled
+    // Auto-refresh every 60 seconds if order is not completed/cancelled
     const interval = setInterval(() => {
       if (order && order.status !== 'completed' && order.status !== 'cancelled') {
         fetchOrder()
       }
-    }, 30000)
+    }, 60000)
 
     return () => clearInterval(interval)
   }, [orderNumber])

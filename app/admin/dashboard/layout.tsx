@@ -36,6 +36,9 @@ export default function AdminDashboardLayout({
   const [alertingPendingIds, setAlertingPendingIds] = useState<Set<string>>(new Set())
   const hasInitializedPendingRef = useRef(false)
   const prevPendingIdsRef = useRef<Set<string>>(new Set())
+  const lastPendingFetchAtRef = useRef(0)
+  const minPendingFetchIntervalMs = 30000
+  const pendingPollingIntervalMs = 60000
 
   useEffect(() => {
     let mounted = true
@@ -139,7 +142,15 @@ export default function AdminDashboardLayout({
       prevPendingIdsRef.current = nextIds
     }
 
-    const fetchPendingIds = async () => {
+    const shouldFetchPending = (force = false) => {
+      const now = Date.now()
+      if (!force && now - lastPendingFetchAtRef.current < minPendingFetchIntervalMs) return false
+      lastPendingFetchAtRef.current = now
+      return true
+    }
+
+    const fetchPendingIds = async (force = false) => {
+      if (!shouldFetchPending(force)) return
       const { data } = await supabase
         .from('orders')
         .select('id')
@@ -153,7 +164,7 @@ export default function AdminDashboardLayout({
       if (pollingId !== null) return
       pollingId = window.setInterval(() => {
         void fetchPendingIds()
-      }, 20000)
+      }, pendingPollingIntervalMs)
     }
 
     const canUseRealtime =
@@ -161,7 +172,7 @@ export default function AdminDashboardLayout({
       window.isSecureContext &&
       typeof WebSocket !== 'undefined'
 
-    void fetchPendingIds()
+    void fetchPendingIds(true)
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {

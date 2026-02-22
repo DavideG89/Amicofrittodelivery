@@ -114,9 +114,12 @@ export default function OrdersManagementPage() {
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
   const pageSize = 20
+  const lastFetchAtRef = useRef(0)
+  const minFetchIntervalMs = 30000
+  const pollingIntervalMs = 60000
 
   useEffect(() => {
-    fetchOrders(true)
+    maybeFetchOrders(true)
     fetchStoreInfo()
 
     const canUseRealtime =
@@ -131,8 +134,8 @@ export default function OrdersManagementPage() {
       if (pollingId !== null) return
       setRealtimeStatus('polling')
       pollingId = window.setInterval(() => {
-        fetchOrders(true)
-      }, 20000)
+        maybeFetchOrders()
+      }, pollingIntervalMs)
     }
 
     if (canUseRealtime) {
@@ -141,7 +144,7 @@ export default function OrdersManagementPage() {
         channel = supabase
           .channel('orders_changes')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-            fetchOrders(true)
+            maybeFetchOrders()
           })
           .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
@@ -161,12 +164,12 @@ export default function OrdersManagementPage() {
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        fetchOrders(true)
+        maybeFetchOrders()
       }
     }
 
     const handleFocus = () => {
-      fetchOrders(true)
+      maybeFetchOrders()
     }
 
     document.addEventListener('visibilitychange', handleVisibility)
@@ -179,6 +182,18 @@ export default function OrdersManagementPage() {
       if (pollingId !== null) window.clearInterval(pollingId)
     }
   }, [])
+
+  const shouldFetch = (force = false) => {
+    const now = Date.now()
+    if (!force && now - lastFetchAtRef.current < minFetchIntervalMs) return false
+    lastFetchAtRef.current = now
+    return true
+  }
+
+  const maybeFetchOrders = (force = false, pageOverride?: number) => {
+    if (!shouldFetch(force)) return
+    fetchOrders(force, pageOverride)
+  }
 
   async function fetchStoreInfo() {
     const { data } = await supabase
