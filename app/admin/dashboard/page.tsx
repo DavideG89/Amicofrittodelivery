@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Package, ShoppingCart, Euro, TrendingUp } from 'lucide-react'
+import { useRouter } from 'next/navigation'
+import { Package, ShoppingCart, Euro, TrendingUp, ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { supabase } from '@/lib/supabase'
 
 export default function AdminDashboardPage() {
+  const router = useRouter()
   const [stats, setStats] = useState({
     totalProducts: 0,
     totalOrders: 0,
@@ -110,7 +113,34 @@ export default function AdminDashboardPage() {
   return (
     <div className="p-6">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold">Dashboard</h1>
+        <DropdownMenu>
+          <DropdownMenuTrigger className="text-left">
+            <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+              Dashboard
+              <ChevronDown className="h-5 w-5 text-muted-foreground" />
+            </h1>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard')}>
+              Dashboard
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/orders')}>
+              Ordini
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/menu')}>
+              Menu
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/upsell')}>
+              Upsell
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/discounts')}>
+              Sconti
+            </DropdownMenuItem>
+            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/settings')}>
+              Impostazioni
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
         <p className="text-muted-foreground">Panoramica del tuo ristorante</p>
       </div>
 
