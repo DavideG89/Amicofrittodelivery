@@ -73,18 +73,25 @@ export default function AdminDashboardLayout({
     } catch {
       adminPushActive = true
     }
-    if (Notification.permission === 'granted') {
-      if (adminPushActive) {
-        enableAdminPush().then((result) => {
-          if (result.ok) setPushStatus('enabled')
-          else if (result.reason === 'missing_config') setPushStatus('missing')
-        })
+    const syncPermission = () => {
+      if (Notification.permission === 'granted') {
+        if (adminPushActive) {
+          enableAdminPush().then((result) => {
+            if (result.ok) setPushStatus('enabled')
+            else if (result.reason === 'missing_config') setPushStatus('missing')
+          })
+        } else {
+          setPushStatus('idle')
+        }
+      } else if (Notification.permission === 'denied') {
+        setPushStatus('denied')
       } else {
         setPushStatus('idle')
       }
-    } else if (Notification.permission === 'denied') {
-      setPushStatus('denied')
     }
+    syncPermission()
+    const interval = window.setInterval(syncPermission, 1500)
+    return () => window.clearInterval(interval)
   }, [])
 
   // Version checking handled globally in AppVersionChecker
@@ -518,7 +525,7 @@ export default function AdminDashboardLayout({
             {pushStatus !== 'enabled' && (
               <div className="border-b bg-card/60 px-4 py-3 flex items-center justify-between gap-3">
                 <div className="text-sm text-muted-foreground">
-                  {pushStatus === 'denied' && 'Notifiche bloccate nel browser. Sbloccale nelle impostazioni del sito.'}
+                  {pushStatus === 'denied' && 'Notifiche bloccate dal browser. Chrome: lucchetto nella barra indirizzi → Notifiche → Consenti. Safari: “aA” → Impostazioni sito → Notifiche → Consenti.'}
                   {pushStatus === 'unsupported' && 'Notifiche push non supportate su questo browser.'}
                   {pushStatus === 'missing' && 'Configurazione Firebase mancante. Completa le env pubbliche.'}
                   {pushStatus === 'error' && 'Errore durante l’attivazione delle notifiche.'}
