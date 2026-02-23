@@ -191,5 +191,5 @@ export function formatNextOpen(nextOpen: Date | null, now = new Date()) {
   }
 
   const dayKey = getDayKey(nextOpen)
-  return `${dayLabelsShort[dayKey]} ${time}`
+  return `${dayLabels[dayKey]} ${time}`
 }

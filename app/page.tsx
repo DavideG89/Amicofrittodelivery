@@ -25,10 +25,10 @@ export default function Home() {
   const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
   const categoryTopRef = useRef<HTMLDivElement>(null)
-  const cacheKey = 'af:home-cache:v1'
+  const cacheKey = 'af:home-cache:v2'
   const cacheTtlMs = 10 * 60 * 1000
   const sortCategories = (list: Category[]) => {
-    const desiredOrder = ['hamburger', 'panini', 'mini', 'fritti', 'salse', 'bevande']
+    const desiredOrder = ['hamburger', 'mini' ,'panini', 'kebab', 'fritti', 'salse', 'bevande']
     const getSortKey = (category: Category) => {
       const slug = (category.slug || '').toLowerCase()
       const name = (category.name || '').toLowerCase()
@@ -437,9 +437,9 @@ export default function Home() {
         )}
 
         {!orderStatus.isOpen && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-center">
             <p className="font-medium">
-              Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo alle ${nextOpenLabel}.` : ''}
+              Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo ${nextOpenLabel}.` : ''}
             </p>
           </div>
         )}

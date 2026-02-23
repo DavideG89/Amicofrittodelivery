@@ -22,6 +22,7 @@ export function InstallBanner() {
   const [isIosDevice, setIsIosDevice] = useState(false)
   const [isAndroidDevice, setIsAndroidDevice] = useState(false)
   const [showAndroidHelp, setShowAndroidHelp] = useState(false)
+  const [isInstalled, setIsInstalled] = useState(false)
   const deferredPromptRef = useRef<BeforeInstallPromptEvent | null>(null)
 
   const shouldHide = useMemo(() => pathname.startsWith('/admin'), [pathname])
@@ -31,23 +32,35 @@ export function InstallBanner() {
     const ua = window.navigator.userAgent
     const isIos = isIOS(ua)
     const isAnd = isAndroid(ua)
+    const checkInstalled = () => {
+      const isStandalone = window.matchMedia?.('(display-mode: standalone)')?.matches
+      const isIosStandalone = (window.navigator as Navigator & { standalone?: boolean }).standalone
+      setIsInstalled(Boolean(isStandalone || isIosStandalone))
+    }
     setDismissed(false)
     setIsIosDevice(isIos)
     setIsAndroidDevice(isAnd)
+    checkInstalled()
 
     const handleBeforeInstall = (event: Event) => {
       event.preventDefault()
       deferredPromptRef.current = event as BeforeInstallPromptEvent
       setInstallReady(true)
     }
+    const handleDisplayModeChange = () => checkInstalled()
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstall)
+    window.addEventListener('appinstalled', handleDisplayModeChange)
+    const media = window.matchMedia?.('(display-mode: standalone)')
+    media?.addEventListener?.('change', handleDisplayModeChange)
     return () => {
       window.removeEventListener('beforeinstallprompt', handleBeforeInstall)
+      window.removeEventListener('appinstalled', handleDisplayModeChange)
+      media?.removeEventListener?.('change', handleDisplayModeChange)
     }
   }, [])
 
-  if (shouldHide || dismissed) return null
+  if (shouldHide || dismissed || isInstalled) return null
 
   const handleDismiss = () => {
     try {

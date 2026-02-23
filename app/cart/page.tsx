@@ -139,9 +139,9 @@ export default function CartPage() {
         </div>
 
         {!orderStatus.isOpen && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700">
+          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-center">
             <p className="font-medium">
-              Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo alle ${nextOpenLabel}.` : ''}
+              Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo ${nextOpenLabel}.` : ''}
             </p>
           </div>
         )}
