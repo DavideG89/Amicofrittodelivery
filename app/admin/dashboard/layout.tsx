@@ -534,7 +534,7 @@ export default function AdminDashboardLayout({
             {pushStatus !== 'enabled' && (
               <div className="border-b bg-card/60 px-4 py-3 flex items-center justify-between gap-3">
                 <div className="text-sm text-muted-foreground">
-                  {pushStatus === 'denied' && 'Notifiche bloccate dal browser. Chrome (Android): tocca l’icona a sinistra dell’URL (due linee con pallini) → Impostazioni sito → Notifiche → Consenti. Safari (iPhone): “aA” → Impostazioni sito → Notifiche → Consenti.'}
+                  {pushStatus === 'denied' && 'Notifiche bloccate dal browser. Chrome (Android): tocca l\'icona a sinistra dell\'indirizzo e apri "Autorizzazioni" o "Impostazioni sito", poi Notifiche -> Consenti. Se non compare: menu Chrome -> Settings -> Site settings -> Notifications -> questo sito -> Allow. Safari (iPhone): "aA" -> Impostazioni sito -> Notifiche -> Consenti.'}
                   {pushStatus === 'unsupported' && 'Notifiche push non supportate su questo browser.'}
                   {pushStatus === 'missing' && 'Configurazione Firebase mancante. Completa le env pubbliche.'}
                   {pushStatus === 'error' && 'Errore durante l’attivazione delle notifiche.'}
