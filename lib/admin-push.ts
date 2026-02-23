@@ -65,8 +65,17 @@ export async function enableAdminPush(): Promise<PushResult> {
 
   if (!hasFirebaseConfig()) return { ok: false, reason: 'missing_config' }
 
-  const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return { ok: false, reason: 'denied' }
+  if (Notification.permission === 'denied') {
+    return { ok: false, reason: 'denied' }
+  }
+
+  let permission: NotificationPermission = Notification.permission
+  if (permission === 'default') {
+    permission = await Notification.requestPermission()
+  }
+  if (permission !== 'granted') {
+    return { ok: false, reason: permission === 'denied' ? 'denied' : 'error' }
+  }
 
   const app = getFirebaseApp()
   const registration = await ensureServiceWorker(firebaseConfig)

@@ -67,28 +67,37 @@ export default function AdminDashboardLayout({
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
-    let adminPushActive = true
-    try {
-      adminPushActive = localStorage.getItem('admin-push:active') !== 'false'
-    } catch {
-      adminPushActive = true
-    }
-    const syncPermission = () => {
-      if (Notification.permission === 'granted') {
-        if (adminPushActive) {
-          enableAdminPush().then((result) => {
-            if (result.ok) setPushStatus('enabled')
-            else if (result.reason === 'missing_config') setPushStatus('missing')
-          })
-        } else {
-          setPushStatus('idle')
-        }
-      } else if (Notification.permission === 'denied') {
-        setPushStatus('denied')
-      } else {
-        setPushStatus('idle')
+    const readAdminPushActive = () => {
+      try {
+        return localStorage.getItem('admin-push:active') !== 'false'
+      } catch {
+        return true
       }
     }
+
+    const syncPermission = () => {
+      const adminPushActive = readAdminPushActive()
+      if (Notification.permission === 'granted') {
+        setPushStatus(adminPushActive ? 'enabled' : 'idle')
+        return
+      }
+      if (Notification.permission === 'denied') {
+        setPushStatus('denied')
+        return
+      }
+      setPushStatus('idle')
+    }
+
+    const bootstrapGrantedPermission = async () => {
+      if (Notification.permission !== 'granted') return
+      if (!readAdminPushActive()) return
+      const result = await enableAdminPush()
+      if (!result.ok && result.reason === 'missing_config') {
+        setPushStatus('missing')
+      }
+    }
+
+    void bootstrapGrantedPermission()
     syncPermission()
     const interval = window.setInterval(syncPermission, 1500)
     return () => window.clearInterval(interval)
@@ -525,7 +534,7 @@ export default function AdminDashboardLayout({
             {pushStatus !== 'enabled' && (
               <div className="border-b bg-card/60 px-4 py-3 flex items-center justify-between gap-3">
                 <div className="text-sm text-muted-foreground">
-                  {pushStatus === 'denied' && 'Notifiche bloccate dal browser. Chrome: lucchetto nella barra indirizzi → Notifiche → Consenti. Safari: “aA” → Impostazioni sito → Notifiche → Consenti.'}
+                  {pushStatus === 'denied' && 'Notifiche bloccate dal browser. Chrome (Android): tocca l’icona a sinistra dell’URL (due linee con pallini) → Impostazioni sito → Notifiche → Consenti. Safari (iPhone): “aA” → Impostazioni sito → Notifiche → Consenti.'}
                   {pushStatus === 'unsupported' && 'Notifiche push non supportate su questo browser.'}
                   {pushStatus === 'missing' && 'Configurazione Firebase mancante. Completa le env pubbliche.'}
                   {pushStatus === 'error' && 'Errore durante l’attivazione delle notifiche.'}
