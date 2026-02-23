@@ -67,6 +67,9 @@ export default function AdminDashboardLayout({
 
   useEffect(() => {
     if (typeof window === 'undefined' || !('Notification' in window)) return
+    let cancelled = false
+    let inFlight = false
+
     const readAdminPushActive = () => {
       try {
         return localStorage.getItem('admin-push:active') !== 'false'
@@ -75,32 +78,56 @@ export default function AdminDashboardLayout({
       }
     }
 
-    const syncPermission = () => {
+    const syncPermission = async () => {
+      if (inFlight) return
+      inFlight = true
       const adminPushActive = readAdminPushActive()
-      if (Notification.permission === 'granted') {
-        setPushStatus(adminPushActive ? 'enabled' : 'idle')
-        return
+      try {
+        if (Notification.permission === 'denied') {
+          if (!cancelled) setPushStatus('denied')
+          return
+        }
+        if (Notification.permission !== 'granted') {
+          if (!cancelled) setPushStatus('idle')
+          return
+        }
+        if (!adminPushActive) {
+          if (!cancelled) setPushStatus('idle')
+          return
+        }
+
+        const hasToken = !!localStorage.getItem('admin-push-token')
+        if (hasToken) {
+          if (!cancelled) setPushStatus('enabled')
+          return
+        }
+
+        const result = await enableAdminPush()
+        if (cancelled) return
+        if (result.ok) {
+          setPushStatus('enabled')
+        } else if (result.reason === 'missing_config') {
+          setPushStatus('missing')
+        } else if (result.reason === 'unsupported') {
+          setPushStatus('unsupported')
+        } else if (result.reason === 'denied') {
+          setPushStatus('denied')
+        } else {
+          setPushStatus('error')
+        }
+      } finally {
+        inFlight = false
       }
-      if (Notification.permission === 'denied') {
-        setPushStatus('denied')
-        return
-      }
-      setPushStatus('idle')
     }
 
-    const bootstrapGrantedPermission = async () => {
-      if (Notification.permission !== 'granted') return
-      if (!readAdminPushActive()) return
-      const result = await enableAdminPush()
-      if (!result.ok && result.reason === 'missing_config') {
-        setPushStatus('missing')
-      }
+    void syncPermission()
+    const interval = window.setInterval(() => {
+      void syncPermission()
+    }, 3000)
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
     }
-
-    void bootstrapGrantedPermission()
-    syncPermission()
-    const interval = window.setInterval(syncPermission, 1500)
-    return () => window.clearInterval(interval)
   }, [])
 
   // Version checking handled globally in AppVersionChecker
@@ -367,14 +394,18 @@ export default function AdminDashboardLayout({
   }
 
   const handleEnablePush = async () => {
-    const result = await enableAdminPush()
-    if (result.ok) {
-      setPushStatus('enabled')
-    } else {
-      if (result.reason === 'unsupported') setPushStatus('unsupported')
-      else if (result.reason === 'denied') setPushStatus('denied')
-      else if (result.reason === 'missing_config') setPushStatus('missing')
-      else setPushStatus('error')
+    try {
+      const result = await enableAdminPush()
+      if (result.ok) {
+        setPushStatus('enabled')
+      } else {
+        if (result.reason === 'unsupported') setPushStatus('unsupported')
+        else if (result.reason === 'denied') setPushStatus('denied')
+        else if (result.reason === 'missing_config') setPushStatus('missing')
+        else setPushStatus('error')
+      }
+    } catch {
+      setPushStatus('error')
     }
   }
 
@@ -534,7 +565,7 @@ export default function AdminDashboardLayout({
             {pushStatus !== 'enabled' && (
               <div className="border-b bg-card/60 px-4 py-3 flex items-center justify-between gap-3">
                 <div className="text-sm text-muted-foreground">
-                  {pushStatus === 'denied' && 'Notifiche bloccate dal browser. Chrome (Android): tocca l\'icona a sinistra dell\'indirizzo e apri "Autorizzazioni" o "Impostazioni sito", poi Notifiche -> Consenti. Se non compare: menu Chrome -> Settings -> Site settings -> Notifications -> questo sito -> Allow. Safari (iPhone): "aA" -> Impostazioni sito -> Notifiche -> Consenti.'}
+                  {pushStatus === 'denied' && 'Notifiche bloccate. Chrome Android: vai su menu Chrome -> Settings -> Site settings -> Notifications -> questo sito -> Allow. Se il sito e` gia` in Allow, controlla Android: Impostazioni telefono -> App -> Chrome -> Notifiche -> Consenti. Safari (iPhone): "aA" -> Impostazioni sito -> Notifiche -> Consenti.'}
                   {pushStatus === 'unsupported' && 'Notifiche push non supportate su questo browser.'}
                   {pushStatus === 'missing' && 'Configurazione Firebase mancante. Completa le env pubbliche.'}
                   {pushStatus === 'error' && 'Errore durante l’attivazione delle notifiche.'}

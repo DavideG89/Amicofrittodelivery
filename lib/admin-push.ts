@@ -56,62 +56,66 @@ async function ensureServiceWorker(config: typeof firebaseConfig) {
 }
 
 export async function enableAdminPush(): Promise<PushResult> {
-  if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
-    return { ok: false, reason: 'unsupported' }
-  }
-
-  const supported = await isSupported().catch(() => false)
-  if (!supported) return { ok: false, reason: 'unsupported' }
-
-  if (!hasFirebaseConfig()) return { ok: false, reason: 'missing_config' }
-
-  if (Notification.permission === 'denied') {
-    return { ok: false, reason: 'denied' }
-  }
-
-  let permission: NotificationPermission = Notification.permission
-  if (permission === 'default') {
-    permission = await Notification.requestPermission()
-  }
-  if (permission !== 'granted') {
-    return { ok: false, reason: permission === 'denied' ? 'denied' : 'error' }
-  }
-
-  const app = getFirebaseApp()
-  const registration = await ensureServiceWorker(firebaseConfig)
-  if (!registration || !registration.pushManager) {
-    return { ok: false, reason: 'unsupported' }
-  }
-  const messaging = getMessaging(app)
-
-  const token = await getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration: registration,
-  })
-
-  if (!token) return { ok: false, reason: 'no_token' }
-
-  const { error } = await supabase
-    .from('admin_push_tokens')
-    .upsert(
-      {
-        token,
-        user_agent: navigator.userAgent,
-        device_info: navigator.platform ?? null,
-        last_seen: new Date().toISOString(),
-      },
-      { onConflict: 'token' }
-    )
-
-  if (error) return { ok: false, reason: 'error' }
   try {
-    localStorage.setItem('admin-push-token', token)
-    localStorage.setItem('admin-push:active', 'true')
-  } catch {
-    // ignore storage errors
-  }
+    if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
+      return { ok: false, reason: 'unsupported' }
+    }
 
-  return { ok: true, token }
+    const supported = await isSupported().catch(() => false)
+    if (!supported) return { ok: false, reason: 'unsupported' }
+
+    if (!hasFirebaseConfig()) return { ok: false, reason: 'missing_config' }
+
+    if (Notification.permission === 'denied') {
+      return { ok: false, reason: 'denied' }
+    }
+
+    let permission: NotificationPermission = Notification.permission
+    if (permission === 'default') {
+      permission = await Notification.requestPermission()
+    }
+    if (permission !== 'granted') {
+      return { ok: false, reason: permission === 'denied' ? 'denied' : 'error' }
+    }
+
+    const app = getFirebaseApp()
+    const registration = await ensureServiceWorker(firebaseConfig)
+    if (!registration || !registration.pushManager) {
+      return { ok: false, reason: 'unsupported' }
+    }
+    const messaging = getMessaging(app)
+
+    const token = await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: registration,
+    })
+
+    if (!token) return { ok: false, reason: 'no_token' }
+
+    const { error } = await supabase
+      .from('admin_push_tokens')
+      .upsert(
+        {
+          token,
+          user_agent: navigator.userAgent,
+          device_info: navigator.platform ?? null,
+          last_seen: new Date().toISOString(),
+        },
+        { onConflict: 'token' }
+      )
+
+    if (error) return { ok: false, reason: 'error' }
+    try {
+      localStorage.setItem('admin-push-token', token)
+      localStorage.setItem('admin-push:active', 'true')
+    } catch {
+      // ignore storage errors
+    }
+
+    return { ok: true, token }
+  } catch {
+    return { ok: false, reason: 'error' }
+  }
 }
 
 export async function disableAdminPush() {
