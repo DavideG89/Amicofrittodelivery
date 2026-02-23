@@ -27,6 +27,25 @@ export default function Home() {
   const categoryTopRef = useRef<HTMLDivElement>(null)
   const cacheKey = 'af:home-cache:v1'
   const cacheTtlMs = 10 * 60 * 1000
+  const sortCategories = (list: Category[]) => {
+    const desiredOrder = ['hamburger', 'panini', 'mini', 'fritti', 'salse', 'bevande']
+    const getSortKey = (category: Category) => {
+      const slug = (category.slug || '').toLowerCase()
+      const name = (category.name || '').toLowerCase()
+      const idx =
+        desiredOrder.indexOf(slug) !== -1
+          ? desiredOrder.indexOf(slug)
+          : desiredOrder.findIndex((key) => name.includes(key))
+      return idx === -1 ? Number.MAX_SAFE_INTEGER : idx
+    }
+
+    return [...list].sort((a, b) => {
+      const aKey = getSortKey(a)
+      const bKey = getSortKey(b)
+      if (aKey !== bKey) return aKey - bKey
+      return (a.display_order ?? 0) - (b.display_order ?? 0)
+    })
+  }
 
   const getOrderStatusLabel = (status: OrderStatus | null) => {
     switch (status) {
@@ -92,11 +111,12 @@ export default function Home() {
                 activeCategory: string | null
               }
               if (Date.now() - cached.ts < cacheTtlMs) {
-                setCategories(cached.categories || [])
+                const sortedCachedCategories = sortCategories(cached.categories || [])
+                setCategories(sortedCachedCategories)
                 setProductsByCategory(cached.productsByCategory || {})
                 setStoreInfo(cached.storeInfo || null)
                 setUpsellSettings(cached.upsellSettings || null)
-                const cachedActive = cached.activeCategory ?? cached.categories?.[0]?.id ?? null
+                const cachedActive = cached.activeCategory ?? sortedCachedCategories?.[0]?.id ?? null
                 setActiveCategory(cachedActive)
                 setLoading(false)
                 if (cachedActive && !cached.productsByCategory?.[cachedActive]) {
@@ -147,10 +167,12 @@ export default function Home() {
           .eq('id', 'default')
           .maybeSingle()
 
-        setCategories(categoriesData || [])
+        const sortedCategories = sortCategories(categoriesData || [])
+
+        setCategories(sortedCategories)
         setStoreInfo(storeInfoData || null)
         setUpsellSettings(upsellSettingsData || null)
-        const firstCategory = categoriesData?.[0]?.id ?? null
+        const firstCategory = sortedCategories?.[0]?.id ?? null
         setActiveCategory(firstCategory)
         if (firstCategory) {
           void fetchProductsForCategory(firstCategory)

@@ -11,6 +11,14 @@ import { supabase } from '@/lib/supabase'
 
 export default function AdminDashboardPage() {
   const router = useRouter()
+  const adminPages = [
+    { href: '/admin/dashboard', label: 'Dashboard' },
+    { href: '/admin/dashboard/orders', label: 'Ordini' },
+    { href: '/admin/dashboard/menu', label: 'Menu' },
+    { href: '/admin/dashboard/upsell', label: 'Upsell' },
+    { href: '/admin/dashboard/discounts', label: 'Sconti' },
+    { href: '/admin/dashboard/settings', label: 'Impostazioni' },
+  ]
   const [stats, setStats] = useState({
     totalProducts: 0,
     totalOrders: 0,
@@ -84,12 +92,6 @@ export default function AdminDashboardPage() {
 
   const statCards = [
     {
-      title: 'Prodotti Totali',
-      value: stats.totalProducts,
-      icon: Package,
-      description: 'Prodotti nel menu'
-    },
-    {
       title: 'Ordini Totali',
       value: stats.totalOrders,
       icon: ShoppingCart,
@@ -106,52 +108,53 @@ export default function AdminDashboardPage() {
       title: 'Incasso Oggi',
       value: `${stats.todayRevenue.toFixed(2)}€`,
       icon: Euro,
-      description: 'Fatturato giornaliero'
+      description: 'Fatturato giornaliero',
+      noBorder: true
+    },
+    {
+      title: 'Prodotti Totali',
+      value: stats.totalProducts,
+      icon: Package,
+      description: 'Prodotti nel menu',
+      noBorder: true
     }
   ]
 
   return (
-    <div className="p-6">
+    <div className="p-6 bg-muted/30">
       <div className="mb-8">
-        <DropdownMenu>
-          <DropdownMenuTrigger className="text-left">
-            <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
-              Dashboard
-              <ChevronDown className="h-5 w-5 text-muted-foreground" />
-            </h1>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard')}>
-              Dashboard
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/orders')}>
-              Ordini
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/menu')}>
-              Menu
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/upsell')}>
-              Upsell
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/discounts')}>
-              Sconti
-            </DropdownMenuItem>
-            <DropdownMenuItem onSelect={() => router.push('/admin/dashboard/settings')}>
-              Impostazioni
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="text-left">
+              <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                Dashboard
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              </h1>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {adminPages.map((page) => (
+                <DropdownMenuItem key={page.href} onSelect={() => router.push(page.href)}>
+                  {page.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <h1 className="hidden md:block text-3xl font-bold">Dashboard</h1>
         <p className="text-muted-foreground">Panoramica del tuo ristorante</p>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => {
           const Icon = stat.icon
           const isOrdersTotal = stat.title === 'Ordini Totali'
           const isOrdersPending = stat.title === 'Ordini in Attesa'
           const isClickable = isOrdersTotal || isOrdersPending
+          const mobileSpanClass = isClickable ? '' : 'col-span-2 lg:col-span-1'
           const content = (
-            <Card className={`${stat.highlight ? 'border-primary' : ''} ${isClickable ? 'hover:border-primary transition-colors' : ''}`}>
+            <Card
+              className={`${stat.noBorder ? 'border-0 shadow-none' : ''} ${stat.highlight ? 'border-primary' : ''} ${isClickable ? 'bg-amber-50/60 border-amber-100 hover:border-primary transition-colors' : 'bg-card'} `}
+            >
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">
                   {stat.title}
@@ -169,21 +172,21 @@ export default function AdminDashboardPage() {
 
           if (isOrdersTotal) {
             return (
-              <Link key={stat.title} href="/admin/dashboard/orders?tab=all" className="block">
-                {content}
-              </Link>
-            )
+            <Link key={stat.title} href="/admin/dashboard/orders?tab=all" className={`block ${mobileSpanClass}`}>
+              {content}
+            </Link>
+          )
           }
 
           if (isOrdersPending) {
             return (
-              <Link key={stat.title} href="/admin/dashboard/orders?tab=pending" className="block">
+              <Link key={stat.title} href="/admin/dashboard/orders?tab=pending" className={`block ${mobileSpanClass}`}>
                 {content}
               </Link>
             )
           }
 
-          return <div key={stat.title}>{content}</div>
+          return <div key={stat.title} className={mobileSpanClass}>{content}</div>
         })}
       </div>
 

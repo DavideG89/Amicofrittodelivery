@@ -1,11 +1,13 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Plus, Edit, Trash2, Eye, EyeOff } from 'lucide-react'
+import { Plus, Edit, Trash2, Eye, EyeOff, ChevronDown } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
@@ -16,8 +18,17 @@ import { supabase, Category, Product } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 export default function MenuManagementPage() {
+  const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const adminPages = [
+    { href: '/admin/dashboard', label: 'Dashboard' },
+    { href: '/admin/dashboard/orders', label: 'Ordini' },
+    { href: '/admin/dashboard/menu', label: 'Menu' },
+    { href: '/admin/dashboard/upsell', label: 'Upsell' },
+    { href: '/admin/dashboard/discounts', label: 'Sconti' },
+    { href: '/admin/dashboard/settings', label: 'Impostazioni' },
+  ]
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
@@ -274,7 +285,24 @@ export default function MenuManagementPage() {
     <div className="p-6">
       <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Gestione Menu</h1>
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="text-left">
+                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                  Gestione Menu
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                </h1>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {adminPages.map((page) => (
+                  <DropdownMenuItem key={page.href} onSelect={() => router.push(page.href)}>
+                    {page.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <h1 className="hidden md:block text-3xl font-bold">Gestione Menu</h1>
           <p className="text-muted-foreground">Gestisci categorie e prodotti</p>
         </div>
         <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">

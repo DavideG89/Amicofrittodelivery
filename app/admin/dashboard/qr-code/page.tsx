@@ -1,16 +1,27 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Download, QrCode as QrCodeIcon } from 'lucide-react'
+import { Download, QrCode as QrCodeIcon, ChevronDown } from 'lucide-react'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import QRCode from 'qrcode'
 import { toast } from 'sonner'
 
 export default function QRCodePage() {
+  const router = useRouter()
   const [qrCodeUrl, setQrCodeUrl] = useState('')
   const [loading, setLoading] = useState(true)
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const adminPages = [
+    { href: '/admin/dashboard', label: 'Dashboard' },
+    { href: '/admin/dashboard/orders', label: 'Ordini' },
+    { href: '/admin/dashboard/menu', label: 'Menu' },
+    { href: '/admin/dashboard/upsell', label: 'Upsell' },
+    { href: '/admin/dashboard/discounts', label: 'Sconti' },
+    { href: '/admin/dashboard/settings', label: 'Impostazioni' },
+  ]
 
   useEffect(() => {
     generateQRCode()
@@ -58,7 +69,24 @@ export default function QRCodePage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold">QR Code</h1>
+        <div className="md:hidden">
+          <DropdownMenu>
+            <DropdownMenuTrigger className="text-left">
+              <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                QR Code
+                <ChevronDown className="h-5 w-5 text-muted-foreground" />
+              </h1>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              {adminPages.map((page) => (
+                <DropdownMenuItem key={page.href} onSelect={() => router.push(page.href)}>
+                  {page.label}
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+        <h1 className="hidden md:block text-3xl font-bold">QR Code</h1>
         <p className="text-muted-foreground">
           Genera e scarica il QR code per il tuo ristorante
         </p>

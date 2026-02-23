@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { supabase, type Product, type UpsellSettings, type Category } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
@@ -9,8 +10,9 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
-import { Save, Search, ListChecks, XCircle } from 'lucide-react'
+import { Save, Search, ListChecks, XCircle, ChevronDown } from 'lucide-react'
 
 const DEFAULT_UPSELL_ID = 'default'
 const DEFAULT_MAX_ITEMS = 6
@@ -19,6 +21,7 @@ const compareProductName = (a: Product, b: Product) =>
   a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
 
 export default function UpsellPage() {
+  const router = useRouter()
   const [products, setProducts] = useState<Product[]>([])
   const [categories, setCategories] = useState<Category[]>([])
   const [loading, setLoading] = useState(true)
@@ -26,6 +29,14 @@ export default function UpsellPage() {
   const [maxItems, setMaxItems] = useState(DEFAULT_MAX_ITEMS)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [query, setQuery] = useState('')
+  const adminPages = [
+    { href: '/admin/dashboard', label: 'Dashboard' },
+    { href: '/admin/dashboard/orders', label: 'Ordini' },
+    { href: '/admin/dashboard/menu', label: 'Menu' },
+    { href: '/admin/dashboard/upsell', label: 'Upsell' },
+    { href: '/admin/dashboard/discounts', label: 'Sconti' },
+    { href: '/admin/dashboard/settings', label: 'Impostazioni' },
+  ]
 
   useEffect(() => {
     const fetchData = async () => {
@@ -140,7 +151,24 @@ export default function UpsellPage() {
     return (
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Upsell</h1>
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="text-left">
+                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                  Upsell
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                </h1>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {adminPages.map((page) => (
+                  <DropdownMenuItem key={page.href} onSelect={() => router.push(page.href)}>
+                    {page.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <h1 className="hidden md:block text-3xl font-bold">Upsell</h1>
           <p className="text-muted-foreground">Caricamento...</p>
         </div>
       </div>
@@ -151,7 +179,24 @@ export default function UpsellPage() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Upsell</h1>
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="text-left">
+                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                  Upsell
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                </h1>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {adminPages.map((page) => (
+                  <DropdownMenuItem key={page.href} onSelect={() => router.push(page.href)}>
+                    {page.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <h1 className="hidden md:block text-3xl font-bold">Upsell</h1>
           <p className="text-muted-foreground">
             Scegli quali prodotti mostrare nel modale upsell
           </p>

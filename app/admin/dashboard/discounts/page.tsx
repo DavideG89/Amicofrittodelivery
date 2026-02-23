@@ -1,13 +1,14 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { supabase } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { toast } from 'sonner'
-import { Trash2, Plus, Percent } from 'lucide-react'
+import { Trash2, Plus, Percent, ChevronDown } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -17,6 +18,7 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import {
   Table,
   TableBody,
@@ -40,11 +42,20 @@ interface DiscountCode {
 }
 
 export default function DiscountsPage() {
+  const router = useRouter()
   const [discounts, setDiscounts] = useState<DiscountCode[]>([])
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newCode, setNewCode] = useState('')
   const [newPercent, setNewPercent] = useState('')
+  const adminPages = [
+    { href: '/admin/dashboard', label: 'Dashboard' },
+    { href: '/admin/dashboard/orders', label: 'Ordini' },
+    { href: '/admin/dashboard/menu', label: 'Menu' },
+    { href: '/admin/dashboard/upsell', label: 'Upsell' },
+    { href: '/admin/dashboard/discounts', label: 'Sconti' },
+    { href: '/admin/dashboard/settings', label: 'Impostazioni' },
+  ]
 
   useEffect(() => {
     fetchDiscounts()
@@ -155,7 +166,24 @@ export default function DiscountsPage() {
     return (
       <div className="p-6 space-y-6">
         <div>
-          <h1 className="text-3xl font-bold">Codici Sconto</h1>
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="text-left">
+                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                  Codici Sconto
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                </h1>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {adminPages.map((page) => (
+                  <DropdownMenuItem key={page.href} onSelect={() => router.push(page.href)}>
+                    {page.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <h1 className="hidden md:block text-3xl font-bold">Codici Sconto</h1>
           <p className="text-muted-foreground">Caricamento...</p>
         </div>
       </div>
@@ -166,7 +194,24 @@ export default function DiscountsPage() {
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-3xl font-bold">Codici Sconto</h1>
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="text-left">
+                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                  Codici Sconto
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                </h1>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {adminPages.map((page) => (
+                  <DropdownMenuItem key={page.href} onSelect={() => router.push(page.href)}>
+                    {page.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <h1 className="hidden md:block text-3xl font-bold">Codici Sconto</h1>
           <p className="text-muted-foreground">
             Gestisci i codici sconto per i tuoi clienti
           </p>

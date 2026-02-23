@@ -1,10 +1,10 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
-import { Clock, CheckCircle, XCircle, Package, Truck, Printer, X, ChevronUp } from 'lucide-react'
+import { Clock, CheckCircle, XCircle, Package, Truck, Printer, X, ChevronUp, ChevronDown } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -104,6 +104,7 @@ const getNextStatusLabel = (current: Order['status']) => {
 }
 
 export default function OrdersManagementPage() {
+  const router = useRouter()
   const searchParams = useSearchParams()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
@@ -115,6 +116,14 @@ export default function OrdersManagementPage() {
   const [realtimeStatus, setRealtimeStatus] = useState<'active' | 'polling'>('active')
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const adminPages = [
+    { href: '/admin/dashboard', label: 'Dashboard' },
+    { href: '/admin/dashboard/orders', label: 'Ordini' },
+    { href: '/admin/dashboard/menu', label: 'Menu' },
+    { href: '/admin/dashboard/upsell', label: 'Upsell' },
+    { href: '/admin/dashboard/discounts', label: 'Sconti' },
+    { href: '/admin/dashboard/settings', label: 'Impostazioni' },
+  ]
   const allowedTabs = ['pending', 'active', 'delivery', 'completed', 'all'] as const
   const initialTab = allowedTabs.includes((searchParams.get('tab') ?? '') as (typeof allowedTabs)[number])
     ? (searchParams.get('tab') as (typeof allowedTabs)[number])
@@ -499,7 +508,24 @@ export default function OrdersManagementPage() {
           </div>
         )}
         <div>
-          <h1 className="text-3xl font-bold">Gestione Ordini</h1>
+          <div className="md:hidden">
+            <DropdownMenu>
+              <DropdownMenuTrigger className="text-left">
+                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                  Gestione Ordini
+                  <ChevronDown className="h-5 w-5 text-muted-foreground" />
+                </h1>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start">
+                {adminPages.map((page) => (
+                  <DropdownMenuItem key={page.href} onSelect={() => router.push(page.href)}>
+                    {page.label}
+                  </DropdownMenuItem>
+                ))}
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+          <h1 className="hidden md:block text-3xl font-bold">Gestione Ordini</h1>
           <p className="text-muted-foreground">Visualizza e gestisci gli ordini in tempo reale</p>
         </div>
       </div>
