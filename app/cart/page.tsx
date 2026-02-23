@@ -259,9 +259,14 @@ export default function CartPage() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
-                    <Label htmlFor="delivery-mode" className="cursor-pointer font-medium text-sm">
-                      Consegna a domicilio
-                    </Label>
+                    <div className="space-y-1">
+                      <Label htmlFor="delivery-mode" className="cursor-pointer font-medium text-sm">
+                        Modalità ordine
+                      </Label>
+                      <p className="text-xs text-muted-foreground">
+                        {isDelivery ? 'Consegna a domicilio' : 'Ritiro in negozio'}
+                      </p>
+                    </div>
                     <Switch
                       id="delivery-mode"
                       checked={isDelivery}

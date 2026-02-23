@@ -13,6 +13,7 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Switch } from '@/components/ui/switch'
 import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
@@ -50,7 +51,7 @@ function CheckoutForm() {
     process.env.NODE_ENV === 'development' ||
     isLocalhost
   
-  const isDelivery = searchParams.get('delivery') === 'true'
+  const [isDelivery, setIsDelivery] = useState(searchParams.get('delivery') === 'true')
   
   const [formData, setFormData] = useState({
     name: '',
@@ -112,6 +113,15 @@ function CheckoutForm() {
       router.push('/cart')
     }
   }, [items, orderPlaced, router])
+
+  useEffect(() => {
+    setIsDelivery(searchParams.get('delivery') === 'true')
+  }, [searchParams])
+
+  const handleOrderModeChange = (value: boolean) => {
+    setIsDelivery(value)
+    router.replace(`/checkout?delivery=${value}`)
+  }
 
   if (orderPlaced) {
     return (
@@ -335,6 +345,22 @@ function CheckoutForm() {
                 <CardDescription className="text-sm">Inserisci i tuoi dati per completare l'ordine</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
+                <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="order-mode" className="cursor-pointer font-medium text-sm">
+                      Consegna d&apos;ordine / Ritiro
+                    </Label>
+                    <p className="text-xs text-muted-foreground">
+                      {isDelivery ? 'Consegna a domicilio' : 'Ritiro in negozio'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="order-mode"
+                    checked={isDelivery}
+                    onCheckedChange={handleOrderModeChange}
+                  />
+                </div>
+
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome e Cognome *</Label>
                   <Input

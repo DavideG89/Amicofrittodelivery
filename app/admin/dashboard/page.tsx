@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import Link from 'next/link'
 import { Package, ShoppingCart, Euro, TrendingUp } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -116,8 +117,11 @@ export default function AdminDashboardPage() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {statCards.map((stat) => {
           const Icon = stat.icon
-          return (
-            <Card key={stat.title} className={stat.highlight ? 'border-primary' : ''}>
+          const isOrdersTotal = stat.title === 'Ordini Totali'
+          const isOrdersPending = stat.title === 'Ordini in Attesa'
+          const isClickable = isOrdersTotal || isOrdersPending
+          const content = (
+            <Card className={`${stat.highlight ? 'border-primary' : ''} ${isClickable ? 'hover:border-primary transition-colors' : ''}`}>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium">
                   {stat.title}
@@ -132,6 +136,24 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
           )
+
+          if (isOrdersTotal) {
+            return (
+              <Link key={stat.title} href="/admin/dashboard/orders?tab=all" className="block">
+                {content}
+              </Link>
+            )
+          }
+
+          if (isOrdersPending) {
+            return (
+              <Link key={stat.title} href="/admin/dashboard/orders?tab=pending" className="block">
+                {content}
+              </Link>
+            )
+          }
+
+          return <div key={stat.title}>{content}</div>
         })}
       </div>
 

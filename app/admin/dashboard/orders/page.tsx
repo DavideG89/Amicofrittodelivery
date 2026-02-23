@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { useSearchParams } from 'next/navigation'
 import { format } from 'date-fns'
 import { it } from 'date-fns/locale'
 import { Clock, CheckCircle, XCircle, Package, Truck, Printer, X, ChevronUp } from 'lucide-react'
@@ -103,6 +104,7 @@ const getNextStatusLabel = (current: Order['status']) => {
 }
 
 export default function OrdersManagementPage() {
+  const searchParams = useSearchParams()
   const [orders, setOrders] = useState<Order[]>([])
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
@@ -113,12 +115,25 @@ export default function OrdersManagementPage() {
   const [realtimeStatus, setRealtimeStatus] = useState<'active' | 'polling'>('active')
   const [page, setPage] = useState(0)
   const [hasMore, setHasMore] = useState(true)
+  const allowedTabs = ['pending', 'active', 'delivery', 'completed', 'all'] as const
+  const initialTab = allowedTabs.includes((searchParams.get('tab') ?? '') as (typeof allowedTabs)[number])
+    ? (searchParams.get('tab') as (typeof allowedTabs)[number])
+    : 'pending'
+  const [activeTab, setActiveTab] = useState<(typeof allowedTabs)[number]>(initialTab)
   const pageSize = 20
   const lastFetchAtRef = useRef(0)
   const minFetchIntervalMs = 30000
   const pollingIntervalMs = 60000
   const pollingIdRef = useRef<number | null>(null)
   const isLeaderRef = useRef(false)
+
+  useEffect(() => {
+    const requested = searchParams.get('tab')
+    if (!requested) return
+    if (allowedTabs.includes(requested as (typeof allowedTabs)[number])) {
+      setActiveTab(requested as (typeof allowedTabs)[number])
+    }
+  }, [searchParams, allowedTabs])
 
   useEffect(() => {
     maybeFetchOrders(true)
@@ -489,7 +504,7 @@ export default function OrdersManagementPage() {
         </div>
       </div>
 
-      <Tabs defaultValue="pending" className="w-full flex-1 min-h-0 flex flex-col">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as (typeof allowedTabs)[number])} className="w-full flex-1 min-h-0 flex flex-col">
         <div className="z-20 -mx-6 px-6 py-3 bg-background/95 backdrop-blur border-b">
           <div className="overflow-x-auto -mx-6 px-6">
             <TabsList className="inline-flex w-max min-w-max justify-start gap-2 bg-muted/60 h-11 sm:h-12">
