@@ -742,7 +742,7 @@ export default function OrdersManagementPage() {
                     </div>
                   )}
 
-                  <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 backdrop-blur px-4 pt-5 pb-3">
+                  <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 backdrop-blur px-4 pt-4 pb-6">
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
