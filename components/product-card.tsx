@@ -7,19 +7,27 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useCart } from '@/lib/cart-context'
 import { Product, supabase, OrderAddition } from '@/lib/supabase'
+import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
+import { toast } from 'sonner'
 
 type ProductCardProps = {
   product: Product
   onAddToCart?: (product: Product, quantity: number) => void
   imageFit?: 'cover' | 'contain'
   skipAdditions?: boolean
+  categorySlug?: string | null
 }
 
-export function ProductCard({ product, onAddToCart, imageFit = 'cover', skipAdditions = false }: ProductCardProps) {
+export function ProductCard({
+  product,
+  onAddToCart,
+  imageFit = 'cover',
+  skipAdditions = false,
+  categorySlug,
+}: ProductCardProps) {
   const { addItem, items, updateQuantity } = useCart()
   const [details, setDetails] = useState<{
     description?: string | null
@@ -41,7 +49,8 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover', skipAddi
   const [sauceOptions, setSauceOptions] = useState<OrderAddition[]>([])
   const [extraOptions, setExtraOptions] = useState<OrderAddition[]>([])
   const [saucesLoading, setSaucesLoading] = useState(false)
-  const [selectedSauce, setSelectedSauce] = useState('none')
+  const [sauceRule, setSauceRule] = useState<SauceRule>(DEFAULT_SAUCE_RULE)
+  const [selectedSauceIds, setSelectedSauceIds] = useState<Set<string>>(new Set())
   const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set())
   
   const cartItem = items.find(item => item.product.id === product.id)
@@ -68,16 +77,64 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover', skipAddi
     }
   }
 
+  const loadSauceRule = async () => {
+    const slug = (categorySlug || '').trim().toLowerCase()
+    if (!slug) {
+      setSauceRule(DEFAULT_SAUCE_RULE)
+      return
+    }
+    try {
+      const { data, error } = await supabase
+        .from('order_addition_category_rules')
+        .select('sauce_mode, max_sauces, sauce_price')
+        .eq('category_slug', slug)
+        .eq('active', true)
+        .limit(1)
+        .maybeSingle()
+
+      if (error || !data) {
+        setSauceRule(getFallbackSauceRuleByCategorySlug(slug))
+        return
+      }
+      setSauceRule(normalizeSauceRule(data as Partial<SauceRule>))
+    } catch {
+      setSauceRule(getFallbackSauceRuleByCategorySlug(slug))
+    }
+  }
+
   const handleOpenAdditions = async () => {
     if (skipAdditions) {
       addItem(product)
       if (onAddToCart) onAddToCart(product, 1)
       return
     }
-    setSelectedSauce('none')
+    setSelectedSauceIds(new Set())
     setSelectedExtras(new Set())
     setAdditionsOpen(true)
-    await loadSauces()
+    await Promise.all([loadSauces(), loadSauceRule()])
+  }
+
+  const toggleSauce = (sauceId: string, checked: boolean) => {
+    setSelectedSauceIds((prev) => {
+      if (sauceRule.sauce_mode === 'none') return new Set()
+
+      if (sauceRule.sauce_mode === 'free_single') {
+        if (!checked) return new Set()
+        return new Set([sauceId])
+      }
+
+      const next = new Set(prev)
+      if (checked) {
+        if (!next.has(sauceId) && next.size >= sauceRule.max_sauces) {
+          toast.error(`Massimo ${sauceRule.max_sauces} salse`)
+          return prev
+        }
+        next.add(sauceId)
+      } else {
+        next.delete(sauceId)
+      }
+      return next
+    })
   }
 
   const toggleExtra = (extraName: string, checked: boolean) => {
@@ -90,22 +147,26 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover', skipAddi
   }
 
   const handleConfirmAddToCart = () => {
-    const selectedSauceItem = sauceOptions.find((item) => item.id === selectedSauce) || null
+    const selectedSauceItems = sauceOptions.filter((item) => selectedSauceIds.has(item.id))
     const selectedExtraItems = extraOptions.filter((item) => selectedExtras.has(item.id))
     const extrasList = selectedExtraItems.map((item) => item.name)
     const additionsParts: string[] = []
-    if (selectedSauceItem) {
-      additionsParts.push(`Salsa: ${selectedSauceItem.name}`)
+    if (selectedSauceItems.length > 0) {
+      additionsParts.push(`Salse: ${selectedSauceItems.map((item) => item.name).join(', ')}`)
     }
     if (extrasList.length > 0) {
       additionsParts.push(`Extra: ${extrasList.join(', ')}`)
     }
     const additions = additionsParts.join(' | ')
+    const saucesUnitPrice =
+      sauceRule.sauce_mode === 'paid_multi'
+        ? selectedSauceItems.length * Number(sauceRule.sauce_price || 0)
+        : 0
     const additionsUnitPrice =
-      (selectedSauceItem?.price || 0) +
+      saucesUnitPrice +
       selectedExtraItems.reduce((sum, item) => sum + Number(item.price || 0), 0)
     const additionsIds = [
-      ...(selectedSauceItem ? [selectedSauceItem.id] : []),
+      ...selectedSauceItems.map((item) => item.id),
       ...selectedExtraItems.map((item) => item.id),
     ]
 
@@ -115,16 +176,18 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover', skipAddi
       onAddToCart(product, 1)
     }
     
-    setSelectedSauce('none')
+    setSelectedSauceIds(new Set())
     setSelectedExtras(new Set())
     setAdditionsOpen(false)
   }
-  const selectedSaucePrice =
-    selectedSauce === 'none' ? 0 : Number(sauceOptions.find((item) => item.id === selectedSauce)?.price || 0)
+  const selectedSaucesPrice =
+    sauceRule.sauce_mode === 'paid_multi'
+      ? selectedSauceIds.size * Number(sauceRule.sauce_price || 0)
+      : 0
   const selectedExtrasPrice = extraOptions
     .filter((item) => selectedExtras.has(item.id))
     .reduce((sum, item) => sum + Number(item.price || 0), 0)
-  const additionsTotalLabel = (selectedSaucePrice + selectedExtrasPrice).toFixed(2).replace('.', ',')
+  const additionsTotalLabel = (selectedSaucesPrice + selectedExtrasPrice).toFixed(2).replace('.', ',')
 
   const handleDecrementInCart = () => {
     if (inCartQuantity <= 0) return
@@ -319,46 +382,59 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover', skipAddi
       </CardFooter>
 
       <Dialog open={additionsOpen} onOpenChange={setAdditionsOpen}>
-        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
+        <DialogContent className="max-w-md w-[95vw] max-h-[85vh] p-0 overflow-hidden flex flex-col">
+          <DialogHeader className="px-6 pt-6 pb-3">
             <DialogTitle>Aggiunte per {product.name}</DialogTitle>
             <DialogDescription>
               Scegli una salsa e gli extra per personalizzare il prodotto.
             </DialogDescription>
           </DialogHeader>
 
+          <div className="flex-1 overflow-y-auto px-6 pb-4">
           <div className="space-y-4">
             <div className="space-y-2">
-              <p className="text-sm font-semibold">Scegli una salsa</p>
-              <RadioGroup value={selectedSauce} onValueChange={setSelectedSauce} className="space-y-2">
-                <label className="flex items-center justify-between rounded-md border p-2.5 text-sm">
-                  <div className="flex items-center gap-2">
-                    <RadioGroupItem id={`sauce-none-${product.id}`} value="none" />
-                    <span>Nessuna salsa</span>
-                  </div>
-                </label>
-                {saucesLoading && (
-                  <p className="text-xs text-muted-foreground">Caricamento salse...</p>
-                )}
-                {!saucesLoading &&
-                  sauceOptions.map((sauce) => (
-                    <label key={sauce.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
-                      <div className="flex items-center gap-2">
-                        <RadioGroupItem
-                          id={`sauce-${product.id}-${sauce.id}`}
-                          value={sauce.id}
-                        />
-                        <span>{sauce.name}</span>
-                      </div>
-                      {Number(sauce.price || 0) > 0 && (
-                        <span className="font-medium">+{Number(sauce.price).toFixed(2).replace('.', ',')}€</span>
-                      )}
-                    </label>
-                  ))}
-                {!saucesLoading && sauceOptions.length === 0 && (
-                  <p className="text-xs text-muted-foreground">Nessuna salsa disponibile.</p>
-                )}
-              </RadioGroup>
+              <p className="text-sm font-semibold">
+                Salse
+                {sauceRule.sauce_mode === 'paid_multi' && ` (${selectedSauceIds.size}/${sauceRule.max_sauces})`}
+                {sauceRule.sauce_mode === 'free_single' && ' (max 1 gratuita)'}
+              </p>
+              {sauceRule.sauce_mode === 'none' ? (
+                <p className="text-xs text-muted-foreground">Salse non disponibili per questa categoria.</p>
+              ) : (
+                <div className="grid gap-2">
+                  {saucesLoading && (
+                    <p className="text-xs text-muted-foreground">Caricamento salse...</p>
+                  )}
+                  {!saucesLoading &&
+                    sauceOptions.map((sauce) => {
+                      const checked = selectedSauceIds.has(sauce.id)
+                      const disableByLimit =
+                        sauceRule.sauce_mode === 'paid_multi' &&
+                        !checked &&
+                        selectedSauceIds.size >= sauceRule.max_sauces
+                      return (
+                        <label key={sauce.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              checked={checked}
+                              disabled={disableByLimit}
+                              onCheckedChange={(value) => toggleSauce(sauce.id, Boolean(value))}
+                            />
+                            <span>{sauce.name}</span>
+                          </div>
+                          {sauceRule.sauce_mode === 'paid_multi' && (
+                            <span className="font-medium">
+                              +{Number(sauceRule.sauce_price).toFixed(2).replace('.', ',')}€
+                            </span>
+                          )}
+                        </label>
+                      )
+                    })}
+                  {!saucesLoading && sauceOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Nessuna salsa disponibile.</p>
+                  )}
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
@@ -384,11 +460,13 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover', skipAddi
                 )}
               </div>
             </div>
+          </div>
+          </div>
 
+          <div className="border-t bg-background/95 backdrop-blur px-6 py-3 space-y-3">
             <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
               Totale aggiunte: +{additionsTotalLabel}€
             </div>
-
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={() => setAdditionsOpen(false)}>
                 Annulla

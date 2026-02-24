@@ -16,7 +16,6 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
-  const [lastOrderActive, setLastOrderActive] = useState(false)
   const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
   const categoryTopRef = useRef<HTMLDivElement>(null)
@@ -59,15 +58,6 @@ export default function Home() {
       default:
         return null
     }
-  }
-
-  const dismissLastOrder = () => {
-    try {
-      localStorage.setItem('lastOrderActive', 'false')
-    } catch {
-      // ignore storage errors
-    }
-    setLastOrderActive(false)
   }
 
   const fetchProductsForCategory = async (categoryId: string) => {
@@ -200,9 +190,7 @@ export default function Home() {
   useEffect(() => {
     try {
       const number = localStorage.getItem('lastOrderNumber')
-      const active = localStorage.getItem('lastOrderActive') === 'true'
       setLastOrderNumber(number)
-      setLastOrderActive(active)
     } catch {
       // ignore storage errors
     }
@@ -220,7 +208,6 @@ export default function Home() {
       }
       if (cancelled) return
       setLastOrderNumber(null)
-      setLastOrderActive(false)
       setLastOrderStatus(null)
     }
 
@@ -271,7 +258,6 @@ export default function Home() {
           // ignore storage errors
         }
         setLastOrderNumber(null)
-        setLastOrderActive(false)
         setLastOrderStatus(null)
         return
       }
@@ -284,7 +270,6 @@ export default function Home() {
         // ignore storage errors
       }
       setLastOrderNumber(null)
-      setLastOrderActive(false)
       setLastOrderStatus(null)
     } finally {
       setLastOrderLoading(false)
@@ -333,29 +318,6 @@ export default function Home() {
             Scopri il nostro menù e ordina i tuoi sfizi preferiti in pochi click!
           </p>
         </div>
-
-        {lastOrderNumber && !lastOrderActive && lastOrderStatus !== 'completed' && lastOrderStatus !== 'cancelled' && (
-          <div className="mb-6 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-blue-900">
-            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-              <p className="font-medium">Hai un ordine recente.</p>
-              <div className="flex items-center gap-2">
-                <Link
-                  className="inline-flex h-9 items-center justify-center rounded-md bg-blue-700 px-3 text-sm font-medium text-white hover:bg-blue-800"
-                  href={`/order/${lastOrderNumber}`}
-                >
-                  Riprendi ordine
-                </Link>
-                <button
-                  type="button"
-                  className="inline-flex h-9 items-center justify-center rounded-md border border-blue-300 bg-white px-3 text-sm font-medium text-blue-900 hover:bg-blue-100"
-                  onClick={dismissLastOrder}
-                >
-                  Chiudi
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
 
         {!orderStatus.isOpen && (
           <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-center">
@@ -443,6 +405,7 @@ export default function Home() {
                           <ProductCard
                             key={product.id}
                             product={product}
+                            categorySlug={category.slug}
                             imageFit={isSaucesCategory ? 'contain' : 'cover'}
                             skipAdditions={isSaucesCategory || isDrinksCategory}
                           />

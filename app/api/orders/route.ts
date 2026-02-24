@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { validateOrderData, sanitizeOrderData, sanitizeString } from '@/lib/validation'
 import { createRateLimiter } from '@/lib/rate-limit'
+import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
 
 type OrderItem = {
   product_id: string
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
     const productIds = [...new Set(items.map((item) => item.product_id))]
     const { data: productsData, error: productsError } = await supabase
       .from('products')
-      .select('id, name, price, available')
+      .select('id, category_id, name, price, available')
       .in('id', productIds)
 
     if (productsError) {
@@ -175,6 +176,49 @@ export async function POST(request: Request) {
     }
 
     const productMap = new Map(productsData?.map((product) => [product.id, product]) ?? [])
+    const categoryIds = [
+      ...new Set(
+        (productsData ?? [])
+          .map((product) => product.category_id)
+          .filter((id): id is string => typeof id === 'string' && id.length > 0)
+      ),
+    ]
+    const categorySlugMap = new Map<string, string>()
+
+    if (categoryIds.length > 0) {
+      const { data: categoriesData } = await supabase
+        .from('categories')
+        .select('id, slug')
+        .in('id', categoryIds)
+
+      for (const category of categoriesData || []) {
+        categorySlugMap.set(category.id, String(category.slug || '').toLowerCase())
+      }
+    }
+
+    const categorySlugs = [...new Set(Array.from(categorySlugMap.values()).filter(Boolean))]
+    const sauceRulesMap = new Map<string, SauceRule>()
+    if (categorySlugs.length > 0) {
+      const { data: rulesData } = await supabase
+        .from('order_addition_category_rules')
+        .select('category_slug, sauce_mode, max_sauces, sauce_price, active')
+        .in('category_slug', categorySlugs)
+        .eq('active', true)
+
+      for (const row of rulesData || []) {
+        const key = String(row.category_slug || '').toLowerCase()
+        if (!key) continue
+        sauceRulesMap.set(
+          key,
+          normalizeSauceRule({
+            sauce_mode: row.sauce_mode as SauceRule['sauce_mode'],
+            max_sauces: Number(row.max_sauces || 0),
+            sauce_price: Number(row.sauce_price || 0),
+          })
+        )
+      }
+    }
+
     const additionIds = [...new Set(items.flatMap((item) => item.additions_ids))]
     const additionsMap = new Map<string, { type: 'sauce' | 'extra'; name: string; price: number }>()
 
@@ -198,18 +242,32 @@ export async function POST(request: Request) {
       }
     }
 
+    let additionsValidationError: string | null = null
     const normalizedItems = items.map((item) => {
       const product = productMap.get(item.product_id)
+      const categorySlug = product?.category_id ? categorySlugMap.get(product.category_id) || '' : ''
+      const sauceRule = sauceRulesMap.get(categorySlug) || getFallbackSauceRuleByCategorySlug(categorySlug) || DEFAULT_SAUCE_RULE
       const normalizedAdditionIds = [...new Set(item.additions_ids)].filter((id) => additionsMap.has(id))
       const selectedAdditions = normalizedAdditionIds
         .map((id) => additionsMap.get(id))
         .filter((value): value is { type: 'sauce' | 'extra'; name: string; price: number } => Boolean(value))
-      const sauce = selectedAdditions.find((addition) => addition.type === 'sauce')
+      const sauces = selectedAdditions.filter((addition) => addition.type === 'sauce')
       const extras = selectedAdditions.filter((addition) => addition.type === 'extra')
+      if (sauceRule.sauce_mode === 'none' && sauces.length > 0) {
+        additionsValidationError = 'Salse non consentite per questo prodotto'
+      }
+      if (sauceRule.sauce_mode === 'free_single' && sauces.length > 1) {
+        additionsValidationError = 'Massimo 1 salsa gratuita per questo prodotto'
+      }
+      if (sauceRule.sauce_mode === 'paid_multi' && sauces.length > sauceRule.max_sauces) {
+        additionsValidationError = `Massimo ${sauceRule.max_sauces} salse per questo prodotto`
+      }
       const additionsLabelParts: string[] = []
-      if (sauce) additionsLabelParts.push(`Salsa: ${sauce.name}`)
+      if (sauces.length > 0) additionsLabelParts.push(`Salse: ${sauces.map((sauce) => sauce.name).join(', ')}`)
       if (extras.length > 0) additionsLabelParts.push(`Extra: ${extras.map((extra) => extra.name).join(', ')}`)
-      const additionsUnitPrice = selectedAdditions.reduce((sum, addition) => sum + Number(addition.price || 0), 0)
+      const sauceUnitPrice = sauceRule.sauce_mode === 'paid_multi' ? sauces.length * sauceRule.sauce_price : 0
+      const extrasUnitPrice = extras.reduce((sum, addition) => sum + Number(addition.price || 0), 0)
+      const additionsUnitPrice = sauceUnitPrice + extrasUnitPrice
 
       return {
         product_id: item.product_id,
@@ -222,6 +280,10 @@ export async function POST(request: Request) {
         available: product?.available ?? false,
       }
     })
+
+    if (additionsValidationError) {
+      return NextResponse.json({ error: additionsValidationError }, { status: 400 })
+    }
 
     if (normalizedItems.some((item) => !item.name || !item.available)) {
       return NextResponse.json({ error: 'Prodotti non disponibili' }, { status: 400 })
