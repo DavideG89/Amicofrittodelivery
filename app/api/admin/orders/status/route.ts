@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { sendFcmMessages } from '@/lib/fcm'
+import type { OrderStatus } from '@/lib/supabase'
 
 export const runtime = 'nodejs'
 
@@ -27,6 +28,15 @@ const statusText: Record<string, { title: string; body: (orderNumber: string) =>
     body: (orderNumber) => `Il tuo ordine ${orderNumber} è stato annullato.❌`,
   },
 }
+
+const allowedStatuses: OrderStatus[] = [
+  'pending',
+  'confirmed',
+  'preparing',
+  'ready',
+  'completed',
+  'cancelled',
+]
 
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization') || ''
@@ -74,11 +84,18 @@ export async function POST(request: Request) {
     }
 
     const body = await request.json()
-    const orderId = typeof body?.orderId === 'string' ? body.orderId : ''
-    const status = typeof body?.status === 'string' ? body.status : ''
+    const orderId = typeof body?.orderId === 'string' ? body.orderId.trim() : ''
+    const statusRaw = typeof body?.status === 'string' ? body.status.trim() : ''
+    const status = statusRaw as OrderStatus
 
     if (!orderId || !status) {
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 })
+    }
+    if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(orderId)) {
+      return NextResponse.json({ error: 'orderId non valido' }, { status: 400 })
+    }
+    if (!allowedStatuses.includes(status)) {
+      return NextResponse.json({ error: 'Stato ordine non valido' }, { status: 400 })
     }
 
     const { data: order, error: orderError } = await supabase
@@ -93,7 +110,7 @@ export async function POST(request: Request) {
 
     const { error: updateError } = await supabase
       .from('orders')
-      .update({ status })
+      .update({ status: status as string })
       .eq('id', orderId)
 
     if (updateError) {

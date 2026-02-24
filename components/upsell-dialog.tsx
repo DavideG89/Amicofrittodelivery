@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
-import { X, Plus, Check } from 'lucide-react'
+import { Plus, Check } from 'lucide-react'
 import {
   Dialog,
   DialogContent,
@@ -19,15 +19,21 @@ import { useCart } from '@/lib/cart-context'
 type UpsellDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  triggerProduct: Product | null
+  triggerProduct?: Product | null
   suggestedProducts: Product[]
+  mode?: 'after_add' | 'before_checkout' | 'before_cart'
+  onSkip?: () => void
+  onAddSelectedComplete?: () => void
 }
 
 export function UpsellDialog({
   open,
   onOpenChange,
   triggerProduct,
-  suggestedProducts
+  suggestedProducts,
+  mode = 'after_add',
+  onSkip,
+  onAddSelectedComplete,
 }: UpsellDialogProps) {
   const { addItem } = useCart()
   const [selectedProducts, setSelectedProducts] = useState<Set<string>>(new Set())
@@ -57,14 +63,14 @@ export function UpsellDialog({
         addItem(product)
       }
     })
+    onAddSelectedComplete?.()
     onOpenChange(false)
   }
 
   const handleSkip = () => {
+    onSkip?.()
     onOpenChange(false)
   }
-
-  if (!triggerProduct) return null
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -72,13 +78,23 @@ export function UpsellDialog({
         className="max-w-2xl max-h-[85vh]"
         aria-describedby="upsell-description"
       >
-        <DialogHeader>
-          <DialogTitle className="text-xl sm:text-2xl">
-            Perfetto! Aggiungi qualcos'altro?
+        <DialogHeader className="w-full">
+          <DialogTitle className="mx-auto text-balance leading-tight text-xl sm:text-2xl">
+            {mode === 'before_checkout'
+              ? 'Prima di pagare, vuoi aggiungere qualcosa?'
+              : mode === 'before_cart'
+                ? 'Vuoi qualcosa in più per godertelo al massimo? 😉'
+                : 'Perfetto! Aggiungi qualcos\'altro?'}
           </DialogTitle>
-          <DialogDescription id="upsell-description">
-            Hai aggiunto <strong>{triggerProduct.name}</strong> al carrello. 
-            Completa il tuo ordine con questi prodotti:
+          <DialogDescription id="upsell-description" className="text-sm sm:text-base text-center">
+            {mode === 'before_checkout' || mode === 'before_cart' ? (
+              <>Completa il tuo ordine con questi prodotti consigliati:</>
+            ) : (
+              <>
+                Hai aggiunto <strong>{triggerProduct?.name}</strong> al carrello.
+                {' '}Completa il tuo ordine con questi prodotti:
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
 
@@ -171,7 +187,12 @@ export function UpsellDialog({
             disabled={selectedProducts.size === 0}
             className="flex-1"
           >
-            Aggiungi {selectedProducts.size > 0 && `(${selectedProducts.size})`}
+            {mode === 'before_checkout'
+              ? 'Aggiungi e vai al checkout'
+              : mode === 'before_cart'
+                ? 'Aggiungi e vai al carrello'
+                : 'Aggiungi'}
+            {selectedProducts.size > 0 && ` (${selectedProducts.size})`}
           </Button>
         </div>
       </DialogContent>

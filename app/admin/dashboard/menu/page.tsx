@@ -14,13 +14,14 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { supabase, Category, Product } from '@/lib/supabase'
+import { supabase, Category, Product, OrderAddition, OrderAdditionType } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 export default function MenuManagementPage() {
   const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
+  const [additions, setAdditions] = useState<OrderAddition[]>([])
   const adminPages = [
     { href: '/admin/dashboard', label: 'Dashboard' },
     { href: '/admin/dashboard/orders', label: 'Ordini' },
@@ -32,8 +33,10 @@ export default function MenuManagementPage() {
   const [loading, setLoading] = useState(true)
   const [dialogOpen, setDialogOpen] = useState(false)
   const [categoryDialogOpen, setCategoryDialogOpen] = useState(false)
+  const [additionDialogOpen, setAdditionDialogOpen] = useState(false)
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
+  const [editingAddition, setEditingAddition] = useState<OrderAddition | null>(null)
 
   const [productForm, setProductForm] = useState({
     category_id: '',
@@ -52,6 +55,13 @@ export default function MenuManagementPage() {
     slug: ''
   })
 
+  const [additionForm, setAdditionForm] = useState({
+    type: 'sauce' as OrderAdditionType,
+    name: '',
+    price: '0.00',
+    active: true,
+  })
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -68,8 +78,18 @@ export default function MenuManagementPage() {
         .select('id, category_id, name, description, price, image_url, ingredients, allergens, available, label, display_order, created_at, updated_at')
         .order('display_order', { ascending: true })
 
+      const { data: additionsData, error: additionsError } = await supabase
+        .from('order_additions')
+        .select('id, type, name, price, active, display_order, created_at, updated_at')
+        .order('display_order', { ascending: true })
+
+      if (additionsError && additionsError.code !== '42P01') {
+        throw additionsError
+      }
+
       setCategories(categoriesData || [])
       setProducts(productsData || [])
+      setAdditions((additionsData || []) as OrderAddition[])
     } catch (error) {
       console.error('[v0] Error fetching data:', error)
     } finally {
@@ -98,6 +118,16 @@ export default function MenuManagementPage() {
       slug: ''
     })
     setEditingCategory(null)
+  }
+
+  const resetAdditionForm = () => {
+    setAdditionForm({
+      type: 'sauce',
+      name: '',
+      price: '0.00',
+      active: true,
+    })
+    setEditingAddition(null)
   }
 
   const handleEditProduct = (product: Product) => {
@@ -135,7 +165,6 @@ export default function MenuManagementPage() {
         label: productForm.label || null
       }
 
-      console.log('[v0] Saving product:', productData)
 
       if (editingProduct) {
         const { error } = await supabase
@@ -147,7 +176,6 @@ export default function MenuManagementPage() {
           console.error('[v0] Update error:', error)
           throw error
         }
-        console.log('[v0] Product updated successfully')
         toast.success('Prodotto aggiornato')
       } else {
         const { error } = await supabase
@@ -158,7 +186,6 @@ export default function MenuManagementPage() {
           console.error('[v0] Insert error:', error)
           throw error
         }
-        console.log('[v0] Product inserted successfully')
         toast.success('Prodotto creato')
       }
 
@@ -214,7 +241,6 @@ export default function MenuManagementPage() {
     try {
       const slug = categoryForm.slug || categoryForm.name.toLowerCase().replace(/\s+/g, '-')
       
-      console.log('[v0] Saving category:', { name: categoryForm.name, slug })
       
       if (editingCategory) {
         const { error } = await supabase
@@ -226,7 +252,6 @@ export default function MenuManagementPage() {
           console.error('[v0] Category update error:', error)
           throw error
         }
-        console.log('[v0] Category updated successfully')
         toast.success('Categoria aggiornata')
       } else {
         const { error } = await supabase
@@ -237,7 +262,6 @@ export default function MenuManagementPage() {
           console.error('[v0] Category insert error:', error)
           throw error
         }
-        console.log('[v0] Category inserted successfully')
         toast.success('Categoria creata')
       }
 
@@ -268,6 +292,95 @@ export default function MenuManagementPage() {
     }
   }
 
+  const handleEditAddition = (addition: OrderAddition) => {
+    setEditingAddition(addition)
+    setAdditionForm({
+      type: addition.type,
+      name: addition.name,
+      price: Number(addition.price || 0).toFixed(2),
+      active: Boolean(addition.active),
+    })
+    setAdditionDialogOpen(true)
+  }
+
+  const handleSaveAddition = async () => {
+    if (!additionForm.name.trim()) {
+      toast.error('Inserisci il nome dell\'aggiunta')
+      return
+    }
+
+    const parsedPrice = Number(additionForm.price)
+    if (!Number.isFinite(parsedPrice) || parsedPrice < 0) {
+      toast.error('Prezzo non valido')
+      return
+    }
+
+    try {
+      const payload = {
+        type: additionForm.type,
+        name: additionForm.name.trim(),
+        price: Math.round(parsedPrice * 100) / 100,
+        active: additionForm.active,
+      }
+
+      if (editingAddition) {
+        const { error } = await supabase
+          .from('order_additions')
+          .update(payload)
+          .eq('id', editingAddition.id)
+        if (error) throw error
+        toast.success('Aggiunta aggiornata')
+      } else {
+        const typeItems = additions.filter((item) => item.type === additionForm.type)
+        const nextDisplayOrder =
+          typeItems.length > 0 ? Math.max(...typeItems.map((item) => Number(item.display_order || 0))) + 1 : 0
+        const { error } = await supabase
+          .from('order_additions')
+          .insert({ ...payload, display_order: nextDisplayOrder })
+        if (error) throw error
+        toast.success('Aggiunta creata')
+      }
+
+      setAdditionDialogOpen(false)
+      resetAdditionForm()
+      await fetchData()
+    } catch (error) {
+      console.error('[v0] Error saving addition:', error)
+      toast.error('Errore durante il salvataggio aggiunta')
+    }
+  }
+
+  const handleToggleAddition = async (addition: OrderAddition) => {
+    try {
+      const { error } = await supabase
+        .from('order_additions')
+        .update({ active: !addition.active })
+        .eq('id', addition.id)
+      if (error) throw error
+      toast.success(addition.active ? 'Aggiunta disattivata' : 'Aggiunta attivata')
+      await fetchData()
+    } catch (error) {
+      console.error('[v0] Error toggling addition:', error)
+      toast.error('Errore durante l\'aggiornamento aggiunta')
+    }
+  }
+
+  const handleDeleteAddition = async (id: string) => {
+    if (!confirm('Sei sicuro di voler eliminare questa aggiunta?')) return
+    try {
+      const { error } = await supabase
+        .from('order_additions')
+        .delete()
+        .eq('id', id)
+      if (error) throw error
+      toast.success('Aggiunta eliminata')
+      await fetchData()
+    } catch (error) {
+      console.error('[v0] Error deleting addition:', error)
+      toast.error('Errore durante l\'eliminazione aggiunta')
+    }
+  }
+
   const compareProductName = (a: Product, b: Product) =>
     a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
 
@@ -276,6 +389,9 @@ export default function MenuManagementPage() {
       .filter(p => p.category_id === categoryId)
       .sort(compareProductName)
   }
+
+  const sauceAdditions = additions.filter((addition) => addition.type === 'sauce')
+  const extraAdditions = additions.filter((addition) => addition.type === 'extra')
 
   if (loading) {
     return <div className="p-6">Caricamento...</div>
@@ -347,6 +463,76 @@ export default function MenuManagementPage() {
                   Annulla
                 </Button>
                 <Button onClick={handleSaveCategory}>Salva</Button>
+              </DialogFooter>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={additionDialogOpen} onOpenChange={setAdditionDialogOpen}>
+            <DialogTrigger asChild>
+              <Button variant="outline" onClick={resetAdditionForm} className="w-full sm:w-auto">
+                <Plus className="mr-2 h-4 w-4" />
+                Nuova Aggiunta
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>
+                  {editingAddition ? 'Modifica Aggiunta' : 'Nuova Aggiunta'}
+                </DialogTitle>
+                <DialogDescription>
+                  Gestisci salse ed extra mostrati nel modale aggiunte.
+                </DialogDescription>
+              </DialogHeader>
+              <div className="space-y-4">
+                <div>
+                  <Label htmlFor="addition-type">Tipo *</Label>
+                  <Select
+                    value={additionForm.type}
+                    onValueChange={(value) => setAdditionForm((prev) => ({ ...prev, type: value as OrderAdditionType }))}
+                  >
+                    <SelectTrigger id="addition-type">
+                      <SelectValue placeholder="Tipo aggiunta" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="sauce">Salsa</SelectItem>
+                      <SelectItem value="extra">Extra</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="addition-name">Nome *</Label>
+                  <Input
+                    id="addition-name"
+                    value={additionForm.name}
+                    onChange={(e) => setAdditionForm((prev) => ({ ...prev, name: e.target.value }))}
+                    placeholder={additionForm.type === 'sauce' ? 'Es: Maionese' : 'Es: Cheddar'}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="addition-price">Prezzo (€)</Label>
+                  <Input
+                    id="addition-price"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={additionForm.price}
+                    onChange={(e) => setAdditionForm((prev) => ({ ...prev, price: e.target.value }))}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <Label htmlFor="addition-active">Attiva</Label>
+                  <Switch
+                    id="addition-active"
+                    checked={additionForm.active}
+                    onCheckedChange={(checked) => setAdditionForm((prev) => ({ ...prev, active: checked }))}
+                  />
+                </div>
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setAdditionDialogOpen(false)}>
+                  Annulla
+                </Button>
+                <Button onClick={handleSaveAddition}>Salva</Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -641,6 +827,78 @@ export default function MenuManagementPage() {
           )
         })}
       </Tabs>
+
+      <Card className="mt-8">
+        <CardHeader>
+          <CardTitle>Aggiunte</CardTitle>
+          <CardDescription>
+            Configura le opzioni mostrate nel modale cliente: “Scegli una salsa” ed “Extra”.
+          </CardDescription>
+        </CardHeader>
+        <CardContent className="grid gap-6 md:grid-cols-2">
+          <div className="space-y-3">
+            <h3 className="font-semibold">Salse ({sauceAdditions.length})</h3>
+            {sauceAdditions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nessuna salsa configurata.</p>
+            ) : (
+              <div className="space-y-2">
+                {sauceAdditions.map((addition) => (
+                  <div key={addition.id} className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <p className="font-medium text-sm">{addition.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {Number(addition.price || 0).toFixed(2)}€ {addition.active ? '• Attiva' : '• Disattiva'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleToggleAddition(addition)}>
+                        {addition.active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEditAddition(addition)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAddition(addition.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <h3 className="font-semibold">Extra ({extraAdditions.length})</h3>
+            {extraAdditions.length === 0 ? (
+              <p className="text-sm text-muted-foreground">Nessun extra configurato.</p>
+            ) : (
+              <div className="space-y-2">
+                {extraAdditions.map((addition) => (
+                  <div key={addition.id} className="flex items-center justify-between rounded-md border p-3">
+                    <div>
+                      <p className="font-medium text-sm">{addition.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {Number(addition.price || 0).toFixed(2)}€ {addition.active ? '• Attiva' : '• Disattiva'}
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" onClick={() => handleToggleAddition(addition)}>
+                        {addition.active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleEditAddition(addition)}>
+                        <Edit className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAddition(addition.id)}>
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
     </div>
   )
 }

@@ -7,7 +7,12 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('[supabase] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
-export const supabase = createClient(supabaseUrl, supabaseAnonKey)
+export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+  auth: {
+    // Isola la sessione auth del progetto e previene conflitti con token legacy corrotti.
+    storageKey: 'af-admin-auth-v1',
+  },
+})
 
 // Types
 export type Category = {
@@ -66,11 +71,27 @@ export type DiscountCode = {
   created_at: string
 }
 
+export type OrderAdditionType = 'sauce' | 'extra'
+
+export type OrderAddition = {
+  id: string
+  type: OrderAdditionType
+  name: string
+  price: number
+  active: boolean
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
 export type OrderItem = {
   product_id: string
   name: string
   price: number
   quantity: number
+  additions?: string | null
+  additions_unit_price?: number | null
+  additions_ids?: string[] | null
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled'

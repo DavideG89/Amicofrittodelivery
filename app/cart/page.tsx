@@ -112,9 +112,8 @@ export default function CartPage() {
     (!isDelivery || (storeInfo && subtotal >= storeInfo.min_order_delivery))
 
   const handleCheckout = () => {
-    if (canProceed) {
-      router.push(`/checkout?delivery=${isDelivery}`)
-    }
+    if (!canProceed) return
+    router.push(`/checkout?delivery=${isDelivery}`)
   }
 
   return (
@@ -210,7 +209,17 @@ export default function CartPage() {
 
                       <div className="flex-grow min-w-0">
                         <h3 className="font-semibold text-base sm:text-lg truncate">{item.product.name}</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground">{item.product.price.toFixed(2)}€ cad.</p>
+                        <p className="text-xs sm:text-sm text-muted-foreground">
+                          {(item.product.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
+                          {(item.additions_unit_price || 0) > 0 && (
+                            <span> (base {item.product.price.toFixed(2)}€ + extra {(item.additions_unit_price || 0).toFixed(2)}€)</span>
+                          )}
+                        </p>
+                        {item.additions && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            {item.additions}
+                          </p>
+                        )}
                         
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-3">
                           <div className="flex items-center border rounded-md bg-background">
@@ -235,7 +244,7 @@ export default function CartPage() {
 
                           <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
                             <span className="font-bold text-lg sm:text-xl text-primary">
-                              {(item.product.price * item.quantity).toFixed(2)}€
+                              {((item.product.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
                             </span>
                             <Button
                               variant="ghost"

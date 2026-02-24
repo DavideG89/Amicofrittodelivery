@@ -332,15 +332,37 @@ export default function OrderTrackingDetailsPage() {
                   {order.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
                 </p>
               </div>
+              {order.payment_method && (
+                <div>
+                  <p className="text-sm text-muted-foreground">Pagamento</p>
+                  <p className="font-medium">
+                    {order.payment_method === 'cash' ? 'Contanti' : 'Carta (POS)'}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="border-t pt-4">
               <h4 className="font-semibold mb-3">Articoli</h4>
               <div className="space-y-2">
                 {order.items.map((item: any, index: number) => (
-                  <div key={index} className="flex justify-between text-sm">
-                    <span>{item.quantity}x {item.name}</span>
-                    <span className="font-medium">{(item.price * item.quantity).toFixed(2)}€</span>
+                  <div key={index} className="flex justify-between gap-3 text-sm">
+                    <span>
+                      {item.quantity}x {item.name}
+                      {Number(item.additions_unit_price || 0) > 0 && (
+                        <span className="block text-xs text-muted-foreground">
+                          Extra: +{Number(item.additions_unit_price).toFixed(2)}€ cad.
+                        </span>
+                      )}
+                      {item.additions && (
+                        <span className="block text-xs text-muted-foreground">
+                          Aggiunte: {item.additions}
+                        </span>
+                      )}
+                    </span>
+                    <span className="font-medium">
+                      {((Number(item.price || 0) + Number(item.additions_unit_price || 0)) * Number(item.quantity || 0)).toFixed(2)}€
+                    </span>
                   </div>
                 ))}
               </div>

@@ -13,7 +13,6 @@ import { Label } from '@/components/ui/label'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
-import { Switch } from '@/components/ui/switch'
 import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
@@ -117,11 +116,6 @@ function CheckoutForm() {
   useEffect(() => {
     setIsDelivery(searchParams.get('delivery') === 'true')
   }, [searchParams])
-
-  const handleOrderModeChange = (value: boolean) => {
-    setIsDelivery(value)
-    router.replace(`/checkout?delivery=${value}`)
-  }
 
   if (orderPlaced) {
     return (
@@ -243,7 +237,13 @@ function CheckoutForm() {
           product_id: item.product.id,
           name: item.product.name,
           price: item.product.price,
-          quantity: item.quantity
+          quantity: item.quantity,
+          additions: item.additions?.trim() ? item.additions.trim() : null,
+          additions_unit_price:
+            Number.isFinite(Number(item.additions_unit_price)) && Number(item.additions_unit_price) > 0
+              ? Number(item.additions_unit_price)
+              : 0,
+          additions_ids: Array.isArray(item.additions_ids) ? item.additions_ids : [],
         })),
         subtotal,
         discount_code: discountAmount > 0 ? formData.discountCode.toUpperCase() : null,
@@ -252,7 +252,7 @@ function CheckoutForm() {
         total,
         status: 'pending',
         notes: formData.notes || null,
-        payment_method: isDelivery ? formData.paymentMethod : null
+        payment_method: formData.paymentMethod
       }
 
       const res = await fetch('/api/orders', {
@@ -345,22 +345,6 @@ function CheckoutForm() {
                 <CardDescription className="text-sm">Inserisci i tuoi dati per completare l'ordine</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="flex items-center justify-between rounded-lg border bg-muted/50 p-3">
-                  <div className="space-y-1">
-                    <Label htmlFor="order-mode" className="cursor-pointer font-medium text-sm">
-                      Consegna d&apos;ordine / Ritiro
-                    </Label>
-                    <p className="text-xs text-muted-foreground">
-                      {isDelivery ? 'Consegna a domicilio' : 'Ritiro in negozio'}
-                    </p>
-                  </div>
-                  <Switch
-                    id="order-mode"
-                    checked={isDelivery}
-                    onCheckedChange={handleOrderModeChange}
-                  />
-                </div>
-
                 <div className="space-y-2">
                   <Label htmlFor="name">Nome e Cognome *</Label>
                   <Input
@@ -397,31 +381,29 @@ function CheckoutForm() {
                   </div>
                 )}
 
-                {isDelivery && (
-                  <div className="space-y-2">
-                    <Label>Metodo di pagamento</Label>
-                    <RadioGroup
-                      value={formData.paymentMethod}
-                      onValueChange={(value) => setFormData({ ...formData, paymentMethod: value as 'cash' | 'card' })}
-                      className="grid gap-2 sm:grid-cols-2"
+                <div className="space-y-2">
+                  <Label>Metodo di pagamento</Label>
+                  <RadioGroup
+                    value={formData.paymentMethod}
+                    onValueChange={(value) => setFormData({ ...formData, paymentMethod: value as 'cash' | 'card' })}
+                    className="grid gap-2 sm:grid-cols-2"
+                  >
+                    <label
+                      htmlFor="payment-cash"
+                      className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
                     >
-                      <label
-                        htmlFor="payment-cash"
-                        className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
-                      >
-                        <RadioGroupItem id="payment-cash" value="cash" />
-                        Contanti
-                      </label>
-                      <label
-                        htmlFor="payment-card"
-                        className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
-                      >
-                        <RadioGroupItem id="payment-card" value="card" />
-                        Carta (POS)
-                      </label>
-                    </RadioGroup>
-                  </div>
-                )}
+                      <RadioGroupItem id="payment-cash" value="cash" />
+                      Contanti
+                    </label>
+                    <label
+                      htmlFor="payment-card"
+                      className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
+                    >
+                      <RadioGroupItem id="payment-card" value="card" />
+                      Carta (POS)
+                    </label>
+                  </RadioGroup>
+                </div>
 
                 <div className="space-y-2">
                   <Label htmlFor="notes">Note (opzionale)</Label>
@@ -497,7 +479,9 @@ function CheckoutForm() {
                 </div>
 
                 <div className="text-xs sm:text-sm text-muted-foreground bg-muted p-3 rounded-md leading-relaxed">
-                  {isDelivery ? 'Pagamento alla consegna: contanti o carta (POS)' : 'Pagamento in contanti al ritiro'}
+                  {isDelivery
+                    ? 'Pagamento alla consegna: contanti o carta (POS)'
+                    : 'Pagamento al ritiro: contanti o carta (POS)'}
                 </div>
               </CardContent>
               <CardFooter className="pt-2">

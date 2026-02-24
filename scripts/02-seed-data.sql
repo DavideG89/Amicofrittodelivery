@@ -88,6 +88,25 @@ BEGIN
 
 END $$;
 
+-- Insert order additions (used by product "Aggiunte" modal)
+INSERT INTO order_additions (type, name, price, active, display_order)
+VALUES
+  ('sauce', 'Ketchup', 0.00, true, 1),
+  ('sauce', 'Maionese', 0.00, true, 2),
+  ('sauce', 'Salsa BBQ', 0.00, true, 3),
+  ('sauce', 'Salsa Piccante', 0.00, true, 4),
+  ('sauce', 'Salsa Aioli', 0.00, true, 5),
+  ('extra', 'Cheddar', 0.50, true, 1),
+  ('extra', 'Cipolla cruda', 0.50, true, 2),
+  ('extra', 'Cipolla in agrodolce', 0.50, true, 3),
+  ('extra', 'Emmental', 0.50, true, 4),
+  ('extra', 'Lattuga', 0.50, true, 5),
+  ('extra', 'Patatine fritte', 0.50, true, 6),
+  ('extra', 'Pomodoro', 0.50, true, 7),
+  ('extra', 'Salame piccante', 0.50, true, 8),
+  ('extra', 'Wurstel', 0.50, true, 9)
+ON CONFLICT (type, name) DO NOTHING;
+
 -- Insert some sample discount codes
 INSERT INTO discount_codes (code, discount_type, discount_value, min_order_amount, active)
 VALUES

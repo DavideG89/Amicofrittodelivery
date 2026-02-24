@@ -4,9 +4,8 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
-import { UpsellDialog } from '@/components/upsell-dialog'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { supabase, Category, Product, StoreInfo, UpsellSettings, OrderStatus } from '@/lib/supabase'
+import { supabase, Category, Product, StoreInfo, OrderStatus } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
@@ -15,17 +14,13 @@ export default function Home() {
   const [productsByCategory, setProductsByCategory] = useState<Record<string, Product[]>>({})
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
-  const [upsellOpen, setUpsellOpen] = useState(false)
-  const [triggerProduct, setTriggerProduct] = useState<Product | null>(null)
-  const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([])
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
-  const [upsellSettings, setUpsellSettings] = useState<UpsellSettings | null>(null)
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
   const [lastOrderActive, setLastOrderActive] = useState(false)
   const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
   const categoryTopRef = useRef<HTMLDivElement>(null)
-  const cacheKey = 'af:home-cache:v2'
+  const cacheKey = 'af:home-cache:v3'
   const cacheTtlMs = 10 * 60 * 1000
   const sortCategories = (list: Category[]) => {
     const desiredOrder = ['hamburger', 'mini' ,'panini', 'kebab', 'fritti', 'salse', 'bevande']
@@ -107,7 +102,6 @@ export default function Home() {
                 categories: Category[]
                 productsByCategory: Record<string, Product[]>
                 storeInfo: StoreInfo | null
-                upsellSettings: UpsellSettings | null
                 activeCategory: string | null
               }
               if (Date.now() - cached.ts < cacheTtlMs) {
@@ -115,7 +109,6 @@ export default function Home() {
                 setCategories(sortedCachedCategories)
                 setProductsByCategory(cached.productsByCategory || {})
                 setStoreInfo(cached.storeInfo || null)
-                setUpsellSettings(cached.upsellSettings || null)
                 const cachedActive = cached.activeCategory ?? sortedCachedCategories?.[0]?.id ?? null
                 setActiveCategory(cachedActive)
                 setLoading(false)
@@ -161,17 +154,10 @@ export default function Home() {
           throw storeInfoError
         }
 
-        const { data: upsellSettingsData } = await supabase
-          .from('upsell_settings')
-          .select('id, enabled, product_ids, max_items')
-          .eq('id', 'default')
-          .maybeSingle()
-
         const sortedCategories = sortCategories(categoriesData || [])
 
         setCategories(sortedCategories)
         setStoreInfo(storeInfoData || null)
-        setUpsellSettings(upsellSettingsData || null)
         const firstCategory = sortedCategories?.[0]?.id ?? null
         setActiveCategory(firstCategory)
         if (firstCategory) {
@@ -203,14 +189,13 @@ export default function Home() {
           categories,
           productsByCategory,
           storeInfo,
-          upsellSettings,
           activeCategory,
         })
       )
     } catch {
       // ignore storage errors
     }
-  }, [categories, productsByCategory, storeInfo, upsellSettings, activeCategory])
+  }, [categories, productsByCategory, storeInfo, activeCategory])
 
   useEffect(() => {
     try {
@@ -314,72 +299,6 @@ export default function Home() {
     return (productsByCategory[categoryId] || []).sort(compareProductName)
   }
 
-  const handleProductAdded = (product: Product, quantity: number) => {
-    console.log('[v0] Product added to cart:', product.name, 'quantity:', quantity)
-    
-    // Find the category of the added product
-    const productCategory = categories.find(c => c.id === product.category_id)
-    
-    // Trigger upsell for Panini/Hamburger/Mini Burger categories
-    const categoryName = productCategory?.name.toLowerCase() || ''
-    const categorySlug = productCategory?.slug || ''
-    const shouldShowUpsell = productCategory && 
-      (categorySlug === 'panini' || 
-       categorySlug === 'hamburger' ||
-       categorySlug === 'mini-burger' ||
-       categoryName.includes('panin') ||
-       categoryName.includes('hamburger') ||
-       categoryName.includes('mini burger'))
-    
-    if (shouldShowUpsell) {
-      const useCustomUpsell =
-        upsellSettings?.enabled &&
-        Array.isArray(upsellSettings.product_ids) &&
-        upsellSettings.product_ids.length > 0
-
-      const allProducts = Object.values(productsByCategory).flat()
-
-      if (useCustomUpsell) {
-        const maxItems = upsellSettings.max_items || 6
-        const allowedIds = new Set(upsellSettings.product_ids)
-        const suggestions = allProducts
-          .filter((p) => p.available && allowedIds.has(p.id))
-          .sort(compareProductName)
-          .slice(0, maxItems)
-
-        if (suggestions.length > 0) {
-          setTriggerProduct(product)
-          setSuggestedProducts(suggestions)
-          setUpsellOpen(true)
-        }
-        return
-      }
-
-      // Find complementary categories (Fritti, Bevande)
-      const complementaryCategories = categories.filter(c => 
-        c.slug === 'fritti' || 
-        c.slug === 'bevande' ||
-        c.name.toLowerCase().includes('fritt') ||
-        c.name.toLowerCase().includes('bevand')
-      )
-      
-      // Get products from complementary categories
-      const suggestions = allProducts
-        .filter(p => 
-          complementaryCategories.some(c => c.id === p.category_id) && 
-          p.available
-        )
-        .sort(compareProductName)
-        .slice(0, 6) // Max 6 suggestions
-      
-      if (suggestions.length > 0) {
-        setTriggerProduct(product)
-        setSuggestedProducts(suggestions)
-        setUpsellOpen(true)
-      }
-    }
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
@@ -398,6 +317,8 @@ export default function Home() {
   const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
   const orderStatus = getOrderStatus(schedule)
   const nextOpenLabel = formatNextOpen(orderStatus.nextOpen)
+  const showLastOrderSticky = Boolean(lastOrderNumber) && lastOrderStatus !== 'completed'
+  const isCancelledLastOrder = lastOrderStatus === 'cancelled'
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-6">
@@ -508,16 +429,22 @@ export default function Home() {
                   ) : (
                     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                       {categoryProducts.map((product) => {
+                        const slug = (category.slug || '').toLowerCase()
+                        const categoryName = (category.name || '').toLowerCase()
                         const isSaucesCategory =
-                          (category.slug || '').toLowerCase() === 'salse' ||
-                          (category.name || '').toLowerCase().includes('salse') ||
-                          (category.name || '').toLowerCase().includes('salsa')
+                          slug === 'salse' ||
+                          categoryName.includes('salse') ||
+                          categoryName.includes('salsa')
+                        const isDrinksCategory =
+                          slug === 'bevande' ||
+                          categoryName.includes('bevande') ||
+                          categoryName.includes('bevanda')
                         return (
                           <ProductCard
                             key={product.id}
                             product={product}
-                            onAddToCart={handleProductAdded}
                             imageFit={isSaucesCategory ? 'contain' : 'cover'}
+                            skipAdditions={isSaucesCategory || isDrinksCategory}
                           />
                         )
                       })}
@@ -530,12 +457,24 @@ export default function Home() {
         )}
       </main>
 
-      {lastOrderNumber && lastOrderStatus !== 'completed' && lastOrderStatus !== 'cancelled' && (
+      {showLastOrderSticky && (
         <div className="fixed bottom-4 left-0 right-0 z-40 px-4">
-          <div className="mx-auto max-w-7xl rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2 text-emerald-900 shadow-sm">
+          <div
+            className={`mx-auto max-w-7xl rounded-2xl border px-4 py-2 shadow-sm ${
+              isCancelledLastOrder
+                ? 'border-red-200 bg-red-50 text-red-900'
+                : 'border-emerald-200 bg-emerald-50 text-emerald-900'
+            }`}
+          >
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex items-center gap-3 sm:justify-start justify-center">
-                <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                {isCancelledLastOrder ? (
+                  <span className="inline-flex h-4 w-4 items-center justify-center rounded-full border-2 border-red-500 text-[10px]">
+                    !
+                  </span>
+                ) : (
+                  <span className="inline-flex h-4 w-4 animate-spin rounded-full border-2 border-emerald-500 border-t-transparent" />
+                )}
                 <p className="text-sm sm:text-base text-center sm:text-left">
                   {lastOrderLoading && 'Stato ordine in aggiornamento...'}
                   {!lastOrderLoading &&
@@ -546,7 +485,11 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                className="inline-flex h-8 items-center justify-center rounded-md border border-emerald-300 bg-white px-3 text-xs font-medium text-emerald-900 hover:bg-emerald-100 disabled:opacity-60"
+                className={`inline-flex h-8 items-center justify-center rounded-md border bg-white px-3 text-xs font-medium disabled:opacity-60 ${
+                  isCancelledLastOrder
+                    ? 'border-red-300 text-red-900 hover:bg-red-100'
+                    : 'border-emerald-300 text-emerald-900 hover:bg-emerald-100'
+                }`}
                 onClick={handleRefreshLastOrder}
                 disabled={lastOrderLoading}
               >
@@ -557,12 +500,6 @@ export default function Home() {
         </div>
       )}
 
-      <UpsellDialog
-        open={upsellOpen}
-        onOpenChange={setUpsellOpen}
-        triggerProduct={triggerProduct}
-        suggestedProducts={suggestedProducts}
-      />
     </div>
   )
 }

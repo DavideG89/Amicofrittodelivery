@@ -1,18 +1,27 @@
 'use client'
 
 import Link from 'next/link'
+import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { ShoppingCart, Info, User, Bell } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
+import { UpsellDialog } from '@/components/upsell-dialog'
 import { useCart } from '@/lib/cart-context'
 import { useEffect, useState } from 'react'
 import { disableCustomerPush } from '@/lib/customer-push'
+import { fetchUpsellSuggestions } from '@/lib/upsell'
+import { Product } from '@/lib/supabase'
 
 export function Header() {
-  const { totalItems } = useCart()
+  const { totalItems, items } = useCart()
+  const router = useRouter()
+  const pathname = usePathname()
   const [pushActive, setPushActive] = useState(false)
   const [showPushTooltip, setShowPushTooltip] = useState(false)
+  const [cartUpsellOpen, setCartUpsellOpen] = useState(false)
+  const [cartUpsellLoading, setCartUpsellLoading] = useState(false)
+  const [cartUpsellSuggestions, setCartUpsellSuggestions] = useState<Product[]>([])
 
   useEffect(() => {
     const readPushState = () => {
@@ -48,70 +57,101 @@ export function Header() {
     }
   }
 
-  return (
-    <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-      <div className="container flex h-16 items-center justify-between px-3 sm:px-4">
-        <Button variant="ghost" size="icon" asChild className="md:invisible h-10 w-10">
-          <Link href="/info">
-            <Info className="h-5 w-5" />
-            <span className="sr-only">Informazioni</span>
-          </Link>
-        </Button>
+  const goToCart = () => {
+    router.push('/cart')
+  }
 
-        <Link href="/" className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
-          <Image 
-            src="/logo.png" 
-            alt="Amico Fritto" 
-            width={150} 
-            height={50}
-            style={{ height: 'auto', width: 'auto', maxHeight: '48px' }}
-            priority
-          />
-        </Link>
-        
-        <nav className="flex items-center gap-1 sm:gap-2 mr-2 sm:mr-4">
-          <Button variant="ghost" size="icon" asChild className="hidden md:flex h-10 w-10">
+  const handleCartClick = async () => {
+    if (pathname === '/cart') return
+    if (totalItems === 0) {
+      goToCart()
+      return
+    }
+    setCartUpsellLoading(true)
+    try {
+      const suggestions = await fetchUpsellSuggestions(items.map((item) => item.product.id))
+      if (suggestions.length > 0) {
+        setCartUpsellSuggestions(suggestions)
+        setCartUpsellOpen(true)
+        return
+      }
+      goToCart()
+    } finally {
+      setCartUpsellLoading(false)
+    }
+  }
+
+  return (
+    <>
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+        <div className="container flex h-16 items-center justify-between px-3 sm:px-4">
+          <Button variant="ghost" size="icon" asChild className="md:invisible h-10 w-10">
             <Link href="/info">
               <Info className="h-5 w-5" />
               <span className="sr-only">Informazioni</span>
             </Link>
           </Button>
 
-          <div className="relative">
+          <Link href="/" className="absolute left-1/2 -translate-x-1/2 flex items-center gap-2">
+            <Image 
+              src="/logo.png" 
+              alt="Amico Fritto" 
+              width={150} 
+              height={50}
+              style={{ height: 'auto', width: 'auto', maxHeight: '48px' }}
+              priority
+            />
+          </Link>
+          
+          <nav className="flex items-center gap-1 sm:gap-2 mr-2 sm:mr-4">
+            <Button variant="ghost" size="icon" asChild className="hidden md:flex h-10 w-10">
+              <Link href="/info">
+                <Info className="h-5 w-5" />
+                <span className="sr-only">Informazioni</span>
+              </Link>
+            </Button>
+
+            <div className="relative">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-10 w-10 flex flex-col gap-0.5"
+                onClick={handleDisableNotifications}
+                aria-label="Disattiva notifiche"
+              >
+                <Bell
+                  className={
+                    pushActive
+                      ? 'h-5 w-5 text-[#ff7900] fill-[#ff7900]'
+                      : 'h-5 w-5 text-gray-400'
+                  }
+                />
+                <span className="text-[10px] leading-none text-muted-foreground">
+                  {pushActive ? 'On' : 'Off'}
+                </span>
+              </Button>
+              {showPushTooltip && (
+                <div className="absolute right-0 top-11 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                  Notifiche disattivate
+                </div>
+              )}
+            </div>
+
+            <Button variant="ghost" size="icon" asChild className="h-10 w-10">
+              <Link href="/utente" aria-label="Utente">
+                <User className="h-5 w-5" />
+                <span className="sr-only">Utente</span>
+              </Link>
+            </Button>
+            
             <Button
               variant="ghost"
               size="icon"
-              className="h-10 w-10 flex flex-col gap-0.5"
-              onClick={handleDisableNotifications}
-              aria-label="Disattiva notifiche"
+              className="relative hidden md:flex"
+              onClick={handleCartClick}
+              disabled={cartUpsellLoading}
+              aria-label={`Carrello (${totalItems})`}
             >
-              <Bell
-                className={
-                  pushActive
-                    ? 'h-5 w-5 text-[#ff7900] fill-[#ff7900]'
-                    : 'h-5 w-5 text-gray-400'
-                }
-              />
-              <span className="text-[10px] leading-none text-muted-foreground">
-                {pushActive ? 'On' : 'Off'}
-              </span>
-            </Button>
-            {showPushTooltip && (
-              <div className="absolute right-0 top-11 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
-                Notifiche disattivate
-              </div>
-            )}
-          </div>
-
-          <Button variant="ghost" size="icon" asChild className="h-10 w-10">
-            <Link href="/utente" aria-label="Utente">
-              <User className="h-5 w-5" />
-              <span className="sr-only">Utente</span>
-            </Link>
-          </Button>
-          
-          <Button variant="ghost" size="icon" className="relative hidden md:flex" asChild>
-            <Link href="/cart">
               <ShoppingCart className="h-5 w-5" />
               {totalItems > 0 && (
                 <Badge 
@@ -122,10 +162,19 @@ export function Header() {
                 </Badge>
               )}
               <span className="sr-only">Carrello ({totalItems})</span>
-            </Link>
-          </Button>
-        </nav>
-      </div>
-    </header>
+            </Button>
+          </nav>
+        </div>
+      </header>
+
+      <UpsellDialog
+        open={cartUpsellOpen}
+        onOpenChange={setCartUpsellOpen}
+        suggestedProducts={cartUpsellSuggestions}
+        mode="before_cart"
+        onSkip={goToCart}
+        onAddSelectedComplete={goToCart}
+      />
+    </>
   )
 }

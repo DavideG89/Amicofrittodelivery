@@ -3,6 +3,8 @@ import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { createRateLimiter } from '@/lib/rate-limit'
 
 const limiter = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 30 })
+const orderNumberPattern = /^[A-Z0-9-]{4,32}$/
+const fcmTokenPattern = /^[A-Za-z0-9\-_.:]{80,4096}$/
 
 function getClientIp(request: Request) {
   const header = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip')
@@ -22,14 +24,35 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const orderNumber = typeof body?.orderNumber === 'string' ? body.orderNumber.trim() : ''
+    const orderNumber =
+      typeof body?.orderNumber === 'string' ? body.orderNumber.trim().toUpperCase() : ''
     const token = typeof body?.token === 'string' ? body.token.trim() : ''
 
     if (!orderNumber || !token) {
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400, headers: rate.headers })
     }
+    if (!orderNumberPattern.test(orderNumber)) {
+      return NextResponse.json({ error: 'orderNumber non valido' }, { status: 400, headers: rate.headers })
+    }
+    if (!fcmTokenPattern.test(token)) {
+      return NextResponse.json({ error: 'Token push non valido' }, { status: 400, headers: rate.headers })
+    }
 
     const supabase = getSupabaseServerClient()
+    const { data: orderExists, error: orderCheckError } = await supabase
+      .from('orders')
+      .select('order_number')
+      .eq('order_number', orderNumber)
+      .limit(1)
+      .maybeSingle()
+
+    if (orderCheckError) {
+      return NextResponse.json({ error: 'Errore verifica ordine' }, { status: 500, headers: rate.headers })
+    }
+    if (!orderExists) {
+      return NextResponse.json({ error: 'Ordine non trovato' }, { status: 404, headers: rate.headers })
+    }
+
     const payload = {
       order_number: orderNumber,
       token,

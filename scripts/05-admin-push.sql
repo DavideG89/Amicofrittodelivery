@@ -12,7 +12,10 @@ CREATE INDEX IF NOT EXISTS idx_admin_push_tokens_last_seen ON admin_push_tokens(
 
 -- Notify admin on new order via Supabase Edge Function
 -- Uses pg_net extension for HTTP calls.
--- IMPORTANT: Replace YOUR_PROJECT_REF and REPLACE_WITH_SECRET before running.
+-- IMPORTANT:
+-- 1) Replace YOUR_PROJECT_REF
+-- 2) Replace REPLACE_WITH_SECRET with your WEBHOOK_SECRET value
+-- 3) Keep this secret out of git in real deployments
 CREATE EXTENSION IF NOT EXISTS pg_net;
 CREATE OR REPLACE FUNCTION notify_admin_on_new_order()
 RETURNS TRIGGER AS $$
@@ -28,10 +31,10 @@ BEGIN
   );
 
   PERFORM net.http_post(
-    url := 'https://sghftuvrupaswqhdckvs.functions.supabase.co/notify-new-order',
+    url := 'https://YOUR_PROJECT_REF.functions.supabase.co/notify-new-order',
     headers := jsonb_build_object(
       'Content-Type', 'application/json',
-      'X-Webhook-Secret', 'AF_NOTIFY_2026_Xy9!'
+      'X-Webhook-Secret', 'REPLACE_WITH_SECRET'
     ),
     body := payload
   );

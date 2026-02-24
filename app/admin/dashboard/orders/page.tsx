@@ -45,6 +45,7 @@ const normalizeItems = (items: Order['items']) =>
     ...item,
     price: toNumber(item.price),
     quantity: toNumber(item.quantity, 1),
+    additions_unit_price: toNumber(item.additions_unit_price),
   }))
 
 const toItems = (value: unknown): Order['items'] => {
@@ -471,7 +472,7 @@ export default function OrdersManagementPage() {
                 <Badge variant="outline">Ritiro</Badge>
               )}
             </div>
-            {order.order_type === 'delivery' && paymentLabel && (
+            {paymentLabel && (
               <div>
                 <span className="font-medium">Pagamento:</span>{' '}
                 <Badge variant="outline">{paymentLabel}</Badge>
@@ -674,7 +675,7 @@ export default function OrdersManagementPage() {
                           {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
                         </span>
                       </div>
-                      {selectedOrder.order_type === 'delivery' && selectedOrder.payment_method && (
+                      {selectedOrder.payment_method && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Pagamento:</span>
                           <span className="font-medium">
@@ -698,9 +699,21 @@ export default function OrdersManagementPage() {
                         <div key={index} className="flex justify-between text-sm py-2 border-b">
                           <div>
                             <span className="font-medium">{item.quantity}x</span> {item.name}
-                            <div className="text-xs text-muted-foreground">{item.price.toFixed(2)}€ cad.</div>
+                            <div className="text-xs text-muted-foreground">
+                              {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
+                            </div>
+                            {item.additions_unit_price && item.additions_unit_price > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
+                              </div>
+                            )}
+                            {item.additions && (
+                              <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
+                            )}
                           </div>
-                          <span className="font-medium">{(item.price * item.quantity).toFixed(2)}€</span>
+                          <span className="font-medium">
+                            {((item.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -820,7 +833,7 @@ export default function OrdersManagementPage() {
                           {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
                         </span>
                       </div>
-                      {selectedOrder.order_type === 'delivery' && selectedOrder.payment_method && (
+                      {selectedOrder.payment_method && (
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Pagamento:</span>
                           <span className="font-medium">
@@ -844,9 +857,21 @@ export default function OrdersManagementPage() {
                         <div key={index} className="flex justify-between text-sm py-2 border-b">
                           <div>
                             <span className="font-medium">{item.quantity}x</span> {item.name}
-                            <div className="text-xs text-muted-foreground">{item.price.toFixed(2)}€ cad.</div>
+                            <div className="text-xs text-muted-foreground">
+                              {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
+                            </div>
+                            {item.additions_unit_price && item.additions_unit_price > 0 && (
+                              <div className="text-xs text-muted-foreground">
+                                Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
+                              </div>
+                            )}
+                            {item.additions && (
+                              <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
+                            )}
                           </div>
-                          <span className="font-medium">{(item.price * item.quantity).toFixed(2)}€</span>
+                          <span className="font-medium">
+                            {((item.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
+                          </span>
                         </div>
                       ))}
                     </div>

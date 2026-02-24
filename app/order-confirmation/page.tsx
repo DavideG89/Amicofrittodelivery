@@ -45,13 +45,10 @@ function OrderConfirmationContent() {
       }
 
       if (data) {
-        console.log('[v0] Order data retrieved:', data)
         setOrder(data)
         // Salva l'ordine sul dispositivo
         saveOrderToDevice(data.order_number, data.order_type)
-        console.log('[v0] Order saved to device storage')
       } else {
-        console.log('[v0] No order data found for orderNumber:', orderNumber)
         toast.error('Ordine non trovato')
       }
       setLoading(false)
@@ -79,6 +76,8 @@ function OrderConfirmationContent() {
         return 'Pronto'
       case 'completed':
         return 'Completato'
+      case 'cancelled':
+        return 'Annullato'
       default:
         return 'Ricevuto'
     }
@@ -94,6 +93,8 @@ function OrderConfirmationContent() {
         return '📦'
       case 'completed':
         return '🎉'
+      case 'cancelled':
+        return '❌'
       default:
         return '📋'
     }

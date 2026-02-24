@@ -113,7 +113,6 @@ async function sendFcm(accessToken: string, token: string, payload: OrderPayload
     ;(error as { status?: number }).status = res.status
     throw error
   }
-  console.log(`[FCM] ok token=${token.slice(0, 10)}… response=${text}`)
 }
 
 function buildOrderLink(orderNumber: string) {

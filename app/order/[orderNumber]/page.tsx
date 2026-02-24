@@ -229,7 +229,8 @@ export default function OrderPage() {
     confirmed: { label: 'Confermato', emoji: '✅', color: 'bg-blue-500' },
     preparing: { label: 'In preparazione', emoji: '🍳', color: 'bg-orange-500' },
     ready: { label: 'Pronto', emoji: '🎉', color: 'bg-green-500' },
-    completed: { label: 'Completato', emoji: '✓', color: 'bg-gray-500' }
+    completed: { label: 'Completato', emoji: '✓', color: 'bg-gray-500' },
+    cancelled: { label: 'Annullato', emoji: '❌', color: 'bg-red-500' },
   }
 
   const currentStatus = statusMap[order.status as keyof typeof statusMap] || statusMap.pending
@@ -348,9 +349,19 @@ export default function OrderPage() {
                     <p className="text-sm text-muted-foreground">
                       Quantità: {item.quantity}
                     </p>
+                    {Number(item.additions_unit_price || 0) > 0 && (
+                      <p className="text-xs text-muted-foreground">
+                        Extra: +{Number(item.additions_unit_price).toFixed(2)}€ cad.
+                      </p>
+                    )}
+                    {item.additions && (
+                      <p className="text-xs text-muted-foreground">
+                        Aggiunte: {item.additions}
+                      </p>
+                    )}
                   </div>
                   <p className="font-semibold">
-                    €{(item.price * item.quantity).toFixed(2)}
+                    €{((Number(item.price || 0) + Number(item.additions_unit_price || 0)) * Number(item.quantity || 0)).toFixed(2)}
                   </p>
                 </div>
               ))}

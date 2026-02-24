@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
-import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
+import { validateOrderData, sanitizeOrderData, sanitizeString } from '@/lib/validation'
 import { createRateLimiter } from '@/lib/rate-limit'
 
 type OrderItem = {
@@ -8,6 +8,9 @@ type OrderItem = {
   name: string
   price: number
   quantity: number
+  additions?: string | null
+  additions_unit_price?: number | null
+  additions_ids?: string[] | null
 }
 
 type OrderPayload = {
@@ -151,6 +154,10 @@ export async function POST(request: Request) {
     const items = order.items.map((item) => ({
       product_id: String(item.product_id || ''),
       quantity: Number(item.quantity || 0),
+      additions: item.additions ? sanitizeString(String(item.additions), 160) : null,
+      additions_ids: Array.isArray(item.additions_ids)
+        ? item.additions_ids.filter((id): id is string => typeof id === 'string')
+        : [],
     }))
 
     if (items.some((item) => !item.product_id || !Number.isFinite(item.quantity) || item.quantity <= 0)) {
@@ -168,13 +175,50 @@ export async function POST(request: Request) {
     }
 
     const productMap = new Map(productsData?.map((product) => [product.id, product]) ?? [])
+    const additionIds = [...new Set(items.flatMap((item) => item.additions_ids))]
+    const additionsMap = new Map<string, { type: 'sauce' | 'extra'; name: string; price: number }>()
+
+    if (additionIds.length > 0) {
+      const { data: additionsData, error: additionsError } = await supabase
+        .from('order_additions')
+        .select('id, type, name, price, active')
+        .in('id', additionIds)
+        .eq('active', true)
+
+      if (additionsError) {
+        return NextResponse.json({ error: 'Errore verifica aggiunte' }, { status: 500 })
+      }
+
+      for (const addition of additionsData || []) {
+        additionsMap.set(addition.id, {
+          type: addition.type as 'sauce' | 'extra',
+          name: addition.name,
+          price: Number(addition.price || 0),
+        })
+      }
+    }
+
     const normalizedItems = items.map((item) => {
       const product = productMap.get(item.product_id)
+      const normalizedAdditionIds = [...new Set(item.additions_ids)].filter((id) => additionsMap.has(id))
+      const selectedAdditions = normalizedAdditionIds
+        .map((id) => additionsMap.get(id))
+        .filter((value): value is { type: 'sauce' | 'extra'; name: string; price: number } => Boolean(value))
+      const sauce = selectedAdditions.find((addition) => addition.type === 'sauce')
+      const extras = selectedAdditions.filter((addition) => addition.type === 'extra')
+      const additionsLabelParts: string[] = []
+      if (sauce) additionsLabelParts.push(`Salsa: ${sauce.name}`)
+      if (extras.length > 0) additionsLabelParts.push(`Extra: ${extras.map((extra) => extra.name).join(', ')}`)
+      const additionsUnitPrice = selectedAdditions.reduce((sum, addition) => sum + Number(addition.price || 0), 0)
+
       return {
         product_id: item.product_id,
         name: product?.name ?? '',
         price: product?.price ?? 0,
         quantity: Math.min(Math.floor(item.quantity), 99),
+        additions: additionsLabelParts.join(' | ') || null,
+        additions_unit_price: Math.round(additionsUnitPrice * 100) / 100,
+        additions_ids: normalizedAdditionIds,
         available: product?.available ?? false,
       }
     })
@@ -183,7 +227,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Prodotti non disponibili' }, { status: 400 })
     }
 
-    const subtotal = normalizedItems.reduce((sum, item) => sum + item.price * item.quantity, 0)
+    const subtotal = normalizedItems.reduce(
+      (sum, item) => sum + (item.price + (item.additions_unit_price || 0)) * item.quantity,
+      0
+    )
     if (!Number.isFinite(subtotal) || subtotal <= 0) {
       return NextResponse.json({ error: 'Totale non valido' }, { status: 400 })
     }
@@ -236,10 +283,9 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Totale non valido' }, { status: 400 })
     }
 
-    const paymentMethod =
-      order.order_type === 'delivery' && (order.payment_method === 'cash' || order.payment_method === 'card')
-        ? order.payment_method
-        : null
+    const paymentMethod = order.payment_method === 'cash' || order.payment_method === 'card'
+      ? order.payment_method
+      : null
 
     const { error } = await supabase.from('orders').insert({
       order_number: orderNumber,
@@ -263,11 +309,12 @@ export async function POST(request: Request) {
     }
 
     return NextResponse.json({ orderNumber }, { headers: rate.headers })
-  } catch (error: any) {
-    const message = error?.name === 'AbortError' ? 'Timeout verifica captcha' : 'Errore server'
+  } catch (error: unknown) {
+    const err = error as { name?: string; message?: string }
+    const message = err?.name === 'AbortError' ? 'Timeout verifica captcha' : 'Errore server'
     const details =
       process.env.NODE_ENV !== 'production'
-        ? { message: error?.message || String(error), name: error?.name }
+        ? { message: err?.message || String(error), name: err?.name }
         : undefined
     return NextResponse.json({ error: message, details }, { status: 500, headers: rate.headers })
   }

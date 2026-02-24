@@ -7,18 +7,20 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog'
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useCart } from '@/lib/cart-context'
-import { Product, supabase } from '@/lib/supabase'
+import { Product, supabase, OrderAddition } from '@/lib/supabase'
 
 type ProductCardProps = {
   product: Product
   onAddToCart?: (product: Product, quantity: number) => void
   imageFit?: 'cover' | 'contain'
+  skipAdditions?: boolean
 }
 
-export function ProductCard({ product, onAddToCart, imageFit = 'cover' }: ProductCardProps) {
-  const { addItem, items } = useCart()
-  const [quantity, setQuantity] = useState(1)
+export function ProductCard({ product, onAddToCart, imageFit = 'cover', skipAdditions = false }: ProductCardProps) {
+  const { addItem, items, updateQuantity } = useCart()
   const [details, setDetails] = useState<{
     description?: string | null
     ingredients?: string | null
@@ -35,25 +37,99 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover' }: Produc
   })
   const [detailsLoading, setDetailsLoading] = useState(false)
   const [detailsOpen, setDetailsOpen] = useState(false)
+  const [additionsOpen, setAdditionsOpen] = useState(false)
+  const [sauceOptions, setSauceOptions] = useState<OrderAddition[]>([])
+  const [extraOptions, setExtraOptions] = useState<OrderAddition[]>([])
+  const [saucesLoading, setSaucesLoading] = useState(false)
+  const [selectedSauce, setSelectedSauce] = useState('none')
+  const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set())
   
   const cartItem = items.find(item => item.product.id === product.id)
   const inCartQuantity = cartItem?.quantity || 0
 
-  const handleAddToCart = () => {
-    for (let i = 0; i < quantity; i++) {
-      addItem(product)
+  const loadSauces = async () => {
+    if (sauceOptions.length > 0 || saucesLoading) return
+    setSaucesLoading(true)
+    try {
+      const { data } = await supabase
+        .from('order_additions')
+        .select('id, type, name, price, active, display_order, created_at, updated_at')
+        .eq('active', true)
+        .order('display_order', { ascending: true })
+
+      const additions = (data || []) as OrderAddition[]
+      setSauceOptions(additions.filter((item) => item.type === 'sauce'))
+      setExtraOptions(additions.filter((item) => item.type === 'extra'))
+    } catch {
+      setSauceOptions([])
+      setExtraOptions([])
+    } finally {
+      setSaucesLoading(false)
     }
-    
-    // Trigger upsell callback if provided
-    if (onAddToCart) {
-      onAddToCart(product, quantity)
-    }
-    
-    setQuantity(1)
   }
 
-  const handleIncrement = () => setQuantity(prev => prev + 1)
-  const handleDecrement = () => setQuantity(prev => Math.max(1, prev - 1))
+  const handleOpenAdditions = async () => {
+    if (skipAdditions) {
+      addItem(product)
+      if (onAddToCart) onAddToCart(product, 1)
+      return
+    }
+    setSelectedSauce('none')
+    setSelectedExtras(new Set())
+    setAdditionsOpen(true)
+    await loadSauces()
+  }
+
+  const toggleExtra = (extraName: string, checked: boolean) => {
+    setSelectedExtras((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(extraName)
+      else next.delete(extraName)
+      return next
+    })
+  }
+
+  const handleConfirmAddToCart = () => {
+    const selectedSauceItem = sauceOptions.find((item) => item.id === selectedSauce) || null
+    const selectedExtraItems = extraOptions.filter((item) => selectedExtras.has(item.id))
+    const extrasList = selectedExtraItems.map((item) => item.name)
+    const additionsParts: string[] = []
+    if (selectedSauceItem) {
+      additionsParts.push(`Salsa: ${selectedSauceItem.name}`)
+    }
+    if (extrasList.length > 0) {
+      additionsParts.push(`Extra: ${extrasList.join(', ')}`)
+    }
+    const additions = additionsParts.join(' | ')
+    const additionsUnitPrice =
+      (selectedSauceItem?.price || 0) +
+      selectedExtraItems.reduce((sum, item) => sum + Number(item.price || 0), 0)
+    const additionsIds = [
+      ...(selectedSauceItem ? [selectedSauceItem.id] : []),
+      ...selectedExtraItems.map((item) => item.id),
+    ]
+
+    addItem(product, { additions, additionsUnitPrice, additionsIds })
+    
+    if (onAddToCart) {
+      onAddToCart(product, 1)
+    }
+    
+    setSelectedSauce('none')
+    setSelectedExtras(new Set())
+    setAdditionsOpen(false)
+  }
+  const selectedSaucePrice =
+    selectedSauce === 'none' ? 0 : Number(sauceOptions.find((item) => item.id === selectedSauce)?.price || 0)
+  const selectedExtrasPrice = extraOptions
+    .filter((item) => selectedExtras.has(item.id))
+    .reduce((sum, item) => sum + Number(item.price || 0), 0)
+  const additionsTotalLabel = (selectedSaucePrice + selectedExtrasPrice).toFixed(2).replace('.', ',')
+
+  const handleDecrementInCart = () => {
+    if (inCartQuantity <= 0) return
+    updateQuantity(product.id, inCartQuantity - 1)
+  }
   const hasDetails = Boolean(details?.description || details?.ingredients || details?.allergens)
 
   const ensureDetails = async () => {
@@ -210,37 +286,120 @@ export function ProductCard({ product, onAddToCart, imageFit = 'cover' }: Produc
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9"
-                onClick={handleDecrement}
-                disabled={quantity <= 1}
+                onClick={handleDecrementInCart}
+                disabled={inCartQuantity <= 0}
                 aria-label="Diminuisci quantità"
               >
                 <Minus className="h-4 w-4" aria-hidden="true" />
               </Button>
               <span className="w-10 text-center font-medium text-sm" aria-live="polite" aria-atomic="true">
-                {quantity}
+                {inCartQuantity}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
                 className="h-9 w-9"
-                onClick={handleIncrement}
-                aria-label="Aumenta quantità"
+                onClick={handleOpenAdditions}
+                aria-label={`Aggiungi ${product.name}`}
               >
                 <Plus className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
             
             <Button 
-              onClick={handleAddToCart} 
+              onClick={handleOpenAdditions} 
               className="flex-1 sm:flex-none" 
               size="default"
-              aria-label={`Aggiungi ${quantity} ${product.name} al carrello`}
+              aria-label={`Aggiungi ${product.name} al carrello`}
             >
               Aggiungi
             </Button>
           </div>
         )}
       </CardFooter>
+
+      <Dialog open={additionsOpen} onOpenChange={setAdditionsOpen}>
+        <DialogContent className="max-w-md max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Aggiunte per {product.name}</DialogTitle>
+            <DialogDescription>
+              Scegli una salsa e gli extra per personalizzare il prodotto.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Scegli una salsa</p>
+              <RadioGroup value={selectedSauce} onValueChange={setSelectedSauce} className="space-y-2">
+                <label className="flex items-center justify-between rounded-md border p-2.5 text-sm">
+                  <div className="flex items-center gap-2">
+                    <RadioGroupItem id={`sauce-none-${product.id}`} value="none" />
+                    <span>Nessuna salsa</span>
+                  </div>
+                </label>
+                {saucesLoading && (
+                  <p className="text-xs text-muted-foreground">Caricamento salse...</p>
+                )}
+                {!saucesLoading &&
+                  sauceOptions.map((sauce) => (
+                    <label key={sauce.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
+                      <div className="flex items-center gap-2">
+                        <RadioGroupItem
+                          id={`sauce-${product.id}-${sauce.id}`}
+                          value={sauce.id}
+                        />
+                        <span>{sauce.name}</span>
+                      </div>
+                      {Number(sauce.price || 0) > 0 && (
+                        <span className="font-medium">+{Number(sauce.price).toFixed(2).replace('.', ',')}€</span>
+                      )}
+                    </label>
+                  ))}
+                {!saucesLoading && sauceOptions.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nessuna salsa disponibile.</p>
+                )}
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-2">
+              <p className="text-sm font-semibold">Extra</p>
+              <div className="grid gap-2">
+                {extraOptions.map((extra) => {
+                  const checked = selectedExtras.has(extra.id)
+                  return (
+                    <label key={extra.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
+                      <div className="flex items-center gap-2">
+                        <Checkbox
+                          checked={checked}
+                          onCheckedChange={(value) => toggleExtra(extra.id, Boolean(value))}
+                        />
+                        <span>{extra.name}</span>
+                      </div>
+                      <span className="font-medium">+{Number(extra.price || 0).toFixed(2).replace('.', ',')}€</span>
+                    </label>
+                  )
+                })}
+                {!saucesLoading && extraOptions.length === 0 && (
+                  <p className="text-xs text-muted-foreground">Nessun extra disponibile.</p>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
+              Totale aggiunte: +{additionsTotalLabel}€
+            </div>
+
+            <div className="flex gap-2">
+              <Button variant="outline" className="flex-1" onClick={() => setAdditionsOpen(false)}>
+                Annulla
+              </Button>
+              <Button className="flex-1" onClick={handleConfirmAddToCart}>
+                Aggiungi al carrello
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </Card>
   )
 }

@@ -91,7 +91,6 @@ export default function DiscountsPage() {
     }
 
     try {
-      console.log('[v0] Creating discount:', { code: newCode.toUpperCase().trim(), discount_type: 'percentage', discount_value: percent })
       
       const { error } = await supabase
         .from('discount_codes')
@@ -108,7 +107,6 @@ export default function DiscountsPage() {
         throw error
       }
 
-      console.log('[v0] Discount created successfully')
       toast.success('Codice sconto creato con successo')
       setNewCode('')
       setNewPercent('')

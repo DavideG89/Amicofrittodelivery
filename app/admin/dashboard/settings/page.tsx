@@ -115,7 +115,6 @@ export default function SettingsPage() {
 
     setSaving(true)
     try {
-      console.log('[v0] Saving store info:', formData)
       
       // Parse opening_hours display if it's a JSON string
       let openingHoursDisplay: Record<string, string> | string | null = null
@@ -151,7 +150,6 @@ export default function SettingsPage() {
           console.error('[v0] Update error:', error)
           throw error
         }
-        console.log('[v0] Store info updated successfully')
       } else {
         // Insert new
         const { error } = await supabase
@@ -162,7 +160,6 @@ export default function SettingsPage() {
           console.error('[v0] Insert error:', error)
           throw error
         }
-        console.log('[v0] Store info inserted successfully')
       }
 
       toast.success('Informazioni salvate con successo')

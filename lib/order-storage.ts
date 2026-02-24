@@ -37,7 +37,6 @@ export function saveOrderToDevice(orderNumber: string, orderType: 'delivery' | '
     
     localStorage.setItem(STORAGE_KEY, JSON.stringify(limitedOrders))
     
-    console.log('[v0] Order saved to device:', orderNumber)
   } catch (error) {
     console.error('[v0] Error saving order to device:', error)
   }
@@ -77,7 +76,6 @@ export function removeOrderFromDevice(orderNumber: string) {
     const updatedOrders = orders.filter(o => o.orderNumber !== orderNumber)
     localStorage.setItem(STORAGE_KEY, JSON.stringify(updatedOrders))
     
-    console.log('[v0] Order removed from device:', orderNumber)
   } catch (error) {
     console.error('[v0] Error removing order from device:', error)
   }
@@ -91,7 +89,6 @@ export function clearAllOrders() {
 
   try {
     localStorage.removeItem(STORAGE_KEY)
-    console.log('[v0] All orders cleared from device')
   } catch (error) {
     console.error('[v0] Error clearing orders:', error)
   }

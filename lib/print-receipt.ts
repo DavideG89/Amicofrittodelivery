@@ -26,8 +26,12 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
   const itemsHTML = order.items.map(item => `
     <tr>
       <td>${item.quantity}x</td>
-      <td>${safeText(item.name)}</td>
-      <td style="text-align: right">€${item.price.toFixed(2)}</td>
+      <td>
+        ${safeText(item.name)}
+        ${item.additions_unit_price && item.additions_unit_price > 0 ? `<div style="font-size: 10pt; color: #444;">+ Extra: ${item.additions_unit_price.toFixed(2)}€ cad.</div>` : ''}
+        ${item.additions ? `<div style="font-size: 10pt; color: #444;">+ ${safeText(item.additions)}</div>` : ''}
+      </td>
+      <td style="text-align: right">€${(item.price + (item.additions_unit_price || 0)).toFixed(2)}</td>
     </tr>
   `).join('')
 
@@ -169,7 +173,7 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
           <div><strong>Tel:</strong> ${safeText(order.customer_phone)}</div>
           ${order.customer_address && order.order_type === 'delivery' ? 
             `<div><strong>Indirizzo:</strong> ${safeText(order.customer_address)}</div>` : ''}
-          ${order.order_type === 'delivery' && order.payment_method ? 
+          ${order.payment_method ? 
             `<div><strong>Pagamento:</strong> ${order.payment_method === 'card' ? 'Carta (POS)' : 'Contanti'}</div>` : ''}
         </div>
         
