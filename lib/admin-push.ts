@@ -15,7 +15,11 @@ declare global {
 
 type PushResult =
   | { ok: true; token: string }
-  | { ok: false; reason: 'unsupported' | 'denied' | 'missing_config' | 'no_token' | 'error' }
+  | {
+      ok: false
+      reason: 'unsupported' | 'denied' | 'missing_config' | 'no_token' | 'error'
+      message?: string
+    }
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -58,16 +62,25 @@ async function ensureServiceWorker(config: typeof firebaseConfig) {
 export async function enableAdminPush(): Promise<PushResult> {
   try {
     if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
-      return { ok: false, reason: 'unsupported' }
+      return { ok: false, reason: 'unsupported', message: 'Browser senza supporto notifiche push.' }
+    }
+    if (!window.isSecureContext) {
+      return {
+        ok: false,
+        reason: 'unsupported',
+        message: 'Le notifiche richiedono HTTPS (oppure localhost).',
+      }
     }
 
     const supported = await isSupported().catch(() => false)
-    if (!supported) return { ok: false, reason: 'unsupported' }
+    if (!supported) return { ok: false, reason: 'unsupported', message: 'Browser/dispositivo non supportato.' }
 
-    if (!hasFirebaseConfig()) return { ok: false, reason: 'missing_config' }
+    if (!hasFirebaseConfig()) {
+      return { ok: false, reason: 'missing_config', message: 'Configurazione Firebase Web Push incompleta.' }
+    }
 
     if (Notification.permission === 'denied') {
-      return { ok: false, reason: 'denied' }
+      return { ok: false, reason: 'denied', message: 'Permesso notifiche bloccato dal browser.' }
     }
 
     let permission: NotificationPermission = Notification.permission
@@ -75,20 +88,30 @@ export async function enableAdminPush(): Promise<PushResult> {
       permission = await Notification.requestPermission()
     }
     if (permission !== 'granted') {
-      return { ok: false, reason: permission === 'denied' ? 'denied' : 'error' }
+      return {
+        ok: false,
+        reason: permission === 'denied' ? 'denied' : 'error',
+        message: permission === 'denied' ? 'Permesso notifiche negato.' : 'Permesso notifiche non concesso.',
+      }
     }
 
     const app = getFirebaseApp()
     const registration = await ensureServiceWorker(firebaseConfig)
     if (!registration || !registration.pushManager) {
-      return { ok: false, reason: 'unsupported' }
+      return { ok: false, reason: 'unsupported', message: 'Service Worker PushManager non disponibile.' }
     }
     const messaging = getMessaging(app)
 
-    const token = await getToken(messaging, {
-      vapidKey,
-      serviceWorkerRegistration: registration,
-    })
+    let token = ''
+    try {
+      token = (await getToken(messaging, {
+        vapidKey,
+        serviceWorkerRegistration: registration,
+      })) || ''
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Errore generazione token FCM.'
+      return { ok: false, reason: 'error', message }
+    }
 
     if (!token) return { ok: false, reason: 'no_token' }
 
@@ -104,7 +127,18 @@ export async function enableAdminPush(): Promise<PushResult> {
         { onConflict: 'token' }
       )
 
-    if (error) return { ok: false, reason: 'error' }
+    if (error) {
+      console.error('[admin-push] upsert failed', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      })
+      return {
+        ok: false,
+        reason: 'error',
+        message: error.message || 'Errore salvataggio token admin su Supabase.',
+      }
+    }
     try {
       localStorage.setItem('admin-push-token', token)
       localStorage.setItem('admin-push:active', 'true')
@@ -113,8 +147,9 @@ export async function enableAdminPush(): Promise<PushResult> {
     }
 
     return { ok: true, token }
-  } catch {
-    return { ok: false, reason: 'error' }
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Errore inatteso attivazione notifiche.'
+    return { ok: false, reason: 'error', message }
   }
 }
 

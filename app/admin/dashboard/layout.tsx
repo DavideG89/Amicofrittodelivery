@@ -31,6 +31,7 @@ export default function AdminDashboardLayout({
   const pathname = usePathname()
   const [authChecked, setAuthChecked] = useState(false)
   const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'denied' | 'unsupported' | 'error' | 'missing'>('idle')
+  const [pushErrorDetail, setPushErrorDetail] = useState('')
   const [showPushTooltip, setShowPushTooltip] = useState(false)
   const [pendingToneActive, setPendingToneActive] = useState(false)
   const [alertingPendingIds, setAlertingPendingIds] = useState<Set<string>>(new Set())
@@ -98,6 +99,7 @@ export default function AdminDashboardLayout({
 
         const hasToken = !!localStorage.getItem('admin-push-token')
         if (hasToken) {
+          setPushErrorDetail('')
           if (!cancelled) setPushStatus('enabled')
           return
         }
@@ -105,14 +107,19 @@ export default function AdminDashboardLayout({
         const result = await enableAdminPush()
         if (cancelled) return
         if (result.ok) {
+          setPushErrorDetail('')
           setPushStatus('enabled')
         } else if (result.reason === 'missing_config') {
+          setPushErrorDetail(result.message || '')
           setPushStatus('missing')
         } else if (result.reason === 'unsupported') {
+          setPushErrorDetail(result.message || '')
           setPushStatus('unsupported')
         } else if (result.reason === 'denied') {
+          setPushErrorDetail(result.message || '')
           setPushStatus('denied')
         } else {
+          setPushErrorDetail(result.message || '')
           setPushStatus('error')
         }
       } finally {
@@ -397,20 +404,28 @@ export default function AdminDashboardLayout({
     try {
       const result = await enableAdminPush()
       if (result.ok) {
+        setPushErrorDetail('')
         setPushStatus('enabled')
+        toast.success('Notifiche admin attivate')
       } else {
+        const detail = result.message || ''
+        setPushErrorDetail(detail)
         if (result.reason === 'unsupported') setPushStatus('unsupported')
         else if (result.reason === 'denied') setPushStatus('denied')
         else if (result.reason === 'missing_config') setPushStatus('missing')
         else setPushStatus('error')
+        toast.error(detail || 'Errore attivazione notifiche admin')
       }
     } catch {
+      setPushErrorDetail('Errore inatteso attivazione notifiche admin.')
       setPushStatus('error')
+      toast.error('Errore inatteso attivazione notifiche admin')
     }
   }
 
   const handleDisablePush = async () => {
     await disableAdminPush()
+    setPushErrorDetail('')
     setPushStatus('idle')
     setShowPushTooltip(true)
     window.setTimeout(() => setShowPushTooltip(false), 2000)
@@ -570,6 +585,11 @@ export default function AdminDashboardLayout({
                   {pushStatus === 'missing' && 'Configurazione Firebase mancante. Completa le env pubbliche.'}
                   {pushStatus === 'error' && 'Errore durante l’attivazione delle notifiche.'}
                   {pushStatus === 'idle' && 'Abilita le notifiche per ricevere i nuovi ordini.'}
+                  {pushErrorDetail && (
+                    <span className="block mt-1 text-xs text-foreground/80">
+                      Dettaglio: {pushErrorDetail}
+                    </span>
+                  )}
                 </div>
                 {pushStatus === 'idle' && (
                   <Button size="sm" onClick={handleEnablePush}>
