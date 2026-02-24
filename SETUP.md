@@ -12,9 +12,10 @@ Il tuo progetto Supabase è: **AmicoFritto** (ID: sghftuvrupaswqhdckvs)
 4. Copia e incolla il contenuto di `scripts/01-create-tables.sql`
 5. Clicca su **Run** per eseguire lo script
 6. Ripeti i passaggi 3-5 con `scripts/02-seed-data.sql`
+7. Ripeti i passaggi 3-5 con `scripts/07-customer-push.sql`
 
 Gli script creano:
-- Tabelle: categories, products, store_info, discount_codes, orders
+- Tabelle: categories, products, store_info, discount_codes, orders, customer_push_tokens
 - Dati di esempio con categorie (Panini, Hamburgers, Fritti, Salse, Bevande)
 - Prodotti di esempio per ogni categoria
 - Codici sconto di esempio (BENVENUTO10, SCONTO5)

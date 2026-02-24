@@ -32,6 +32,7 @@ Devi eseguire gli script SQL nel tuo progetto Supabase (**AmicoFritto** - ID: `s
 3. Esegui in ordine i seguenti script:
    - `scripts/01-create-tables.sql` - Crea le tabelle del database
    - `scripts/02-seed-data.sql` - Inserisce dati di esempio
+   - `scripts/07-customer-push.sql` - Crea la tabella token notifiche cliente
 
 ### 2. Variabili d'Ambiente
 

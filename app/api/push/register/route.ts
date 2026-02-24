@@ -30,20 +30,44 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabaseServerClient()
-    const { error } = await supabase
+    const payload = {
+      order_number: orderNumber,
+      token,
+      last_seen: new Date().toISOString(),
+      user_agent: request.headers.get('user-agent') ?? null,
+    }
+
+    let { error } = await supabase
       .from('customer_push_tokens')
-      .upsert(
-        {
-          order_number: orderNumber,
-          token,
-          last_seen: new Date().toISOString(),
-          user_agent: request.headers.get('user-agent') ?? null,
-        },
-        { onConflict: 'order_number,token' }
-      )
+      .upsert(payload, { onConflict: 'order_number,token' })
+
+    // Fallback for databases missing a composite unique constraint used by upsert.
+    if (error?.code === '42P10') {
+      const { error: insertError } = await supabase
+        .from('customer_push_tokens')
+        .insert(payload)
+      if (!insertError || insertError.code === '23505') {
+        error = null
+      } else {
+        error = insertError
+      }
+    }
 
     if (error) {
-      return NextResponse.json({ error: 'Errore salvataggio token' }, { status: 500, headers: rate.headers })
+      console.error('[push/register] failed', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      })
+      const isMissingTable = error.code === '42P01'
+      return NextResponse.json(
+        {
+          error: isMissingTable
+            ? 'Tabella notifiche cliente mancante (customer_push_tokens)'
+            : 'Errore salvataggio token',
+        },
+        { status: 500, headers: rate.headers }
+      )
     }
 
     return NextResponse.json({ ok: true }, { headers: rate.headers })

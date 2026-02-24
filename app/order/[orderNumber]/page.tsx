@@ -162,11 +162,15 @@ export default function OrderPage() {
         } else if (result.reason === 'unsupported') {
           setPushStatus('unsupported')
           setPushEnabled(false)
-          toast.error('Notifiche non supportate su questo dispositivo')
+          toast.error(result.message || 'Notifiche non supportate su questo dispositivo')
+        } else if (result.reason === 'no_token') {
+          setPushStatus('error')
+          setPushEnabled(false)
+          toast.error('Token notifiche non generato. Verifica configurazione Firebase Web Push.')
         } else {
           setPushStatus('error')
           setPushEnabled(false)
-          toast.error('Errore attivazione notifiche')
+          toast.error(result.message || 'Errore attivazione notifiche')
         }
       } else {
         await disableCustomerPush(orderNumber)

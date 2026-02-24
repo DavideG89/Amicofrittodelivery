@@ -108,7 +108,7 @@ export async function POST(request: Request) {
           .select('token')
           .eq('order_number', order.order_number)
 
-        const tokens = (tokensData || []).map((row) => row.token).filter(Boolean)
+        const tokens = [...new Set((tokensData || []).map((row) => row.token).filter(Boolean))]
         if (tokens.length > 0) {
           const clickAction = `/track/${order.order_number}`
           const results = await sendFcmMessages(tokens, {

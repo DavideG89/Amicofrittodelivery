@@ -3,6 +3,14 @@
 import { initializeApp, getApps } from 'firebase/app'
 import { getMessaging, getToken, isSupported, deleteToken } from 'firebase/messaging'
 
+type PushResult =
+  | { ok: true; token: string }
+  | {
+      ok: false
+      reason: 'unsupported' | 'denied' | 'missing_config' | 'no_token' | 'error'
+      message?: string
+    }
+
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
@@ -41,31 +49,44 @@ async function ensureServiceWorker(config: typeof firebaseConfig) {
   return ready
 }
 
-export async function enableCustomerPush(orderNumber: string) {
+export async function enableCustomerPush(orderNumber: string): Promise<PushResult> {
   if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
-    return { ok: false, reason: 'unsupported' as const }
+    return { ok: false, reason: 'unsupported' }
+  }
+  if (!window.isSecureContext) {
+    return {
+      ok: false,
+      reason: 'unsupported',
+      message: 'Le notifiche richiedono HTTPS (oppure localhost).',
+    }
   }
 
   const supported = await isSupported().catch(() => false)
-  if (!supported) return { ok: false, reason: 'unsupported' as const }
-  if (!hasFirebaseConfig()) return { ok: false, reason: 'missing_config' as const }
+  if (!supported) return { ok: false, reason: 'unsupported', message: 'Browser/dispositivo non supportato.' }
+  if (!hasFirebaseConfig()) return { ok: false, reason: 'missing_config' }
 
   const permission = await Notification.requestPermission()
-  if (permission !== 'granted') return { ok: false, reason: 'denied' as const }
+  if (permission !== 'granted') return { ok: false, reason: 'denied' }
 
   const app = getFirebaseApp()
   const registration = await ensureServiceWorker(firebaseConfig)
   if (!registration || !registration.pushManager) {
-    return { ok: false, reason: 'unsupported' as const }
+    return { ok: false, reason: 'unsupported' }
   }
 
-  const messaging = getMessaging(app)
-  const token = await getToken(messaging, {
-    vapidKey,
-    serviceWorkerRegistration: registration,
-  })
+  let token = ''
+  try {
+    const messaging = getMessaging(app)
+    token = (await getToken(messaging, {
+      vapidKey,
+      serviceWorkerRegistration: registration,
+    })) || ''
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'FCM token error'
+    return { ok: false, reason: 'error', message }
+  }
 
-  if (!token) return { ok: false, reason: 'no_token' as const }
+  if (!token) return { ok: false, reason: 'no_token' }
 
   const res = await fetch('/api/push/register', {
     method: 'POST',
@@ -73,7 +94,12 @@ export async function enableCustomerPush(orderNumber: string) {
     body: JSON.stringify({ orderNumber, token }),
   })
 
-  if (!res.ok) return { ok: false, reason: 'error' as const }
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}))
+    const message =
+      typeof data?.error === 'string' ? data.error : `Errore registrazione push (${res.status})`
+    return { ok: false, reason: 'error', message }
+  }
 
   try {
     localStorage.setItem(`customer-push:${orderNumber}`, token)
@@ -82,7 +108,7 @@ export async function enableCustomerPush(orderNumber: string) {
     // ignore storage errors
   }
 
-  return { ok: true as const, token }
+  return { ok: true, token }
 }
 
 export async function disableCustomerPush(orderNumber: string) {

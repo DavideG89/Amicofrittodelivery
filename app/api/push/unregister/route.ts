@@ -37,6 +37,11 @@ export async function POST(request: Request) {
       .eq('token', token)
 
     if (error) {
+      console.error('[push/unregister] failed', {
+        code: error.code,
+        message: error.message,
+        details: error.details,
+      })
       return NextResponse.json({ error: 'Errore rimozione token' }, { status: 500, headers: rate.headers })
     }
 
