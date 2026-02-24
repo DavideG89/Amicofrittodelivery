@@ -27,7 +27,7 @@ const statusConfig = {
   cancelled: { label: 'Annullato', icon: XCircle, variant: 'destructive' as const }
 }
 
-const statusOrder: Order['status'][] = ['pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled']
+const statusOrder: Order['status'][] = ['pending', 'preparing', 'ready', 'completed', 'cancelled']
 
 const toNumber = (value: unknown, fallback = 0) => {
   if (typeof value === 'number') {
@@ -81,7 +81,7 @@ const getStatusOptions = (current: Order['status']): Order['status'][] => {
 
 const getNextStatus = (current: Order['status']): Order['status'] | null => {
   const nextStatus: Record<Order['status'], Order['status'] | null> = {
-    pending: 'confirmed',
+    pending: 'preparing',
     confirmed: 'preparing',
     preparing: 'ready',
     ready: 'completed',
@@ -97,9 +97,7 @@ const getNextStatusLabel = (current: Order['status']) => {
   if (!next) return 'Aggiorna stato'
   return statusConfig[next].label === 'Completato' ? 'Completa ordine' : statusConfig[next].label === 'In preparazione'
     ? 'Inizia preparazione'
-    : statusConfig[next].label === 'Confermato'
-      ? 'Conferma ordine'
-      : statusConfig[next].label === 'Pronto'
+    : statusConfig[next].label === 'Pronto'
         ? 'Segna come pronto'
         : `Passa a ${statusConfig[next].label.toLowerCase()}`
 }
@@ -342,9 +340,9 @@ export default function OrdersManagementPage() {
     return true
   }
 
-  const maybeFetchOrders = (force = false, pageOverride?: number) => {
+  const maybeFetchOrders = (force = false, reset = true, pageOverride?: number) => {
     if (!shouldFetch(force)) return
-    fetchOrders(force, pageOverride)
+    fetchOrders(reset, pageOverride)
   }
 
   async function fetchStoreInfo() {
@@ -367,7 +365,7 @@ export default function OrdersManagementPage() {
       const { data, error } = await supabase
         .from('orders')
         .select('id, order_number, customer_name, customer_phone, customer_address, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, status, notes, created_at, updated_at')
-        .order('created_at', { ascending: false })
+        .order('created_at', { ascending: true })
         .range(from, to)
 
       if (error) throw error
@@ -376,7 +374,15 @@ export default function OrdersManagementPage() {
         setOrders(normalized)
         setPage(0)
       } else {
-        setOrders((prev) => [...prev, ...normalized])
+        setOrders((prev) => {
+          const merged = [...prev, ...normalized]
+          const seen = new Set<string>()
+          return merged.filter((order) => {
+            if (seen.has(order.id)) return false
+            seen.add(order.id)
+            return true
+          })
+        })
       }
       setHasMore((data || []).length === pageSize)
     } catch (error) {
