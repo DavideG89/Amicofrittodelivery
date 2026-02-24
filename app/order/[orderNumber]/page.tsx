@@ -33,9 +33,12 @@ export default function OrderPage() {
       const active = status !== 'completed' && status !== 'cancelled'
       localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
       const token = localStorage.getItem(`customer-push:${number}`)
-      if (token) {
-        setPushStatus('enabled')
-        setPushEnabled(true)
+      const hasToken = Boolean(token)
+      setPushEnabled(hasToken)
+      if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+        setPushStatus('denied')
+      } else {
+        setPushStatus(hasToken ? 'enabled' : 'idle')
       }
     } catch {
       // ignore storage errors
@@ -77,15 +80,21 @@ export default function OrderPage() {
   }, [orderNumber])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return
-    if (Notification.permission === 'granted') {
-      setPushStatus('enabled')
-      setPushEnabled(true)
-    } else if (Notification.permission === 'denied') {
-      setPushStatus('denied')
+    if (typeof window === 'undefined' || !('Notification' in window) || !orderNumber) return
+    try {
+      const token = localStorage.getItem(`customer-push:${orderNumber}`)
+      const hasToken = Boolean(token)
+      setPushEnabled(hasToken)
+      if (Notification.permission === 'denied') {
+        setPushStatus('denied')
+      } else {
+        setPushStatus(hasToken ? 'enabled' : 'idle')
+      }
+    } catch {
       setPushEnabled(false)
+      setPushStatus(Notification.permission === 'denied' ? 'denied' : 'idle')
     }
-  }, [])
+  }, [orderNumber])
 
   const handleCopyCode = async () => {
     try {

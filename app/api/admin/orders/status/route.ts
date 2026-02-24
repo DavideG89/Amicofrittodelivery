@@ -111,7 +111,7 @@ export async function POST(request: Request) {
         const tokens = (tokensData || []).map((row) => row.token).filter(Boolean)
         if (tokens.length > 0) {
           const clickAction = `/track/${order.order_number}`
-          await sendFcmMessages(tokens, {
+          const results = await sendFcmMessages(tokens, {
             title: notification.title,
             body: notification.body(order.order_number),
             clickAction,
@@ -120,6 +120,22 @@ export async function POST(request: Request) {
               status,
             },
           })
+
+          const invalidTokens = results
+            .filter((result) => {
+              if (result.ok) return false
+              if (result.status === 404) return true
+              const errorText = (result.error || '').toUpperCase()
+              return (
+                errorText.includes('UNREGISTERED') ||
+                errorText.includes('REGISTRATION_TOKEN_NOT_REGISTERED')
+              )
+            })
+            .map((result) => result.token)
+
+          if (invalidTokens.length > 0) {
+            await supabase.from('customer_push_tokens').delete().in('token', invalidTokens)
+          }
         }
       } catch (pushError) {
         console.error('[v0] Push notification failed:', pushError)

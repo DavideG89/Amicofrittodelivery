@@ -67,13 +67,6 @@ export async function enableCustomerPush(orderNumber: string) {
 
   if (!token) return { ok: false, reason: 'no_token' as const }
 
-  try {
-    localStorage.setItem(`customer-push:${orderNumber}`, token)
-    localStorage.setItem('customer-push:active', 'true')
-  } catch {
-    // ignore storage errors
-  }
-
   const res = await fetch('/api/push/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -81,6 +74,14 @@ export async function enableCustomerPush(orderNumber: string) {
   })
 
   if (!res.ok) return { ok: false, reason: 'error' as const }
+
+  try {
+    localStorage.setItem(`customer-push:${orderNumber}`, token)
+    localStorage.setItem('customer-push:active', 'true')
+  } catch {
+    // ignore storage errors
+  }
+
   return { ok: true as const, token }
 }
 

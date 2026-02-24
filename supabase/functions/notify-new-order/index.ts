@@ -88,7 +88,7 @@ async function sendFcm(accessToken: string, token: string, payload: OrderPayload
         notification: {
           title,
           body,
-          icon: '/icons/icon-192.png',
+          icon: '/icons/icon-star.svg',
           data: { click_action: clickAction }
         }
       }

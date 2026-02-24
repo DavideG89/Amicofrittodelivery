@@ -53,7 +53,21 @@ function initFirebase(config) {
 self.addEventListener('notificationclick', (event) => {
   event.notification?.close()
   const target = event.notification?.data?.click_action || '/'
-  event.waitUntil(clients.openWindow(target))
+  event.waitUntil((async () => {
+    const targetUrl = new URL(target, self.location.origin)
+    const allClients = await clients.matchAll({ type: 'window', includeUncontrolled: true })
+    for (const client of allClients) {
+      const clientUrl = new URL(client.url)
+      if (clientUrl.origin === targetUrl.origin) {
+        if ('focus' in client) await client.focus()
+        if ('navigate' in client) {
+          await client.navigate(targetUrl.href)
+        }
+        return
+      }
+    }
+    await clients.openWindow(targetUrl.href)
+  })())
 })
 
 self.addEventListener('install', () => {

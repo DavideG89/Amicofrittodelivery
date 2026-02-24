@@ -89,7 +89,7 @@ export async function sendFcmMessages(tokens: string[], message: FcmMessage) {
           notification: {
             title: message.title,
             body: message.body,
-            icon: '/icons/icon-192.png',
+            icon: '/icons/icon-star.svg',
             data: { click_action: message.clickAction },
           },
         },
