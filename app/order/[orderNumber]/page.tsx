@@ -127,7 +127,7 @@ export default function OrderPage() {
   }
 
   const handleTrackOrder = () => {
-    if (isTracking) return
+    if (isTracking || !order) return
     setIsTracking(true)
     router.push(`/track/${order.order_number}`)
   }

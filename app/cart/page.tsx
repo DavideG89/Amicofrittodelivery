@@ -29,7 +29,7 @@ export default function CartPage() {
     async function fetchStoreInfo() {
       const { data, error } = await supabase
         .from('store_info')
-        .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery')
+        .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery, updated_at')
         .limit(1)
         .maybeSingle()
       
@@ -54,13 +54,14 @@ export default function CartPage() {
   useEffect(() => {
     if (!lastOrderNumber) return
     let cancelled = false
-    setLastOrderLoading(true)
-    supabase
-      .from('orders_public')
-      .select('status')
-      .eq('order_number', lastOrderNumber)
-      .single()
-      .then(({ data }) => {
+    const refreshStatus = async () => {
+      setLastOrderLoading(true)
+      try {
+        const { data } = await supabase
+          .from('orders_public')
+          .select('status')
+          .eq('order_number', lastOrderNumber)
+          .single()
         if (cancelled) return
         const status = (data?.status as OrderStatus) || null
         setLastOrderStatus(status)
@@ -73,15 +74,16 @@ export default function CartPage() {
             // ignore storage errors
           }
         }
-      })
-      .catch(() => {
+      } catch {
         if (cancelled) return
         setLastOrderStatus(null)
-      })
-      .finally(() => {
+      } finally {
         if (cancelled) return
         setLastOrderLoading(false)
-      })
+      }
+    }
+
+    void refreshStatus()
 
     return () => {
       cancelled = true

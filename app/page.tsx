@@ -80,7 +80,7 @@ export default function Home() {
     if (productsByCategory[categoryId]) return
     const { data, error } = await supabase
       .from('products')
-      .select('id, category_id, name, price, image_url, available, label, display_order')
+      .select('id, category_id, name, price, image_url, available, label, display_order, created_at, updated_at')
       .eq('category_id', categoryId)
       .order('display_order', { ascending: true })
     if (error) {
@@ -132,7 +132,7 @@ export default function Home() {
         // Fetch categories
         const { data: categoriesData, error: categoriesError } = await supabase
           .from('categories')
-          .select('id, name, slug, display_order')
+          .select('id, name, slug, display_order, created_at, updated_at')
           .order('display_order', { ascending: true })
 
         if (categoriesError) {
@@ -147,7 +147,7 @@ export default function Home() {
 
         const { data: storeInfoData, error: storeInfoError } = await supabase
           .from('store_info')
-          .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery')
+          .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery, updated_at')
           .limit(1)
           .maybeSingle()
 

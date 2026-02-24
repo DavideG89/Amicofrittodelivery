@@ -56,7 +56,9 @@ export function createEmptySchedule(): OrderSchedule {
   }
 }
 
-export function extractOpeningHours(openingHours: OpeningHoursValue) {
+export function extractOpeningHours(
+  openingHours: OpeningHoursValue
+): { display: string | Record<string, string> | null; schedule: OrderSchedule | null } {
   if (!openingHours) return { display: null, schedule: null }
 
   if (typeof openingHours === 'string') {
@@ -64,7 +66,13 @@ export function extractOpeningHours(openingHours: OpeningHoursValue) {
   }
 
   if (typeof openingHours === 'object' && 'order_schedule' in openingHours) {
-    const display = (openingHours as { display?: OpeningHoursValue }).display ?? null
+    const displayValue = (openingHours as { display?: unknown }).display
+    const display =
+      typeof displayValue === 'string'
+        ? displayValue
+        : displayValue && typeof displayValue === 'object'
+          ? (displayValue as Record<string, string>)
+          : null
     const schedule = (openingHours as { order_schedule?: OrderSchedule | null }).order_schedule ?? null
     return { display, schedule }
   }

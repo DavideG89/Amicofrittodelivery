@@ -1,11 +1,6 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
-import { CartProvider } from '@/lib/cart-context'
-import { Toaster } from '@/components/ui/sonner'
-import { FloatingCartButton } from '@/components/floating-cart-button'
-import { AppVersionChecker } from '@/components/app-version-checker'
-import { InstallBanner } from '@/components/install-banner'
-import { SplashScreen } from '@/components/splash-screen'
+import { RootProviders } from '@/components/root-providers'
 
 import './globals.css'
 
@@ -66,14 +61,7 @@ export default function RootLayout({
   return (
     <html lang="it" suppressHydrationWarning>
       <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
-        <CartProvider>
-          <AppVersionChecker />
-          <SplashScreen />
-          <InstallBanner />
-          {children}
-          <FloatingCartButton />
-          <Toaster />
-        </CartProvider>
+        <RootProviders>{children}</RootProviders>
       </body>
     </html>
   )

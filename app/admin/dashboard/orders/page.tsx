@@ -71,11 +71,11 @@ const normalizeOrder = (order: Order): Order => ({
   total: toNumber(order.total),
 })
 
-const getStatusOptions = (current: Order['status']) => {
+const getStatusOptions = (current: Order['status']): Order['status'][] => {
   if (current === 'ready') {
     return ['ready', 'completed', 'cancelled']
   }
-  return statusOrder
+  return [...statusOrder]
 }
 
 const getNextStatus = (current: Order['status']): Order['status'] | null => {
@@ -177,13 +177,13 @@ export default function OrdersManagementPage() {
 
     const tabId = getTabId()
 
-    const readLeader = () => {
+    const readLeader = (): { id: string; ts: number } | null => {
       try {
         const raw = localStorage.getItem(leaderKey)
         if (!raw) return null
         const parsed = JSON.parse(raw) as { id?: string; ts?: number }
-        if (!parsed?.id || !parsed?.ts) return null
-        return parsed
+        if (typeof parsed.id !== 'string' || typeof parsed.ts !== 'number') return null
+        return { id: parsed.id, ts: parsed.ts }
       } catch {
         return null
       }
@@ -365,7 +365,7 @@ export default function OrdersManagementPage() {
       const to = from + pageSize - 1
       const { data, error } = await supabase
         .from('orders')
-        .select('id, order_number, customer_name, customer_phone, customer_address, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, status, notes, created_at')
+        .select('id, order_number, customer_name, customer_phone, customer_address, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, status, notes, created_at, updated_at')
         .order('created_at', { ascending: false })
         .range(from, to)
 

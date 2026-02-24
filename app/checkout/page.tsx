@@ -69,7 +69,7 @@ function CheckoutForm() {
     async function fetchStoreInfo() {
       const { data, error } = await supabase
         .from('store_info')
-        .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery')
+        .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery, updated_at')
         .limit(1)
         .maybeSingle()
       

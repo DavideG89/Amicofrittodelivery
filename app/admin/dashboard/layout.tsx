@@ -175,13 +175,13 @@ export default function AdminDashboardLayout({
 
     const tabId = getTabId()
 
-    const readLeader = () => {
+    const readLeader = (): { id: string; ts: number } | null => {
       try {
         const raw = localStorage.getItem(leaderKey)
         if (!raw) return null
         const parsed = JSON.parse(raw) as { id?: string; ts?: number }
-        if (!parsed?.id || !parsed?.ts) return null
-        return parsed
+        if (typeof parsed.id !== 'string' || typeof parsed.ts !== 'number') return null
+        return { id: parsed.id, ts: parsed.ts }
       } catch {
         return null
       }

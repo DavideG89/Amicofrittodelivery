@@ -70,28 +70,40 @@ export default function OrderTrackingDetailsPage() {
 
   const fetchOrder = async (light = false) => {
     try {
-      const { data, error } = await supabase
-        .from('orders_public')
-        .select(
-          light
-            ? 'order_number, status, updated_at'
-            : 'order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at'
-        )
-        .eq('order_number', orderNumber)
-        .single()
+      if (light) {
+        const { data, error } = await supabase
+          .from('orders_public')
+          .select('order_number, status, updated_at')
+          .eq('order_number', orderNumber)
+          .single()
+        if (error || !data) throw error ?? new Error('Order not found')
 
-      if (error) throw error
-      
-      setOrder((prev) =>
-        light && prev
-          ? { ...prev, status: data.status, updated_at: data.updated_at }
-          : data
-      )
-      try {
-        const active = data.status !== 'completed' && data.status !== 'cancelled'
-        localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
-      } catch {
-        // ignore storage errors
+        const lightData = data as Pick<PublicOrder, 'order_number' | 'status' | 'updated_at'>
+        setOrder((prev) =>
+          prev ? { ...prev, status: lightData.status, updated_at: lightData.updated_at } : prev
+        )
+        try {
+          const active = lightData.status !== 'completed' && lightData.status !== 'cancelled'
+          localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
+        } catch {
+          // ignore storage errors
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('orders_public')
+          .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
+          .eq('order_number', orderNumber)
+          .single()
+        if (error || !data) throw error ?? new Error('Order not found')
+
+        const fullData = data as PublicOrder
+        setOrder(fullData)
+        try {
+          const active = fullData.status !== 'completed' && fullData.status !== 'cancelled'
+          localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
+        } catch {
+          // ignore storage errors
+        }
       }
     } catch (error) {
       console.error('[v0] Error fetching order:', error)
