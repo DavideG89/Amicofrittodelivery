@@ -20,7 +20,7 @@ import { useIsMobile } from '@/components/ui/use-mobile'
 
 const statusConfig = {
   pending: { label: 'In attesa', icon: Clock, variant: 'secondary' as const },
-  confirmed: { label: 'Confermato', icon: CheckCircle, variant: 'default' as const },
+  confirmed: { label: 'In preparazione', icon: Package, variant: 'default' as const },
   preparing: { label: 'In preparazione', icon: Package, variant: 'default' as const },
   ready: { label: 'Pronto', icon: Truck, variant: 'default' as const },
   completed: { label: 'Completato', icon: CheckCircle, variant: 'default' as const },
@@ -123,10 +123,14 @@ export default function OrdersManagementPage() {
     { href: '/admin/dashboard/discounts', label: 'Sconti' },
     { href: '/admin/dashboard/settings', label: 'Impostazioni' },
   ]
-  const allowedTabs = ['pending', 'active', 'delivery', 'completed', 'all'] as const
-  const initialTab = allowedTabs.includes((searchParams.get('tab') ?? '') as (typeof allowedTabs)[number])
-    ? (searchParams.get('tab') as (typeof allowedTabs)[number])
-    : 'pending'
+  const allowedTabs = ['pending', 'active', 'completed', 'all'] as const
+  const normalizeTab = (value: string | null): (typeof allowedTabs)[number] => {
+    if (value === 'delivery') return 'active'
+    return allowedTabs.includes((value ?? '') as (typeof allowedTabs)[number])
+      ? (value as (typeof allowedTabs)[number])
+      : 'pending'
+  }
+  const initialTab = normalizeTab(searchParams.get('tab'))
   const [activeTab, setActiveTab] = useState<(typeof allowedTabs)[number]>(initialTab)
   const pageSize = 20
   const lastFetchAtRef = useRef(0)
@@ -138,10 +142,8 @@ export default function OrdersManagementPage() {
   useEffect(() => {
     const requested = searchParams.get('tab')
     if (!requested) return
-    if (allowedTabs.includes(requested as (typeof allowedTabs)[number])) {
-      setActiveTab(requested as (typeof allowedTabs)[number])
-    }
-  }, [searchParams, allowedTabs])
+    setActiveTab(normalizeTab(requested))
+  }, [searchParams])
 
   useEffect(() => {
     maybeFetchOrders(true)
@@ -502,8 +504,7 @@ export default function OrdersManagementPage() {
   }
 
   const pendingOrders = filterOrdersByStatus('pending')
-  const activeOrders = orders.filter(o => ['confirmed', 'preparing'].includes(o.status))
-  const deliveryOrders = orders.filter(o => o.status === 'ready')
+  const activeOrders = orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status))
   const completedOrders = filterOrdersByStatus('completed')
 
   return (
@@ -547,9 +548,6 @@ export default function OrdersManagementPage() {
             <TabsTrigger value="active">
               Confermati ({activeOrders.length})
             </TabsTrigger>
-            <TabsTrigger value="delivery">
-              In consegna ({deliveryOrders.length})
-            </TabsTrigger>
             <TabsTrigger value="completed">
               Completati ({completedOrders.length})
             </TabsTrigger>
@@ -581,28 +579,12 @@ export default function OrdersManagementPage() {
           {activeOrders.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">Nessun ordine attivo</p>
+                <p className="text-muted-foreground">Nessun ordine confermato</p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {activeOrders.map(order => (
-                <OrderCard key={order.id} order={order} />
-              ))}
-            </div>
-          )}
-        </TabsContent>
-
-        <TabsContent value="delivery" className="mt-0">
-          {deliveryOrders.length === 0 ? (
-            <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-muted-foreground">Nessun ordine in consegna</p>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {deliveryOrders.map(order => (
                 <OrderCard key={order.id} order={order} />
               ))}
             </div>

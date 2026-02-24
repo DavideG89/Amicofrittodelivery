@@ -8,6 +8,7 @@ import { Toaster } from '@/components/ui/sonner'
 import { AppVersionChecker } from '@/components/app-version-checker'
 import { InstallBanner } from '@/components/install-banner'
 import { SplashScreen } from '@/components/splash-screen'
+import { GlobalOrderTerminalDialog } from '@/components/global-order-terminal-dialog'
 
 export function RootProviders({ children }: { children: ReactNode }) {
   const pathname = usePathname()
@@ -24,6 +25,7 @@ export function RootProviders({ children }: { children: ReactNode }) {
         <CartProvider>
           {children}
           <FloatingCartButton />
+          <GlobalOrderTerminalDialog />
         </CartProvider>
       )}
       <Toaster />

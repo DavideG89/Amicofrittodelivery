@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, CheckCircle, CircleCheckBig, Clock, Home, Loader2, Package, RefreshCw, Utensils, XCircle, ChefHat } from 'lucide-react'
@@ -8,9 +8,9 @@ import { Header } from '@/components/header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { supabase, PublicOrder } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
+import type { OrderStatus } from '@/lib/supabase'
 
 const statusConfig = {
   pending: {
@@ -20,10 +20,10 @@ const statusConfig = {
     description: "Il tuo ordine e' stato ricevuto ed e' in attesa."
   },
   confirmed: {
-    label: 'Confermato',
-    icon: CheckCircle,
-    color: 'bg-blue-500',
-    description: 'Ordine confermato.'
+    label: 'In preparazione',
+    icon: ChefHat,
+    color: 'bg-orange-500',
+    description: 'Stiamo preparando il tuo ordine.'
   },
   preparing: {
     label: 'In preparazione',
@@ -32,10 +32,10 @@ const statusConfig = {
     description: 'Stiamo preparando il tuo ordine.'
   },
   ready: {
-    label: 'Pronto',
+    label: 'In consegna',
     icon: Utensils,
-    color: 'bg-green-500',
-    description: "Il tuo ordine e' pronto."
+    color: 'bg-indigo-600',
+    description: "Il tuo ordine e' in consegna."
   },
   completed: {
     label: 'Completato',
@@ -51,19 +51,14 @@ const statusConfig = {
   }
 } as const
 
-const timelineStatuses = ['pending', 'confirmed', 'preparing', 'ready', 'completed'] as const
-
-type DialogState = null | 'completed' | 'cancelled'
+const timelineStatuses = ['pending', 'preparing', 'ready', 'completed'] as const
 
 export function OrderDetailsPage() {
   const params = useParams()
-  const router = useRouter()
   const orderNumber = params.orderNumber as string
   const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
-  const [contactPhone, setContactPhone] = useState<string | null>(null)
-  const [statusDialog, setStatusDialog] = useState<DialogState>(null)
 
   const updateOrderContext = (number: string, status: string) => {
     try {
@@ -72,19 +67,6 @@ export function OrderDetailsPage() {
       localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
     } catch {
       // ignore storage errors
-    }
-  }
-
-  const maybeOpenTerminalDialog = (status: string) => {
-    if (!orderNumber || (status !== 'completed' && status !== 'cancelled')) return
-    try {
-      const key = `order-terminal-dialog:${orderNumber}:${status}`
-      const alreadyShown = sessionStorage.getItem(key) === '1'
-      if (alreadyShown) return
-      sessionStorage.setItem(key, '1')
-      setStatusDialog(status)
-    } catch {
-      setStatusDialog(status as DialogState)
     }
   }
 
@@ -102,26 +84,20 @@ export function OrderDetailsPage() {
 
         setOrder((prev) => (prev ? { ...prev, status: data.status, updated_at: data.updated_at } : prev))
         updateOrderContext(data.order_number, data.status)
-        maybeOpenTerminalDialog(data.status)
         return
       }
 
-      const [{ data, error }, { data: storeData }] = await Promise.all([
-        supabase
-          .from('orders_public')
-          .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
-          .eq('order_number', orderNumber)
-          .single(),
-        supabase.from('store_info').select('phone').limit(1).maybeSingle(),
-      ])
+      const { data, error } = await supabase
+        .from('orders_public')
+        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
+        .eq('order_number', orderNumber)
+        .single()
 
       if (error || !data) throw error ?? new Error('Order not found')
 
       setOrder(data as PublicOrder)
-      setContactPhone((storeData?.phone as string | null) ?? null)
       saveOrderToDevice(data.order_number, data.order_type)
       updateOrderContext(data.order_number, data.status)
-      maybeOpenTerminalDialog(data.status)
     } catch {
       setOrder(null)
     } finally {
@@ -150,7 +126,8 @@ export function OrderDetailsPage() {
 
   const currentStatus = useMemo(() => {
     if (!order) return statusConfig.pending
-    return statusConfig[order.status as keyof typeof statusConfig] ?? statusConfig.pending
+    const normalizedStatus = getUserFacingStatus(order.status as OrderStatus)
+    return statusConfig[normalizedStatus as keyof typeof statusConfig] ?? statusConfig.pending
   }, [order])
 
   if (loading) {
@@ -193,7 +170,8 @@ export function OrderDetailsPage() {
   }
 
   const statusTimestamp = order.updated_at || order.created_at
-  const timelineCurrentIndex = timelineStatuses.indexOf(order.status as (typeof timelineStatuses)[number])
+  const timelineStatus = getUserFacingStatus(order.status as OrderStatus)
+  const timelineCurrentIndex = timelineStatuses.indexOf(timelineStatus as (typeof timelineStatuses)[number])
 
   return (
     <div className="min-h-screen bg-background">
@@ -330,42 +308,8 @@ export function OrderDetailsPage() {
         <p className="text-center text-xs sm:text-sm text-muted-foreground">Aggiornamento automatico ogni 30 secondi.</p>
       </main>
 
-      <Dialog open={statusDialog === 'completed'} onOpenChange={(open) => !open && setStatusDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ordine completato</DialogTitle>
-            <DialogDescription>Grazie :)</DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end">
-            <Button asChild onClick={() => setStatusDialog(null)}>
-              <Link href="/">Alla prossima</Link>
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      <Dialog open={statusDialog === 'cancelled'} onOpenChange={(open) => !open && setStatusDialog(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Ci dispiace, ordine annullato</DialogTitle>
-            <DialogDescription>Contattateci se l&apos;ordine ha avuto un&apos;anomalia.</DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
-            <Button variant="outline" asChild>
-              <Link href={contactPhone ? `tel:${contactPhone}` : '/info'}>Contattaci</Link>
-            </Button>
-            <Button
-              onClick={() => {
-                setStatusDialog(null)
-                window.close()
-                router.push('/')
-              }}
-            >
-              Chiudi pagina
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
     </div>
   )
 }
+  const getUserFacingStatus = (status: OrderStatus): OrderStatus =>
+    status === 'confirmed' ? 'preparing' : status

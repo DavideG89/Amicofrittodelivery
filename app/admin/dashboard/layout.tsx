@@ -336,12 +336,12 @@ export default function AdminDashboardLayout({
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        void fetchPendingIds()
+        void fetchPendingIds(true)
         tryClaimLeadership()
       }
     }
     const handleFocus = () => {
-      void fetchPendingIds()
+      void fetchPendingIds(true)
       tryClaimLeadership()
     }
 
@@ -353,7 +353,7 @@ export default function AdminDashboardLayout({
         channel = supabase
           .channel('admin_pending_orders')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-            void fetchPendingIds()
+            void fetchPendingIds(true)
           })
           .subscribe((status) => {
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -385,13 +385,19 @@ export default function AdminDashboardLayout({
   }, [alertingPendingIds])
 
   useEffect(() => {
-    if (!pendingToneActive) return
+    if (!pendingToneActive) {
+      stopNotificationSound()
+      return
+    }
 
     const interval = window.setInterval(() => {
       playNotificationSound()
     }, 5000)
 
-    return () => window.clearInterval(interval)
+    return () => {
+      window.clearInterval(interval)
+      stopNotificationSound()
+    }
   }, [pendingToneActive])
 
   const handleLogout = () => {
@@ -609,10 +615,31 @@ export default function AdminDashboardLayout({
 function playNotificationSound() {
   if (typeof window === 'undefined') return
   try {
+    stopNotificationSound()
     const audio = new Audio('/sounds/notifica_sound.wav')
     audio.volume = 0.8
+    activeNotificationAudio = audio
+    audio.onended = () => {
+      if (activeNotificationAudio === audio) {
+        activeNotificationAudio = null
+      }
+    }
     void audio.play()
   } catch {
     // ignore
+  }
+}
+
+let activeNotificationAudio: HTMLAudioElement | null = null
+
+function stopNotificationSound() {
+  if (!activeNotificationAudio) return
+  try {
+    activeNotificationAudio.pause()
+    activeNotificationAudio.currentTime = 0
+  } catch {
+    // ignore
+  } finally {
+    activeNotificationAudio = null
   }
 }
