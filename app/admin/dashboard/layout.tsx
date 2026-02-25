@@ -76,6 +76,8 @@ export default function AdminDashboardLayout({
     let cancelled = false
     let inFlight = false
     let lastHeartbeatAt = 0
+    let lastTokenRefreshAt = 0
+    const tokenRefreshIntervalMs = 15 * 60 * 1000
 
     const readAdminPushActive = () => {
       try {
@@ -109,6 +111,15 @@ export default function AdminDashboardLayout({
           if (now - lastHeartbeatAt > 60_000) {
             lastHeartbeatAt = now
             await heartbeatAdminPushToken().catch(() => ({ ok: false as const }))
+          }
+          if (now - lastTokenRefreshAt > tokenRefreshIntervalMs) {
+            const refresh = await enableAdminPush()
+            if (!refresh.ok) {
+              setPushErrorDetail(refresh.message || '')
+              setPushStatus('error')
+              return
+            }
+            lastTokenRefreshAt = now
           }
           setPushErrorDetail('')
           if (!cancelled) setPushStatus('enabled')
@@ -145,6 +156,27 @@ export default function AdminDashboardLayout({
     return () => {
       cancelled = true
       window.clearInterval(interval)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
+    const handleServiceWorkerMessage = (event: MessageEvent) => {
+      if (event.data?.type !== 'PUSH_SUBSCRIPTION_CHANGED') return
+      void enableAdminPush().then((result) => {
+        if (result.ok) {
+          setPushErrorDetail('')
+          setPushStatus('enabled')
+          return
+        }
+        setPushErrorDetail(result.message || '')
+        setPushStatus('error')
+      })
+    }
+
+    navigator.serviceWorker.addEventListener('message', handleServiceWorkerMessage)
+    return () => {
+      navigator.serviceWorker.removeEventListener('message', handleServiceWorkerMessage)
     }
   }, [])
 

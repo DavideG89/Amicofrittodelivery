@@ -38,6 +38,12 @@ const allowedStatuses: OrderStatus[] = [
   'cancelled',
 ]
 
+function maskToken(token: string) {
+  if (!token) return ''
+  if (token.length <= 16) return token
+  return `${token.slice(0, 8)}...${token.slice(-8)}`
+}
+
 export async function POST(request: Request) {
   const authHeader = request.headers.get('authorization') || ''
   const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
@@ -137,6 +143,25 @@ export async function POST(request: Request) {
               status,
             },
           })
+
+          const failedResults = results.filter((result) => !result.ok)
+          if (failedResults.length > 0) {
+            console.error('[admin/orders/status] customer push delivery errors', {
+              orderNumber: order.order_number,
+              total: results.length,
+              failed: failedResults.length,
+              failures: failedResults.map((result) => ({
+                token: maskToken(result.token),
+                status: result.status,
+                error: result.error,
+              })),
+            })
+          } else {
+            console.info('[admin/orders/status] customer push delivered', {
+              orderNumber: order.order_number,
+              total: results.length,
+            })
+          }
 
           const invalidTokens = results
             .filter((result) => {

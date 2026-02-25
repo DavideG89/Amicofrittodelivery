@@ -105,6 +105,12 @@ function isInvalidFcmToken(status: number | undefined, errorText: string) {
   )
 }
 
+function maskToken(token: string) {
+  if (!token) return ''
+  if (token.length <= 16) return token
+  return `${token.slice(0, 8)}...${token.slice(-8)}`
+}
+
 async function notifyAdminsOnNewOrder(
   supabase: ReturnType<typeof getSupabaseServerClient>,
   payload: { orderNumber: string; orderType: 'delivery' | 'takeaway'; total: number; createdAt: string }
@@ -133,6 +139,21 @@ async function notifyAdminsOnNewOrder(
         created_at: payload.createdAt,
       },
     })
+
+    const failedResults = results.filter((result) => !result.ok)
+    if (failedResults.length > 0) {
+      console.error('[orders-api] Admin push delivery errors', {
+        total: results.length,
+        failed: failedResults.length,
+        failures: failedResults.map((result) => ({
+          token: maskToken(result.token),
+          status: result.status,
+          error: result.error,
+        })),
+      })
+    } else {
+      console.info('[orders-api] Admin push delivered', { total: results.length })
+    }
 
     const invalidTokens = results
       .filter((result) => !result.ok && isInvalidFcmToken(result.status, result.error || ''))

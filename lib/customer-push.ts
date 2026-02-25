@@ -22,6 +22,7 @@ const firebaseConfig = {
 }
 
 const vapidKey = process.env.NEXT_PUBLIC_FIREBASE_VAPID_KEY
+const messagingWorkerPath = '/firebase-messaging-sw.js'
 
 function hasFirebaseConfig() {
   return Boolean(
@@ -39,13 +40,18 @@ function getFirebaseApp() {
 }
 
 async function ensureServiceWorker(config: typeof firebaseConfig) {
-  let registration = await navigator.serviceWorker.getRegistration()
-  if (!registration) {
-    registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', { scope: '/' })
+  let registration = await navigator.serviceWorker.getRegistration('/')
+  const activeScriptUrl =
+    registration?.active?.scriptURL || registration?.waiting?.scriptURL || registration?.installing?.scriptURL || ''
+  if (!registration || !activeScriptUrl.includes(messagingWorkerPath)) {
+    registration = await navigator.serviceWorker.register(messagingWorkerPath, { scope: '/' })
+  } else {
+    void registration.update().catch(() => {})
   }
 
   const ready = await navigator.serviceWorker.ready
-  ready.active?.postMessage({ type: 'INIT_FIREBASE', config })
+  const targetWorker = ready.active || ready.waiting || ready.installing
+  targetWorker?.postMessage({ type: 'INIT_FIREBASE', config })
   return ready
 }
 
@@ -83,11 +89,18 @@ export async function enableCustomerPush(orderNumber: string): Promise<PushResul
     })) || ''
   } catch (error) {
     const message = error instanceof Error ? error.message : 'FCM token error'
+    console.error('[customer-push] getToken failed', error)
     return { ok: false, reason: 'error', message }
   }
 
   if (!token) return { ok: false, reason: 'no_token' }
 
+  let previousToken = ''
+  try {
+    previousToken = localStorage.getItem(`customer-push:${orderNumber}`) || ''
+  } catch {
+    previousToken = ''
+  }
   const res = await fetch('/api/push/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -98,7 +111,16 @@ export async function enableCustomerPush(orderNumber: string): Promise<PushResul
     const data = await res.json().catch(() => ({}))
     const message =
       typeof data?.error === 'string' ? data.error : `Errore registrazione push (${res.status})`
+    console.error('[customer-push] register API failed', { status: res.status, message })
     return { ok: false, reason: 'error', message }
+  }
+
+  if (previousToken && previousToken !== token) {
+    await fetch('/api/push/unregister', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ orderNumber, token: previousToken }),
+    }).catch(() => {})
   }
 
   try {

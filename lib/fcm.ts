@@ -60,10 +60,20 @@ export type FcmMessage = {
   data?: Record<string, string>
 }
 
+type FcmSendResult = {
+  token: string
+  ok: boolean
+  status?: number
+  error?: string
+  name?: string
+}
+
 export async function sendFcmMessages(tokens: string[], message: FcmMessage) {
   const projectId = process.env.FIREBASE_PROJECT_ID || ''
   const clientEmail = process.env.FIREBASE_CLIENT_EMAIL || ''
   const privateKey = (process.env.FIREBASE_PRIVATE_KEY || '').replace(/\\n/g, '\n')
+  const ttlFromEnv = Number(process.env.FCM_WEBPUSH_TTL_SECONDS || 14_400)
+  const ttlSeconds = Number.isFinite(ttlFromEnv) && ttlFromEnv > 0 ? Math.floor(ttlFromEnv) : 14_400
 
   if (!projectId || !clientEmail || !privateKey) {
     throw new Error('Missing Firebase env vars')
@@ -71,18 +81,27 @@ export async function sendFcmMessages(tokens: string[], message: FcmMessage) {
 
   const accessToken = await getAccessToken({ projectId, clientEmail, privateKey })
 
-  const results: { token: string; ok: boolean; status?: number; error?: string }[] = []
+  const results: FcmSendResult[] = []
 
   for (const token of tokens) {
+    const dataPayload = Object.entries({
+      ...(message.data || {}),
+      click_action: message.clickAction,
+    }).reduce<Record<string, string>>((acc, [key, value]) => {
+      acc[key] = String(value)
+      return acc
+    }, {})
+
     const payload = {
       message: {
         token,
         notification: { title: message.title, body: message.body },
-        data: {
-          ...(message.data || {}),
-          click_action: message.clickAction,
-        },
+        data: dataPayload,
         webpush: {
+          headers: {
+            TTL: String(ttlSeconds),
+            Urgency: 'high',
+          },
           fcm_options: {
             link: message.clickAction || undefined,
           },
@@ -109,7 +128,13 @@ export async function sendFcmMessages(tokens: string[], message: FcmMessage) {
     )
 
     if (res.ok) {
-      results.push({ token, ok: true })
+      const data = await res.json().catch(() => ({}))
+      results.push({
+        token,
+        ok: true,
+        status: res.status,
+        name: typeof data?.name === 'string' ? data.name : undefined,
+      })
     } else {
       const text = await res.text()
       results.push({ token, ok: false, status: res.status, error: text })
