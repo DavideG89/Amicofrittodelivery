@@ -13,6 +13,10 @@ Il tuo progetto Supabase è: **AmicoFritto** (ID: sghftuvrupaswqhdckvs)
 5. Clicca su **Run** per eseguire lo script
 6. Ripeti i passaggi 3-5 con `scripts/02-seed-data.sql`
 7. Ripeti i passaggi 3-5 con `scripts/07-customer-push.sql`
+8. Ripeti i passaggi 3-5 con `scripts/08-add-order-additions.sql`
+9. Ripeti i passaggi 3-5 con `scripts/09-add-category-addition-rules.sql`
+10. Ripeti i passaggi 3-5 con `scripts/10-fix-security-advisor.sql`
+11. Ripeti i passaggi 3-5 con `scripts/11-fix-security-warnings.sql`
 
 Gli script creano:
 - Tabelle: categories, products, store_info, discount_codes, orders, customer_push_tokens

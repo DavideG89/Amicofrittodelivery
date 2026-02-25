@@ -16,7 +16,8 @@ CREATE INDEX IF NOT EXISTS idx_admin_push_tokens_last_seen ON admin_push_tokens(
 -- 1) Replace YOUR_PROJECT_REF
 -- 2) Replace REPLACE_WITH_SECRET with your WEBHOOK_SECRET value
 -- 3) Keep this secret out of git in real deployments
-CREATE EXTENSION IF NOT EXISTS pg_net;
+CREATE SCHEMA IF NOT EXISTS extensions;
+CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
 CREATE OR REPLACE FUNCTION notify_admin_on_new_order()
 RETURNS TRIGGER AS $$
 DECLARE

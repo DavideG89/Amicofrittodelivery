@@ -33,6 +33,10 @@ Devi eseguire gli script SQL nel tuo progetto Supabase (**AmicoFritto** - ID: `s
    - `scripts/01-create-tables.sql` - Crea le tabelle del database
    - `scripts/02-seed-data.sql` - Inserisce dati di esempio
    - `scripts/07-customer-push.sql` - Crea la tabella token notifiche cliente
+   - `scripts/08-add-order-additions.sql` - Crea tabella aggiunte ordine (salse/extra)
+   - `scripts/09-add-category-addition-rules.sql` - Crea regole aggiunte per categoria
+   - `scripts/10-fix-security-advisor.sql` - Applica fix sicurezza (RLS + view invoker)
+   - `scripts/11-fix-security-warnings.sql` - Applica fix warning sicurezza (policy RLS + estensione)
 
 ### 2. Variabili d'Ambiente
 
