@@ -11,13 +11,13 @@ const MAX_ORDERS = 5
 export interface StoredOrder {
   orderNumber: string
   createdAt: string
-  type: 'delivery' | 'pickup'
+  type: 'delivery' | 'takeaway'
 }
 
 /**
  * Salva un ordine nel localStorage
  */
-export function saveOrderToDevice(orderNumber: string, orderType: 'delivery' | 'pickup') {
+export function saveOrderToDevice(orderNumber: string, orderType: 'delivery' | 'takeaway') {
   if (typeof window === 'undefined') return
 
   try {
@@ -52,7 +52,25 @@ export function getStoredOrders(): StoredOrder[] {
     const stored = localStorage.getItem(STORAGE_KEY)
     if (!stored) return []
     
-    const orders = JSON.parse(stored) as StoredOrder[]
+    const rawOrders = JSON.parse(stored) as Array<{
+      orderNumber?: unknown
+      createdAt?: unknown
+      type?: unknown
+    }>
+
+    if (!Array.isArray(rawOrders)) return []
+
+    const orders: StoredOrder[] = rawOrders
+      .map((order) => {
+        const orderNumber = typeof order.orderNumber === 'string' ? order.orderNumber : ''
+        const createdAt = typeof order.createdAt === 'string' ? order.createdAt : ''
+        const typeRaw = typeof order.type === 'string' ? order.type : ''
+        const type: StoredOrder['type'] =
+          typeRaw === 'delivery' ? 'delivery' : typeRaw === 'pickup' ? 'takeaway' : 'takeaway'
+        if (!orderNumber || !createdAt) return null
+        return { orderNumber, createdAt, type }
+      })
+      .filter((order): order is StoredOrder => Boolean(order))
     
     // Filtra ordini più vecchi di 30 giorni
     const thirtyDaysAgo = new Date()

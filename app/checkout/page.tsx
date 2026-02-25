@@ -16,6 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
+import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
@@ -280,6 +281,13 @@ function CheckoutForm() {
       }
 
       toast.success('Ordine inviato con successo!')
+      try {
+        localStorage.setItem('lastOrderNumber', orderNumber)
+        localStorage.setItem('lastOrderActive', 'true')
+      } catch {
+        // ignore storage errors
+      }
+      saveOrderToDevice(orderNumber, isDelivery ? 'delivery' : 'takeaway')
       setOrderPlaced(true)
       setPlacedOrderNumber(orderNumber)
       clearCart()

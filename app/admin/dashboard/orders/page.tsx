@@ -134,8 +134,8 @@ export default function OrdersManagementPage() {
   const [activeTab, setActiveTab] = useState<(typeof allowedTabs)[number]>(initialTab)
   const pageSize = 20
   const lastFetchAtRef = useRef(0)
-  const minFetchIntervalMs = 30000
-  const pollingIntervalMs = 60000
+  const minFetchIntervalMs = 10000
+  const pollingIntervalMs = 20000
   const pollingIdRef = useRef<number | null>(null)
   const isLeaderRef = useRef(false)
 
@@ -282,7 +282,7 @@ export default function OrdersManagementPage() {
         channel = supabase
           .channel('orders_changes')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-            maybeFetchOrders()
+            maybeFetchOrders(true)
           })
           .subscribe((status) => {
             if (status === 'SUBSCRIBED') {
@@ -302,13 +302,13 @@ export default function OrdersManagementPage() {
 
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        maybeFetchOrders()
+        maybeFetchOrders(true)
         tryClaimLeadership()
       }
     }
 
     const handleFocus = () => {
-      maybeFetchOrders()
+      maybeFetchOrders(true)
       tryClaimLeadership()
     }
 
@@ -367,7 +367,7 @@ export default function OrdersManagementPage() {
       const { data, error } = await supabase
         .from('orders')
         .select('id, order_number, customer_name, customer_phone, customer_address, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, status, notes, created_at, updated_at')
-        .order('created_at', { ascending: true })
+        .order('created_at', { ascending: false })
         .range(from, to)
 
       if (error) throw error

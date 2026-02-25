@@ -59,6 +59,7 @@ export function OrderDetailsPage() {
   const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
+  const pollingIntervalMs = 10000
 
   const updateOrderContext = (number: string, status: string) => {
     try {
@@ -99,7 +100,9 @@ export function OrderDetailsPage() {
       saveOrderToDevice(data.order_number, data.order_type)
       updateOrderContext(data.order_number, data.status)
     } catch {
-      setOrder(null)
+      if (!light) {
+        setOrder(null)
+      }
     } finally {
       setLoading(false)
       setRefreshing(false)
@@ -114,10 +117,30 @@ export function OrderDetailsPage() {
     const id = window.setInterval(() => {
       if (order && order.status !== 'completed' && order.status !== 'cancelled') {
         fetchOrder(true)
+      } else if (!order) {
+        fetchOrder()
       }
-    }, 30000)
+    }, pollingIntervalMs)
     return () => window.clearInterval(id)
-  }, [order])
+  }, [order, orderNumber])
+
+  useEffect(() => {
+    const refreshOnForeground = () => {
+      if (document.visibilityState === 'hidden') return
+      if (order && order.status !== 'completed' && order.status !== 'cancelled') {
+        void fetchOrder(true)
+      } else {
+        void fetchOrder()
+      }
+    }
+
+    window.addEventListener('focus', refreshOnForeground)
+    document.addEventListener('visibilitychange', refreshOnForeground)
+    return () => {
+      window.removeEventListener('focus', refreshOnForeground)
+      document.removeEventListener('visibilitychange', refreshOnForeground)
+    }
+  }, [order, orderNumber])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -305,7 +328,7 @@ export function OrderDetailsPage() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs sm:text-sm text-muted-foreground">Aggiornamento automatico ogni 30 secondi.</p>
+        <p className="text-center text-xs sm:text-sm text-muted-foreground">Aggiornamento automatico ogni 10 secondi.</p>
       </main>
 
     </div>

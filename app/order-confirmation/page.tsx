@@ -48,6 +48,13 @@ function OrderConfirmationContent() {
         setOrder(data)
         // Salva l'ordine sul dispositivo
         saveOrderToDevice(data.order_number, data.order_type)
+        try {
+          localStorage.setItem('lastOrderNumber', data.order_number)
+          const active = data.status !== 'completed' && data.status !== 'cancelled'
+          localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
+        } catch {
+          // ignore storage errors
+        }
       } else {
         toast.error('Ordine non trovato')
       }

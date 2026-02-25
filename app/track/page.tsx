@@ -17,9 +17,18 @@ export default function TrackOrderPage() {
   const [storedOrders, setStoredOrders] = useState<StoredOrder[]>([])
 
   useEffect(() => {
-    // Carica gli ordini dal localStorage
-    const orders = getStoredOrders()
-    setStoredOrders(orders)
+    const syncOrders = () => {
+      const orders = getStoredOrders()
+      setStoredOrders(orders)
+    }
+
+    syncOrders()
+    window.addEventListener('focus', syncOrders)
+    window.addEventListener('storage', syncOrders)
+    return () => {
+      window.removeEventListener('focus', syncOrders)
+      window.removeEventListener('storage', syncOrders)
+    }
   }, [])
 
   const handleSubmit = (e: React.FormEvent) => {
