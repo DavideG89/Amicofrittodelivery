@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { validateOrderData, sanitizeOrderData, sanitizeString } from '@/lib/validation'
 import { createRateLimiter } from '@/lib/rate-limit'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
+import { sendFcmMessages } from '@/lib/fcm'
 
 type OrderItem = {
   product_id: string
@@ -31,6 +32,66 @@ type OrderPayload = {
 }
 
 const limiter = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 20 })
+
+function buildAdminOrdersLink(orderNumber: string) {
+  const path = `/admin/dashboard/orders?order=${encodeURIComponent(orderNumber)}`
+  const explicitSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
+  const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''
+  const baseUrl = explicitSiteUrl || vercelUrl
+  if (!baseUrl) return path
+  return `${baseUrl.replace(/\/$/, '')}${path}`
+}
+
+function isInvalidFcmToken(status: number | undefined, errorText: string) {
+  if (status === 404) return true
+  const normalized = (errorText || '').toUpperCase()
+  return (
+    normalized.includes('UNREGISTERED') ||
+    normalized.includes('REGISTRATION_TOKEN_NOT_REGISTERED')
+  )
+}
+
+async function notifyAdminsOnNewOrder(
+  supabase: ReturnType<typeof getSupabaseServerClient>,
+  payload: { orderNumber: string; orderType: 'delivery' | 'takeaway'; total: number; createdAt: string }
+) {
+  try {
+    const { data: tokensData, error: tokensError } = await supabase
+      .from('admin_push_tokens')
+      .select('token')
+      .order('last_seen', { ascending: false })
+      .limit(500)
+
+    if (tokensError || !tokensData || tokensData.length === 0) return
+
+    const tokens = [...new Set(tokensData.map((row) => row.token).filter(Boolean))]
+    if (tokens.length === 0) return
+
+    const clickAction = buildAdminOrdersLink(payload.orderNumber)
+    const results = await sendFcmMessages(tokens, {
+      title: 'Nuovo ordine',
+      body: `Ordine ${payload.orderNumber} • euro ${Number(payload.total).toFixed(2)}`,
+      clickAction,
+      data: {
+        order_number: payload.orderNumber,
+        order_type: payload.orderType,
+        total: Number(payload.total).toFixed(2),
+        created_at: payload.createdAt,
+      },
+    })
+
+    const invalidTokens = results
+      .filter((result) => !result.ok && isInvalidFcmToken(result.status, result.error || ''))
+      .map((result) => result.token)
+
+    if (invalidTokens.length > 0) {
+      await supabase.from('admin_push_tokens').delete().in('token', invalidTokens)
+    }
+  } catch (error) {
+    // Best effort: failure here must not block order creation.
+    console.error('[orders-api] Admin push notification failed:', error)
+  }
+}
 
 function getClientIp(request: Request) {
   const header = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip')
@@ -369,6 +430,13 @@ export async function POST(request: Request) {
     if (error) {
       return NextResponse.json({ error: 'Errore salvataggio ordine' }, { status: 500 })
     }
+
+    await notifyAdminsOnNewOrder(supabase, {
+      orderNumber,
+      orderType: order.order_type,
+      total,
+      createdAt: new Date().toISOString(),
+    })
 
     return NextResponse.json({ orderNumber }, { headers: rate.headers })
   } catch (error: unknown) {

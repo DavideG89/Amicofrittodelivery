@@ -339,7 +339,9 @@ export function ProductCard({
 
       <CardFooter className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 p-4 pt-0">
         <div className="flex items-baseline gap-1">
-          <span className="text-2xl font-bold text-primary">{product.price.toFixed(2)}€</span>
+          <span className="text-3xl sm:text-4xl font-extrabold text-primary leading-none">
+            {product.price.toFixed(2)}€
+          </span>
         </div>
 
         {product.available && (

@@ -8,7 +8,12 @@ import { LayoutDashboard, Package, Settings, ShoppingCart, LogOut, Ticket, Spark
 import { Button } from '@/components/ui/button'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { logoutAdmin } from '@/lib/admin-auth'
-import { disableAdminPush, enableAdminPush, listenForForegroundNotifications } from '@/lib/admin-push'
+import {
+  disableAdminPush,
+  enableAdminPush,
+  heartbeatAdminPushToken,
+  listenForForegroundNotifications,
+} from '@/lib/admin-push'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -70,6 +75,7 @@ export default function AdminDashboardLayout({
     if (typeof window === 'undefined' || !('Notification' in window)) return
     let cancelled = false
     let inFlight = false
+    let lastHeartbeatAt = 0
 
     const readAdminPushActive = () => {
       try {
@@ -99,6 +105,11 @@ export default function AdminDashboardLayout({
 
         const hasToken = !!localStorage.getItem('admin-push-token')
         if (hasToken) {
+          const now = Date.now()
+          if (now - lastHeartbeatAt > 60_000) {
+            lastHeartbeatAt = now
+            await heartbeatAdminPushToken().catch(() => ({ ok: false as const }))
+          }
           setPushErrorDetail('')
           if (!cancelled) setPushStatus('enabled')
           return

@@ -119,7 +119,7 @@ export default function UserPage() {
                 ))}
               </div>
               <p className="text-xs text-muted-foreground mt-4 text-center">
-                Gli ordini vengono salvati solo su questo dispositivo per 30 giorni
+                Gli ordini vengono salvati solo su questo dispositivo per 7 giorni
               </p>
             </CardContent>
           </Card>

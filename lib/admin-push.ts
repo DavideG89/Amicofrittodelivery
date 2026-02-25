@@ -9,7 +9,12 @@ declare global {
   var __adminPushSubscribers: Set<(payload: MessagePayload) => void> | undefined
   // eslint-disable-next-line no-var
   var __adminPushState:
-    | { unsubscribe: null | (() => void); lastMessageId: string; lastMessageAt: number }
+    | {
+        unsubscribe: null | (() => void)
+        lastMessageId: string
+        lastMessageAt: number
+        lastOrderNumber: string
+      }
     | undefined
 }
 
@@ -183,6 +188,28 @@ export async function disableAdminPush() {
   return { ok: true }
 }
 
+export async function heartbeatAdminPushToken() {
+  if (typeof window === 'undefined') return { ok: false as const }
+
+  const token = localStorage.getItem('admin-push-token') || ''
+  if (!token) return { ok: false as const }
+
+  const { error } = await supabase
+    .from('admin_push_tokens')
+    .upsert(
+      {
+        token,
+        user_agent: navigator.userAgent,
+        device_info: navigator.platform ?? null,
+        last_seen: new Date().toISOString(),
+      },
+      { onConflict: 'token' }
+    )
+
+  if (error) return { ok: false as const, error: error.message }
+  return { ok: true as const }
+}
+
 export async function listenForForegroundNotifications(
   onNotification: (payload: MessagePayload) => void
 ) {
@@ -200,12 +227,17 @@ export async function listenForForegroundNotifications(
       unsubscribe: null as null | (() => void),
       lastMessageId: '' as string,
       lastMessageAt: 0 as number,
+      lastOrderNumber: '' as string,
     }
   }
 
   const subscribers: Set<(payload: MessagePayload) => void> = globalThis.__adminPushSubscribers
-  const state: { unsubscribe: null | (() => void); lastMessageId: string; lastMessageAt: number } =
-    globalThis.__adminPushState
+  const state: {
+    unsubscribe: null | (() => void)
+    lastMessageId: string
+    lastMessageAt: number
+    lastOrderNumber: string
+  } = globalThis.__adminPushState
 
   subscribers.add(onNotification)
 
@@ -220,10 +252,15 @@ export async function listenForForegroundNotifications(
       if (messageId && messageId === state.lastMessageId && now - state.lastMessageAt < 5000) {
         return
       }
+      const orderNumber = String(payload?.data?.order_number || '')
+      if (orderNumber && orderNumber === state.lastOrderNumber && now - state.lastMessageAt < 15000) {
+        return
+      }
       if (messageId) {
         state.lastMessageId = messageId
-        state.lastMessageAt = now
       }
+      if (orderNumber) state.lastOrderNumber = orderNumber
+      state.lastMessageAt = now
       subscribers.forEach((cb) => cb(payload))
     })
   }

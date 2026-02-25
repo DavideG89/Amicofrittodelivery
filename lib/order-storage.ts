@@ -9,6 +9,7 @@ import { normalizeOrderNumber } from './order-number'
 
 const STORAGE_KEY = 'amico-fritto-orders'
 const MAX_ORDERS = 5
+const ORDER_RETENTION_DAYS = 7
 
 export interface StoredOrder {
   orderNumber: string
@@ -77,11 +78,11 @@ export function getStoredOrders(): StoredOrder[] {
       })
       .filter((order): order is StoredOrder => Boolean(order))
     
-    // Filtra ordini più vecchi di 30 giorni
-    const thirtyDaysAgo = new Date()
-    thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30)
+    // Filtra ordini più vecchi della retention configurata
+    const cutoffDate = new Date()
+    cutoffDate.setDate(cutoffDate.getDate() - ORDER_RETENTION_DAYS)
     
-    return orders.filter(order => new Date(order.createdAt) > thirtyDaysAgo)
+    return orders.filter(order => new Date(order.createdAt) > cutoffDate)
   } catch (error) {
     console.error('[v0] Error reading orders from device:', error)
     return []
