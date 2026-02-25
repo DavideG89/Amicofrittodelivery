@@ -18,7 +18,7 @@ CREATE INDEX IF NOT EXISTS idx_admin_push_tokens_last_seen ON admin_push_tokens(
 -- 3) Keep this secret out of git in real deployments
 CREATE SCHEMA IF NOT EXISTS extensions;
 CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
-CREATE OR REPLACE FUNCTION notify_admin_on_new_order()
+CREATE OR REPLACE FUNCTION public.notify_admin_on_new_order()
 RETURNS TRIGGER AS $$
 DECLARE
   payload JSONB;
@@ -42,9 +42,10 @@ BEGIN
 
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql
+SET search_path = pg_catalog;
 
-DROP TRIGGER IF EXISTS trg_notify_admin_new_order ON orders;
+DROP TRIGGER IF EXISTS trg_notify_admin_new_order ON public.orders;
 CREATE TRIGGER trg_notify_admin_new_order
-AFTER INSERT ON orders
-FOR EACH ROW EXECUTE FUNCTION notify_admin_on_new_order();
+AFTER INSERT ON public.orders
+FOR EACH ROW EXECUTE FUNCTION public.notify_admin_on_new_order();

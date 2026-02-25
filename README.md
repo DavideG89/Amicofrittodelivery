@@ -37,6 +37,7 @@ Devi eseguire gli script SQL nel tuo progetto Supabase (**AmicoFritto** - ID: `s
    - `scripts/09-add-category-addition-rules.sql` - Crea regole aggiunte per categoria
    - `scripts/10-fix-security-advisor.sql` - Applica fix sicurezza (RLS + view invoker)
    - `scripts/11-fix-security-warnings.sql` - Applica fix warning sicurezza (policy RLS + estensione)
+   - `scripts/12-fix-function-search-path.sql` - Fissa search_path della funzione trigger ordini
 
 ### 2. Variabili d'Ambiente
 
