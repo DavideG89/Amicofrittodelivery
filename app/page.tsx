@@ -398,13 +398,17 @@ export default function Home() {
                           slug === 'bevande' ||
                           categoryName.includes('bevande') ||
                           categoryName.includes('bevanda')
+                        const isFriedCategory =
+                          slug === 'fritti' ||
+                          categoryName.includes('fritti') ||
+                          categoryName.includes('fritto')
                         return (
                           <ProductCard
                             key={product.id}
                             product={product}
                             categorySlug={category.slug}
                             imageFit={isSaucesCategory ? 'contain' : 'cover'}
-                            skipAdditions={isSaucesCategory || isDrinksCategory}
+                            skipAdditions={isSaucesCategory || isDrinksCategory || isFriedCategory}
                           />
                         )
                       })}
