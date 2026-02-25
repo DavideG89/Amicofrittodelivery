@@ -10,6 +10,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { supabase, PublicOrder } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
+import { normalizeOrderNumber } from '@/lib/order-number'
 import { toast } from 'sonner'
 
 // Force dynamic rendering
@@ -18,7 +19,7 @@ export const dynamic = 'force-dynamic'
 function OrderConfirmationContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const orderNumber = searchParams.get('orderNumber')
+  const orderNumber = normalizeOrderNumber(searchParams.get('orderNumber'))
   const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
@@ -32,11 +33,24 @@ function OrderConfirmationContent() {
         return
       }
 
-      const { data, error } = await supabase
-        .from('orders_public')
-        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
-        .eq('order_number', orderNumber)
-        .single()
+      const maxAttempts = 3
+      let data: PublicOrder | null = null
+      let error: unknown = null
+
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const result = await supabase
+          .from('orders_public')
+          .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
+          .eq('order_number', orderNumber)
+          .maybeSingle()
+
+        data = (result.data as PublicOrder | null) ?? null
+        error = result.error
+        if (error || data) break
+        if (attempt < maxAttempts) {
+          await new Promise((resolve) => window.setTimeout(resolve, attempt * 700))
+        }
+      }
 
       if (error) {
         toast.error('Errore nel caricamento dell\'ordine')
@@ -66,7 +80,7 @@ function OrderConfirmationContent() {
 
   const handleCopyLink = () => {
     if (!order) return
-    const link = `${window.location.origin}/track/${order.order_number}`
+    const link = `${window.location.origin}/order/${encodeURIComponent(order.order_number)}`
     navigator.clipboard.writeText(link)
     setCopied(true)
     toast.success('Link copiato negli appunti!')
@@ -251,7 +265,7 @@ function OrderConfirmationContent() {
 
           {/* Traccia ordine */}
           <Button asChild className="w-full" size="lg">
-            <Link href={`/track/${order.order_number}`}>
+            <Link href={`/order/${encodeURIComponent(order.order_number)}`}>
               <Package className="mr-2 h-5 w-5" />
               Traccia il tuo ordine
             </Link>
@@ -259,7 +273,7 @@ function OrderConfirmationContent() {
 
           {/* Apri nella PWA */}
           <Button asChild variant="secondary" className="w-full" size="lg">
-            <Link href={`/order/${order.order_number}`}>
+            <Link href={`/order/${encodeURIComponent(order.order_number)}`}>
               Apri nella PWA
             </Link>
           </Button>

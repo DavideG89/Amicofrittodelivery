@@ -9,6 +9,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { normalizeOrderNumber } from '@/lib/order-number'
 import { getStoredOrders, removeOrderFromDevice, type StoredOrder } from '@/lib/order-storage'
 
 export default function UserPage() {
@@ -34,9 +35,10 @@ export default function UserPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!orderNumber.trim()) return
+    const normalizedOrderNumber = normalizeOrderNumber(orderNumber)
+    if (!normalizedOrderNumber) return
 
-    router.push(`/track/${orderNumber.trim()}`)
+    router.push(`/order/${encodeURIComponent(normalizedOrderNumber)}`)
   }
 
   const handleRemoveOrder = (orderNum: string) => {
@@ -81,7 +83,7 @@ export default function UserPage() {
                     className="flex items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <button
-                      onClick={() => router.push(`/track/${order.orderNumber}`)}
+                      onClick={() => router.push(`/order/${encodeURIComponent(order.orderNumber)}`)}
                       className="flex-1 text-left"
                       aria-label={`Visualizza ordine ${order.orderNumber}`}
                     >

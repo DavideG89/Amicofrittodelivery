@@ -1,15 +1,16 @@
 'use client'
 
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useParams, useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useParams } from 'next/navigation'
 import Link from 'next/link'
-import { ArrowLeft, CheckCircle, CircleCheckBig, Clock, Home, Loader2, Package, RefreshCw, Utensils, XCircle, ChefHat } from 'lucide-react'
+import { ArrowLeft, CircleCheckBig, Clock, Home, Loader2, RefreshCw, Utensils, XCircle, ChefHat } from 'lucide-react'
 import { Header } from '@/components/header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { supabase, PublicOrder } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
+import { normalizeOrderNumber } from '@/lib/order-number'
 import type { OrderStatus } from '@/lib/supabase'
 
 const statusConfig = {
@@ -55,7 +56,7 @@ const timelineStatuses = ['pending', 'preparing', 'ready', 'completed'] as const
 
 export function OrderDetailsPage() {
   const params = useParams()
-  const orderNumber = params.orderNumber as string
+  const orderNumber = normalizeOrderNumber(params.orderNumber)
   const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -71,15 +72,21 @@ export function OrderDetailsPage() {
     }
   }
 
+  const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
+
   const fetchOrder = async (light = false) => {
     try {
-      if (!orderNumber) return
+      if (!orderNumber) {
+        if (!light) setOrder(null)
+        return
+      }
+
       if (light) {
         const { data, error } = await supabase
           .from('orders_public')
           .select('order_number, status, updated_at')
           .eq('order_number', orderNumber)
-          .single()
+          .maybeSingle()
 
         if (error || !data) throw error ?? new Error('Order not found')
 
@@ -88,15 +95,29 @@ export function OrderDetailsPage() {
         return
       }
 
-      const { data, error } = await supabase
-        .from('orders_public')
-        .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
-        .eq('order_number', orderNumber)
-        .single()
+      const maxAttempts = 3
+      let data: PublicOrder | null = null
+      let error: unknown = null
+      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+        const result = await supabase
+          .from('orders_public')
+          .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
+          .eq('order_number', orderNumber)
+          .maybeSingle()
+
+        data = (result.data as PublicOrder | null) ?? null
+        error = result.error
+
+        if (error) break
+        if (data) break
+        if (attempt < maxAttempts) {
+          await wait(attempt * 700)
+        }
+      }
 
       if (error || !data) throw error ?? new Error('Order not found')
 
-      setOrder(data as PublicOrder)
+      setOrder(data)
       saveOrderToDevice(data.order_number, data.order_type)
       updateOrderContext(data.order_number, data.status)
     } catch {

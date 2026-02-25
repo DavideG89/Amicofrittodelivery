@@ -1,5 +1,7 @@
 'use client'
 
+import { normalizeOrderNumber } from './order-number'
+
 /**
  * Utility per gestire lo storage locale degli ordini
  * Memorizza solo i numeri ordine (non i dati sensibili)
@@ -21,16 +23,19 @@ export function saveOrderToDevice(orderNumber: string, orderType: 'delivery' | '
   if (typeof window === 'undefined') return
 
   try {
+    const normalizedOrderNumber = normalizeOrderNumber(orderNumber)
+    if (!normalizedOrderNumber) return
+
     const orders = getStoredOrders()
     
     const newOrder: StoredOrder = {
-      orderNumber,
+      orderNumber: normalizedOrderNumber,
       createdAt: new Date().toISOString(),
       type: orderType
     }
 
     // Aggiungi il nuovo ordine all'inizio
-    const updatedOrders = [newOrder, ...orders.filter(o => o.orderNumber !== orderNumber)]
+    const updatedOrders = [newOrder, ...orders.filter(o => o.orderNumber !== normalizedOrderNumber)]
     
     // Mantieni solo gli ultimi MAX_ORDERS ordini
     const limitedOrders = updatedOrders.slice(0, MAX_ORDERS)
@@ -62,7 +67,7 @@ export function getStoredOrders(): StoredOrder[] {
 
     const orders: StoredOrder[] = rawOrders
       .map((order) => {
-        const orderNumber = typeof order.orderNumber === 'string' ? order.orderNumber : ''
+        const orderNumber = normalizeOrderNumber(order.orderNumber)
         const createdAt = typeof order.createdAt === 'string' ? order.createdAt : ''
         const typeRaw = typeof order.type === 'string' ? order.type : ''
         const type: StoredOrder['type'] =

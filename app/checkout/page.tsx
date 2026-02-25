@@ -16,6 +16,7 @@ import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useCart } from '@/lib/cart-context'
 import { supabase, StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
+import { normalizeOrderNumber } from '@/lib/order-number'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
@@ -275,7 +276,7 @@ function CheckoutForm() {
       }
 
       const data = await res.json()
-      const orderNumber = data?.orderNumber as string | undefined
+      const orderNumber = normalizeOrderNumber(data?.orderNumber)
       if (!orderNumber) {
         throw new Error('Numero ordine mancante')
       }
@@ -291,7 +292,7 @@ function CheckoutForm() {
       setOrderPlaced(true)
       setPlacedOrderNumber(orderNumber)
       clearCart()
-      router.push(`/order/${orderNumber}`)
+      router.push(`/order/${encodeURIComponent(orderNumber)}`)
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Errore durante l\'invio dell\'ordine'
       toast.error(message)

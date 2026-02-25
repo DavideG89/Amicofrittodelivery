@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { normalizeOrderNumber } from '@/lib/order-number'
 import { supabase, Category, Product, StoreInfo, OrderStatus } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
@@ -189,8 +190,8 @@ export default function Home() {
 
   useEffect(() => {
     try {
-      const number = localStorage.getItem('lastOrderNumber')
-      setLastOrderNumber(number)
+      const number = normalizeOrderNumber(localStorage.getItem('lastOrderNumber'))
+      setLastOrderNumber(number || null)
     } catch {
       // ignore storage errors
     }

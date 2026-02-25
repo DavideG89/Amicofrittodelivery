@@ -12,6 +12,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { useCart } from '@/lib/cart-context'
+import { normalizeOrderNumber } from '@/lib/order-number'
 import { supabase, StoreInfo, OrderStatus } from '@/lib/supabase'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 
@@ -42,9 +43,9 @@ export default function CartPage() {
 
   useEffect(() => {
     try {
-      const number = localStorage.getItem('lastOrderNumber')
+      const number = normalizeOrderNumber(localStorage.getItem('lastOrderNumber'))
       const active = localStorage.getItem('lastOrderActive') === 'true'
-      setLastOrderNumber(number)
+      setLastOrderNumber(number || null)
       setLastOrderActive(active)
     } catch {
       // ignore storage errors
@@ -163,7 +164,7 @@ export default function CartPage() {
               </p>
               {lastOrderNumber && (
                 <Button asChild size="sm" variant="outline" className="border-amber-300 text-amber-900">
-                  <Link href={`/order/${lastOrderNumber}`}>Traccia ordine</Link>
+                  <Link href={`/order/${encodeURIComponent(lastOrderNumber)}`}>Traccia ordine</Link>
                 </Button>
               )}
             </div>
