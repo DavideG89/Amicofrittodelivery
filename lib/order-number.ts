@@ -16,5 +16,5 @@ export function normalizeOrderNumber(value: unknown): string {
     decoded = value
   }
 
-  return decoded.replace(/\s+/g, '').trim().toUpperCase()
+  return decoded.replace(/\s+/g, '').trim().toUpperCase().replace(/^#+/, '')
 }

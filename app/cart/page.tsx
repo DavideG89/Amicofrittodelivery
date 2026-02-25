@@ -15,6 +15,7 @@ import { useCart } from '@/lib/cart-context'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import { supabase, StoreInfo, OrderStatus } from '@/lib/supabase'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
+import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
 export default function CartPage() {
   const router = useRouter()
@@ -58,11 +59,7 @@ export default function CartPage() {
     const refreshStatus = async () => {
       setLastOrderLoading(true)
       try {
-        const { data } = await supabase
-          .from('orders_public')
-          .select('status')
-          .eq('order_number', lastOrderNumber)
-          .single()
+        const data = await fetchPublicOrderLight(lastOrderNumber)
         if (cancelled) return
         const status = (data?.status as OrderStatus) || null
         setLastOrderStatus(status)

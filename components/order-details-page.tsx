@@ -8,10 +8,11 @@ import { Header } from '@/components/header'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { supabase, PublicOrder } from '@/lib/supabase'
+import type { PublicOrder } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import type { OrderStatus } from '@/lib/supabase'
+import { fetchPublicOrder, fetchPublicOrderLight } from '@/lib/public-order-client'
 
 const statusConfig = {
   pending: {
@@ -82,13 +83,8 @@ export function OrderDetailsPage() {
       }
 
       if (light) {
-        const { data, error } = await supabase
-          .from('orders_public')
-          .select('order_number, status, updated_at')
-          .eq('order_number', orderNumber)
-          .maybeSingle()
-
-        if (error || !data) throw error ?? new Error('Order not found')
+        const data = await fetchPublicOrderLight(orderNumber)
+        if (!data) throw new Error('Order not found')
 
         setOrder((prev) => (prev ? { ...prev, status: data.status, updated_at: data.updated_at } : prev))
         updateOrderContext(data.order_number, data.status)
@@ -97,25 +93,15 @@ export function OrderDetailsPage() {
 
       const maxAttempts = 3
       let data: PublicOrder | null = null
-      let error: unknown = null
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-        const result = await supabase
-          .from('orders_public')
-          .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
-          .eq('order_number', orderNumber)
-          .maybeSingle()
-
-        data = (result.data as PublicOrder | null) ?? null
-        error = result.error
-
-        if (error) break
+        data = await fetchPublicOrder(orderNumber)
         if (data) break
         if (attempt < maxAttempts) {
           await wait(attempt * 700)
         }
       }
 
-      if (error || !data) throw error ?? new Error('Order not found')
+      if (!data) throw new Error('Order not found')
 
       setOrder(data)
       saveOrderToDevice(data.order_number, data.order_type)

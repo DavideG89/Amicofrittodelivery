@@ -4,6 +4,8 @@ import { validateOrderData, sanitizeOrderData, sanitizeString } from '@/lib/vali
 import { createRateLimiter } from '@/lib/rate-limit'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
 import { sendFcmMessages } from '@/lib/fcm'
+import { normalizeOrderNumber } from '@/lib/order-number'
+import type { OrderStatus } from '@/lib/supabase'
 
 type OrderItem = {
   product_id: string
@@ -32,6 +34,58 @@ type OrderPayload = {
 }
 
 const limiter = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 20 })
+const readLimiter = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 120 })
+const PUBLIC_ORDER_SELECT =
+  'order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at'
+const PUBLIC_ORDER_LIGHT_SELECT = 'order_number, status, updated_at'
+
+function normalizePublicStatus(value: unknown): OrderStatus {
+  if (
+    value === 'pending' ||
+    value === 'confirmed' ||
+    value === 'preparing' ||
+    value === 'ready' ||
+    value === 'completed' ||
+    value === 'cancelled'
+  ) {
+    return value
+  }
+  return 'pending'
+}
+
+function normalizePublicOrderType(value: unknown): 'delivery' | 'takeaway' {
+  return value === 'delivery' ? 'delivery' : 'takeaway'
+}
+
+function normalizePublicPaymentMethod(value: unknown): 'cash' | 'card' | null {
+  if (value === 'cash' || value === 'card') return value
+  return null
+}
+
+function sanitizePublicOrder(order: Record<string, unknown>) {
+  return {
+    order_number: String(order.order_number || ''),
+    status: normalizePublicStatus(order.status),
+    order_type: normalizePublicOrderType(order.order_type),
+    payment_method: normalizePublicPaymentMethod(order.payment_method),
+    items: Array.isArray(order.items) ? order.items : [],
+    subtotal: Number(order.subtotal || 0),
+    discount_code: typeof order.discount_code === 'string' ? order.discount_code : null,
+    discount_amount: Number(order.discount_amount || 0),
+    delivery_fee: Number(order.delivery_fee || 0),
+    total: Number(order.total || 0),
+    created_at: String(order.created_at || ''),
+    updated_at: typeof order.updated_at === 'string' ? order.updated_at : undefined,
+  }
+}
+
+function sanitizePublicOrderLight(order: Record<string, unknown>) {
+  return {
+    order_number: String(order.order_number || ''),
+    status: normalizePublicStatus(order.status),
+    updated_at: typeof order.updated_at === 'string' ? order.updated_at : undefined,
+  }
+}
 
 function buildAdminOrdersLink(orderNumber: string) {
   const path = `/admin/dashboard/orders?order=${encodeURIComponent(orderNumber)}`
@@ -144,6 +198,83 @@ async function getNextOrderNumber(supabase: ReturnType<typeof getSupabaseServerC
   const nextNumeric = Number.isFinite(lastNumeric) && lastNumeric > 0 ? lastNumeric + 1 : 1
 
   return `AF${String(nextNumeric).padStart(6, '0')}`
+}
+
+export async function GET(request: Request) {
+  const ip = getClientIp(request)
+  const rate = readLimiter(`orders-read:${ip}`)
+  if (!rate.allowed) {
+    return NextResponse.json(
+      { error: 'Troppi tentativi. Riprova tra qualche minuto.' },
+      { status: 429, headers: rate.headers }
+    )
+  }
+
+  try {
+    const { searchParams } = new URL(request.url)
+    const orderNumber = normalizeOrderNumber(searchParams.get('orderNumber'))
+    const light = searchParams.get('light') === 'true'
+
+    if (!orderNumber) {
+      return NextResponse.json({ error: 'Numero ordine non valido' }, { status: 400, headers: rate.headers })
+    }
+
+    const supabase = getSupabaseServerClient()
+    if (light) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select(PUBLIC_ORDER_LIGHT_SELECT)
+        .eq('order_number', orderNumber)
+        .maybeSingle()
+
+      if (error) {
+        console.error('[orders-api] Read order error:', error)
+        return NextResponse.json({ error: 'Errore recupero ordine' }, { status: 500, headers: rate.headers })
+      }
+
+      if (!data) {
+        return NextResponse.json({ error: 'Ordine non trovato' }, { status: 404, headers: rate.headers })
+      }
+
+      return NextResponse.json(
+        { order: sanitizePublicOrderLight(data as Record<string, unknown>) },
+        {
+          headers: {
+            ...rate.headers,
+            'Cache-Control': 'no-store',
+          },
+        }
+      )
+    }
+
+    const { data, error } = await supabase
+      .from('orders')
+      .select(PUBLIC_ORDER_SELECT)
+      .eq('order_number', orderNumber)
+      .maybeSingle()
+
+    if (error) {
+      console.error('[orders-api] Read order error:', error)
+      return NextResponse.json({ error: 'Errore recupero ordine' }, { status: 500, headers: rate.headers })
+    }
+
+    if (!data) {
+      return NextResponse.json({ error: 'Ordine non trovato' }, { status: 404, headers: rate.headers })
+    }
+
+    return NextResponse.json(
+      { order: sanitizePublicOrder(data as Record<string, unknown>) },
+      {
+        headers: {
+          ...rate.headers,
+          'Cache-Control': 'no-store',
+        },
+      }
+    )
+  } catch (error) {
+    console.error('[orders-api] Error reading order:', error)
+    return NextResponse.json({ error: 'Errore server' }, { status: 500, headers: rate.headers })
+  }
 }
 
 export async function POST(request: Request) {

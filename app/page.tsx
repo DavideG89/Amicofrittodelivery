@@ -9,6 +9,7 @@ import { normalizeOrderNumber } from '@/lib/order-number'
 import { supabase, Category, Product, StoreInfo, OrderStatus } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
+import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -215,13 +216,9 @@ export default function Home() {
     const refreshStatus = async () => {
       setLastOrderLoading(true)
       try {
-        const { data } = await supabase
-          .from('orders_public')
-          .select('status')
-          .eq('order_number', lastOrderNumber)
-          .single()
+        const data = await fetchPublicOrderLight(lastOrderNumber)
         if (cancelled) return
-        if (!data?.status) {
+        if (!data) {
           clearLastOrder()
           return
         }
@@ -246,12 +243,8 @@ export default function Home() {
     if (!lastOrderNumber || lastOrderLoading) return
     setLastOrderLoading(true)
     try {
-      const { data } = await supabase
-        .from('orders_public')
-        .select('status')
-        .eq('order_number', lastOrderNumber)
-        .single()
-      if (!data?.status) {
+      const data = await fetchPublicOrderLight(lastOrderNumber)
+      if (!data) {
         try {
           localStorage.removeItem('lastOrderNumber')
           localStorage.removeItem('lastOrderActive')
@@ -303,7 +296,10 @@ export default function Home() {
   const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
   const orderStatus = getOrderStatus(schedule)
   const nextOpenLabel = formatNextOpen(orderStatus.nextOpen)
-  const showLastOrderSticky = Boolean(lastOrderNumber) && lastOrderStatus !== 'completed'
+  const showLastOrderSticky =
+    Boolean(lastOrderNumber) &&
+    lastOrderStatus !== 'completed' &&
+    lastOrderStatus !== 'cancelled'
   const isCancelledLastOrder = lastOrderStatus === 'cancelled'
 
   return (

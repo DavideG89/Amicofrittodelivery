@@ -7,6 +7,8 @@ import Script from 'next/script'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { supabase } from '@/lib/supabase'
+import { normalizeOrderNumber } from '@/lib/order-number'
+import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
 type TerminalStatus = 'completed' | 'cancelled' | null
 const LottiePlayer = 'lottie-player' as any
@@ -32,16 +34,12 @@ export function GlobalOrderTerminalDialog() {
 
     const checkTerminalStatus = async () => {
       try {
-        const number = localStorage.getItem('lastOrderNumber') || ''
+        const number = normalizeOrderNumber(localStorage.getItem('lastOrderNumber'))
         if (!number) return
 
-        const { data, error } = await supabase
-          .from('orders_public')
-          .select('status')
-          .eq('order_number', number)
-          .single()
+        const data = await fetchPublicOrderLight(number)
 
-        if (cancelled || error || !data?.status) return
+        if (cancelled || !data?.status) return
         const current = String(data.status)
         if (current !== 'completed' && current !== 'cancelled') return
 
@@ -49,7 +47,7 @@ export function GlobalOrderTerminalDialog() {
         const alreadyShown = sessionStorage.getItem(key) === '1'
         if (alreadyShown) return
 
-        setOrderNumber(number)
+        setOrderNumber(data.order_number)
         setStatus(current as Exclude<TerminalStatus, null>)
       } catch {
         // ignore polling errors

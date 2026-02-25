@@ -8,10 +8,11 @@ import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
-import { supabase, PublicOrder } from '@/lib/supabase'
+import type { PublicOrder } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import { toast } from 'sonner'
+import { fetchPublicOrder } from '@/lib/public-order-client'
 
 // Force dynamic rendering
 export const dynamic = 'force-dynamic'
@@ -35,44 +36,35 @@ function OrderConfirmationContent() {
 
       const maxAttempts = 3
       let data: PublicOrder | null = null
-      let error: unknown = null
 
-      for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-        const result = await supabase
-          .from('orders_public')
-          .select('order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at')
-          .eq('order_number', orderNumber)
-          .maybeSingle()
-
-        data = (result.data as PublicOrder | null) ?? null
-        error = result.error
-        if (error || data) break
-        if (attempt < maxAttempts) {
-          await new Promise((resolve) => window.setTimeout(resolve, attempt * 700))
+      try {
+        for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+          data = await fetchPublicOrder(orderNumber)
+          if (data) break
+          if (attempt < maxAttempts) {
+            await new Promise((resolve) => window.setTimeout(resolve, attempt * 700))
+          }
         }
-      }
 
-      if (error) {
+        if (data) {
+          setOrder(data)
+          // Salva l'ordine sul dispositivo
+          saveOrderToDevice(data.order_number, data.order_type)
+          try {
+            localStorage.setItem('lastOrderNumber', data.order_number)
+            const active = data.status !== 'completed' && data.status !== 'cancelled'
+            localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
+          } catch {
+            // ignore storage errors
+          }
+        } else {
+          toast.error('Ordine non trovato')
+        }
+      } catch {
         toast.error('Errore nel caricamento dell\'ordine')
+      } finally {
         setLoading(false)
-        return
       }
-
-      if (data) {
-        setOrder(data)
-        // Salva l'ordine sul dispositivo
-        saveOrderToDevice(data.order_number, data.order_type)
-        try {
-          localStorage.setItem('lastOrderNumber', data.order_number)
-          const active = data.status !== 'completed' && data.status !== 'cancelled'
-          localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
-        } catch {
-          // ignore storage errors
-        }
-      } else {
-        toast.error('Ordine non trovato')
-      }
-      setLoading(false)
     }
 
     fetchOrder()
