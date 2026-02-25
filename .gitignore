@@ -11,3 +11,4 @@ node_modules/
 .vercel
 supabase/.temp/
 amicofritto-firebase-adminsdk-fbsvc-2ddba61450 18.27.05.json
+.gradle/
