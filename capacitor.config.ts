@@ -8,7 +8,7 @@ const config: CapacitorConfig = {
     url: 'https://v0-amico-fritto-git-99de2a-davidegiuliano89-gmailcoms-projects.vercel.app/admin/dashboard',
     cleartext: false,
     androidScheme: 'https',
-    allowNavigation: ['v0-amicofritto.vercel.app'],
+    allowNavigation: ['https://v0-amico-fritto-git-99de2a-davidegiuliano89-gmailcoms-projects.vercel.app'],
   },
   plugins: {
     PushNotifications: {
