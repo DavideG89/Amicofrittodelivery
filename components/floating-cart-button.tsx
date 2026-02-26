@@ -44,7 +44,7 @@ export function FloatingCartButton() {
 
   return (
     <>
-      <div className="md:hidden fixed bottom-6 left-6 right-auto z-50">
+      <div className="md:hidden fixed bottom-24 left-6 right-auto z-50">
         <Button 
           size="lg"
           className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow"
