@@ -14,6 +14,12 @@ import {
   heartbeatAdminPushToken,
   listenForForegroundNotifications,
 } from '@/lib/admin-push'
+import {
+  bindNativePushListeners,
+  isNativeAndroidPushSupported,
+  registerNativePushToken,
+  unregisterNativePush,
+} from '@/lib/admin-native-push'
 import { supabase } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -47,6 +53,58 @@ export default function AdminDashboardLayout({
   const pendingPollingIntervalMs = 60000
   const pendingPollingIdRef = useRef<number | null>(null)
   const isLeaderRef = useRef(false)
+  const nativePushTokenKey = 'admin-native-push-token'
+
+  const getAdminAccessToken = async () => {
+    const { data } = await supabase.auth.getSession()
+    return data.session?.access_token || ''
+  }
+
+  const registerNativeTokenOnBackend = async (token: string) => {
+    const accessToken = await getAdminAccessToken()
+    if (!accessToken) {
+      return { ok: false as const, message: 'Sessione admin non valida.' }
+    }
+
+    const res = await fetch('/api/admin/push/native/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({
+        token,
+        deviceInfo: typeof navigator !== 'undefined' ? navigator.userAgent : null,
+      }),
+    })
+
+    if (!res.ok) {
+      const payload = await res.json().catch(() => ({}))
+      return {
+        ok: false as const,
+        message:
+          typeof payload?.error === 'string' ? payload.error : `Errore registrazione push native (${res.status})`,
+      }
+    }
+
+    return { ok: true as const }
+  }
+
+  const unregisterNativeTokenOnBackend = async (token: string) => {
+    const accessToken = await getAdminAccessToken()
+    if (!accessToken) return { ok: false as const }
+
+    await fetch('/api/admin/push/native/unregister', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify({ token }),
+    }).catch(() => {})
+
+    return { ok: true as const }
+  }
 
   useEffect(() => {
     let mounted = true
@@ -72,12 +130,16 @@ export default function AdminDashboardLayout({
   }, [router])
 
   useEffect(() => {
-    if (typeof window === 'undefined' || !('Notification' in window)) return
+    if (typeof window === 'undefined') return
     let cancelled = false
     let inFlight = false
     let lastHeartbeatAt = 0
     let lastTokenRefreshAt = 0
+    let lastNativeRefreshAt = 0
+    let lastNativeHeartbeatAt = 0
     const tokenRefreshIntervalMs = 15 * 60 * 1000
+    const nativeRefreshIntervalMs = 15 * 60 * 1000
+    const nativeHeartbeatIntervalMs = 60 * 1000
 
     const readAdminPushActive = () => {
       try {
@@ -92,6 +154,63 @@ export default function AdminDashboardLayout({
       inFlight = true
       const adminPushActive = readAdminPushActive()
       try {
+        if (isNativeAndroidPushSupported()) {
+          if (!adminPushActive) {
+            if (!cancelled) setPushStatus('idle')
+            return
+          }
+
+          const now = Date.now()
+          const storedNativeToken = localStorage.getItem(nativePushTokenKey) || ''
+          if (storedNativeToken && now - lastNativeHeartbeatAt > nativeHeartbeatIntervalMs) {
+            const heartbeat = await registerNativeTokenOnBackend(storedNativeToken)
+            if (heartbeat.ok) {
+              lastNativeHeartbeatAt = now
+              setPushErrorDetail('')
+              if (!cancelled) setPushStatus('enabled')
+            }
+          }
+
+          if (storedNativeToken && now - lastNativeRefreshAt < nativeRefreshIntervalMs) {
+            setPushErrorDetail('')
+            if (!cancelled) setPushStatus('enabled')
+            return
+          }
+
+          const nativeResult = await registerNativePushToken()
+          if (!nativeResult.ok) {
+            setPushErrorDetail(nativeResult.message || '')
+            if (nativeResult.reason === 'unsupported') setPushStatus('unsupported')
+            else if (nativeResult.reason === 'denied') setPushStatus('denied')
+            else setPushStatus('error')
+            return
+          }
+
+          const saveResult = await registerNativeTokenOnBackend(nativeResult.token)
+          if (!saveResult.ok) {
+            setPushErrorDetail(saveResult.message || '')
+            setPushStatus('error')
+            return
+          }
+
+          if (storedNativeToken && storedNativeToken !== nativeResult.token) {
+            await unregisterNativeTokenOnBackend(storedNativeToken)
+          }
+
+          localStorage.setItem(nativePushTokenKey, nativeResult.token)
+          localStorage.setItem('admin-push:active', 'true')
+          setPushErrorDetail('')
+          if (!cancelled) setPushStatus('enabled')
+          lastNativeHeartbeatAt = now
+          lastNativeRefreshAt = now
+          return
+        }
+
+        if (!('Notification' in window)) {
+          if (!cancelled) setPushStatus('unsupported')
+          return
+        }
+
         if (Notification.permission === 'denied') {
           if (!cancelled) setPushStatus('denied')
           return
@@ -160,6 +279,7 @@ export default function AdminDashboardLayout({
   }, [])
 
   useEffect(() => {
+    if (isNativeAndroidPushSupported()) return
     if (typeof window === 'undefined' || !('serviceWorker' in navigator)) return
     const handleServiceWorkerMessage = (event: MessageEvent) => {
       if (event.data?.type !== 'PUSH_SUBSCRIPTION_CHANGED') return
@@ -183,6 +303,31 @@ export default function AdminDashboardLayout({
   // Version checking handled globally in AppVersionChecker
 
   useEffect(() => {
+    if (!isNativeAndroidPushSupported()) return
+    void bindNativePushListeners({
+      onForegroundNotification: (notification) => {
+        const title = notification.title || 'Nuovo ordine'
+        const body = notification.body || 'E arrivato un nuovo ordine'
+        toast(title, {
+          description: body,
+          duration: 8000,
+          icon: <Star className="h-4 w-4 text-[#ff7900]" />,
+        })
+        playNotificationSound()
+      },
+      onNotificationAction: (action) => {
+        const data = action.notification?.data || {}
+        const orderId = String(data.orderId || data.order_id || data.order_number || '')
+        const target = orderId
+          ? `/admin/dashboard?orderId=${encodeURIComponent(orderId)}`
+          : '/admin/dashboard'
+        router.push(target)
+      },
+    })
+  }, [router])
+
+  useEffect(() => {
+    if (isNativeAndroidPushSupported()) return
     let unsubscribe: (() => void) | undefined
     const start = async () => {
       unsubscribe = await listenForForegroundNotifications((payload) => {
@@ -451,6 +596,39 @@ export default function AdminDashboardLayout({
 
   const handleEnablePush = async () => {
     try {
+      if (isNativeAndroidPushSupported()) {
+        const nativeResult = await registerNativePushToken()
+        if (!nativeResult.ok) {
+          const detail = nativeResult.message || ''
+          setPushErrorDetail(detail)
+          if (nativeResult.reason === 'unsupported') setPushStatus('unsupported')
+          else if (nativeResult.reason === 'denied') setPushStatus('denied')
+          else setPushStatus('error')
+          toast.error(detail || 'Errore attivazione notifiche native')
+          return
+        }
+
+        const saveResult = await registerNativeTokenOnBackend(nativeResult.token)
+        if (!saveResult.ok) {
+          setPushErrorDetail(saveResult.message || '')
+          setPushStatus('error')
+          toast.error(saveResult.message || 'Errore salvataggio token push native')
+          return
+        }
+
+        const previousToken = localStorage.getItem(nativePushTokenKey) || ''
+        if (previousToken && previousToken !== nativeResult.token) {
+          await unregisterNativeTokenOnBackend(previousToken)
+        }
+
+        localStorage.setItem(nativePushTokenKey, nativeResult.token)
+        localStorage.setItem('admin-push:active', 'true')
+        setPushErrorDetail('')
+        setPushStatus('enabled')
+        toast.success('Notifiche native attivate')
+        return
+      }
+
       const result = await enableAdminPush()
       if (result.ok) {
         setPushErrorDetail('')
@@ -473,6 +651,21 @@ export default function AdminDashboardLayout({
   }
 
   const handleDisablePush = async () => {
+    if (isNativeAndroidPushSupported()) {
+      const storedToken = localStorage.getItem(nativePushTokenKey) || ''
+      if (storedToken) {
+        await unregisterNativeTokenOnBackend(storedToken)
+      }
+      await unregisterNativePush()
+      localStorage.removeItem(nativePushTokenKey)
+      localStorage.setItem('admin-push:active', 'false')
+      setPushErrorDetail('')
+      setPushStatus('idle')
+      setShowPushTooltip(true)
+      window.setTimeout(() => setShowPushTooltip(false), 2000)
+      return
+    }
+
     await disableAdminPush()
     setPushErrorDetail('')
     setPushStatus('idle')
@@ -629,7 +822,10 @@ export default function AdminDashboardLayout({
             {pushStatus !== 'enabled' && (
               <div className="border-b bg-card/60 px-4 py-3 flex items-center justify-between gap-3">
                 <div className="text-sm text-muted-foreground">
-                  {pushStatus === 'denied' && 'Notifiche bloccate. Chrome Android: vai su menu Chrome -> Settings -> Site settings -> Notifications -> questo sito -> Allow. Se il sito e` gia` in Allow, controlla Android: Impostazioni telefono -> App -> Chrome -> Notifiche -> Consenti. Safari (iPhone): "aA" -> Impostazioni sito -> Notifiche -> Consenti.'}
+                  {pushStatus === 'denied' &&
+                    (isNativeAndroidPushSupported()
+                      ? 'Notifiche bloccate per l app. Vai su Android: Impostazioni -> App -> Amico Fritto Ristoratore -> Notifiche -> Consenti.'
+                      : 'Notifiche bloccate. Chrome Android: vai su menu Chrome -> Settings -> Site settings -> Notifications -> questo sito -> Allow. Se il sito e` gia` in Allow, controlla Android: Impostazioni telefono -> App -> Chrome -> Notifiche -> Consenti. Safari (iPhone): "aA" -> Impostazioni sito -> Notifiche -> Consenti.')}
                   {pushStatus === 'unsupported' && 'Notifiche push non supportate su questo browser.'}
                   {pushStatus === 'missing' && 'Configurazione Firebase mancante. Completa le env pubbliche.'}
                   {pushStatus === 'error' && 'Errore durante l’attivazione delle notifiche.'}
