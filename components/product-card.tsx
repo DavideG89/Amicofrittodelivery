@@ -19,6 +19,8 @@ type ProductCardProps = {
   imageFit?: 'cover' | 'contain'
   skipAdditions?: boolean
   categorySlug?: string | null
+  saucesOnly?: boolean
+  forceFreeSingleSauce?: boolean
 }
 
 export function ProductCard({
@@ -27,6 +29,8 @@ export function ProductCard({
   imageFit = 'cover',
   skipAdditions = false,
   categorySlug,
+  saucesOnly = false,
+  forceFreeSingleSauce = false,
 }: ProductCardProps) {
   const { addItem, items, updateQuantity } = useCart()
   const [details, setDetails] = useState<{
@@ -55,6 +59,7 @@ export function ProductCard({
   
   const cartItem = items.find(item => item.product.id === product.id)
   const inCartQuantity = cartItem?.quantity || 0
+  const effectiveSauceRule: SauceRule = forceFreeSingleSauce ? DEFAULT_SAUCE_RULE : sauceRule
 
   const loadSauces = async () => {
     if (sauceOptions.length > 0 || saucesLoading) return
@@ -68,7 +73,7 @@ export function ProductCard({
 
       const additions = (data || []) as OrderAddition[]
       setSauceOptions(additions.filter((item) => item.type === 'sauce'))
-      setExtraOptions(additions.filter((item) => item.type === 'extra'))
+      setExtraOptions(saucesOnly ? [] : additions.filter((item) => item.type === 'extra'))
     } catch {
       setSauceOptions([])
       setExtraOptions([])
@@ -78,6 +83,10 @@ export function ProductCard({
   }
 
   const loadSauceRule = async () => {
+    if (forceFreeSingleSauce) {
+      setSauceRule(DEFAULT_SAUCE_RULE)
+      return
+    }
     const slug = (categorySlug || '').trim().toLowerCase()
     if (!slug) {
       setSauceRule(DEFAULT_SAUCE_RULE)
@@ -116,17 +125,17 @@ export function ProductCard({
 
   const toggleSauce = (sauceId: string, checked: boolean) => {
     setSelectedSauceIds((prev) => {
-      if (sauceRule.sauce_mode === 'none') return new Set()
+      if (effectiveSauceRule.sauce_mode === 'none') return new Set()
 
-      if (sauceRule.sauce_mode === 'free_single') {
+      if (effectiveSauceRule.sauce_mode === 'free_single') {
         if (!checked) return new Set()
         return new Set([sauceId])
       }
 
       const next = new Set(prev)
       if (checked) {
-        if (!next.has(sauceId) && next.size >= sauceRule.max_sauces) {
-          toast.error(`Massimo ${sauceRule.max_sauces} salse`)
+        if (!next.has(sauceId) && next.size >= effectiveSauceRule.max_sauces) {
+          toast.error(`Massimo ${effectiveSauceRule.max_sauces} salse`)
           return prev
         }
         next.add(sauceId)
@@ -148,7 +157,7 @@ export function ProductCard({
 
   const handleConfirmAddToCart = () => {
     const selectedSauceItems = sauceOptions.filter((item) => selectedSauceIds.has(item.id))
-    const selectedExtraItems = extraOptions.filter((item) => selectedExtras.has(item.id))
+    const selectedExtraItems = saucesOnly ? [] : extraOptions.filter((item) => selectedExtras.has(item.id))
     const extrasList = selectedExtraItems.map((item) => item.name)
     const additionsParts: string[] = []
     if (selectedSauceItems.length > 0) {
@@ -159,8 +168,8 @@ export function ProductCard({
     }
     const additions = additionsParts.join(' | ')
     const saucesUnitPrice =
-      sauceRule.sauce_mode === 'paid_multi'
-        ? selectedSauceItems.length * Number(sauceRule.sauce_price || 0)
+      effectiveSauceRule.sauce_mode === 'paid_multi'
+        ? selectedSauceItems.length * Number(effectiveSauceRule.sauce_price || 0)
         : 0
     const additionsUnitPrice =
       saucesUnitPrice +
@@ -181,8 +190,8 @@ export function ProductCard({
     setAdditionsOpen(false)
   }
   const selectedSaucesPrice =
-    sauceRule.sauce_mode === 'paid_multi'
-      ? selectedSauceIds.size * Number(sauceRule.sauce_price || 0)
+    effectiveSauceRule.sauce_mode === 'paid_multi'
+      ? selectedSauceIds.size * Number(effectiveSauceRule.sauce_price || 0)
       : 0
   const selectedExtrasPrice = extraOptions
     .filter((item) => selectedExtras.has(item.id))
@@ -388,7 +397,9 @@ export function ProductCard({
           <DialogHeader className="px-6 pt-6 pb-3">
             <DialogTitle>Aggiunte per {product.name}</DialogTitle>
             <DialogDescription>
-              Scegli una salsa e gli extra per personalizzare il prodotto.
+              {saucesOnly
+                ? 'Scegli una salsa per personalizzare il prodotto.'
+                : 'Scegli una salsa e gli extra per personalizzare il prodotto.'}
             </DialogDescription>
           </DialogHeader>
 
@@ -397,10 +408,10 @@ export function ProductCard({
             <div className="space-y-2">
               <p className="text-sm font-semibold">
                 Salse
-                {sauceRule.sauce_mode === 'paid_multi' && ` (${selectedSauceIds.size}/${sauceRule.max_sauces})`}
-                {sauceRule.sauce_mode === 'free_single' && ' (max 1 gratuita)'}
+                {effectiveSauceRule.sauce_mode === 'paid_multi' && ` (${selectedSauceIds.size}/${effectiveSauceRule.max_sauces})`}
+                {effectiveSauceRule.sauce_mode === 'free_single' && ' (max 1 gratuita)'}
               </p>
-              {sauceRule.sauce_mode === 'none' ? (
+              {effectiveSauceRule.sauce_mode === 'none' ? (
                 <p className="text-xs text-muted-foreground">Salse non disponibili per questa categoria.</p>
               ) : (
                 <div className="grid gap-2">
@@ -411,9 +422,9 @@ export function ProductCard({
                     sauceOptions.map((sauce) => {
                       const checked = selectedSauceIds.has(sauce.id)
                       const disableByLimit =
-                        sauceRule.sauce_mode === 'paid_multi' &&
+                        effectiveSauceRule.sauce_mode === 'paid_multi' &&
                         !checked &&
-                        selectedSauceIds.size >= sauceRule.max_sauces
+                        selectedSauceIds.size >= effectiveSauceRule.max_sauces
                       return (
                         <label key={sauce.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
                           <div className="flex items-center gap-2">
@@ -424,9 +435,9 @@ export function ProductCard({
                             />
                             <span>{sauce.name}</span>
                           </div>
-                          {sauceRule.sauce_mode === 'paid_multi' && (
+                          {effectiveSauceRule.sauce_mode === 'paid_multi' && (
                             <span className="font-medium">
-                              +{Number(sauceRule.sauce_price).toFixed(2).replace('.', ',')}€
+                              +{Number(effectiveSauceRule.sauce_price).toFixed(2).replace('.', ',')}€
                             </span>
                           )}
                         </label>
@@ -439,29 +450,31 @@ export function ProductCard({
               )}
             </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-semibold">Extra</p>
-              <div className="grid gap-2">
-                {extraOptions.map((extra) => {
-                  const checked = selectedExtras.has(extra.id)
-                  return (
-                    <label key={extra.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
-                      <div className="flex items-center gap-2">
-                        <Checkbox
-                          checked={checked}
-                          onCheckedChange={(value) => toggleExtra(extra.id, Boolean(value))}
-                        />
-                        <span>{extra.name}</span>
-                      </div>
-                      <span className="font-medium">+{Number(extra.price || 0).toFixed(2).replace('.', ',')}€</span>
-                    </label>
-                  )
-                })}
-                {!saucesLoading && extraOptions.length === 0 && (
-                  <p className="text-xs text-muted-foreground">Nessun extra disponibile.</p>
-                )}
+            {!saucesOnly && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Extra</p>
+                <div className="grid gap-2">
+                  {extraOptions.map((extra) => {
+                    const checked = selectedExtras.has(extra.id)
+                    return (
+                      <label key={extra.id} className="flex items-center justify-between rounded-md border p-2.5 text-sm">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            checked={checked}
+                            onCheckedChange={(value) => toggleExtra(extra.id, Boolean(value))}
+                          />
+                          <span>{extra.name}</span>
+                        </div>
+                        <span className="font-medium">+{Number(extra.price || 0).toFixed(2).replace('.', ',')}€</span>
+                      </label>
+                    )
+                  })}
+                  {!saucesLoading && extraOptions.length === 0 && (
+                    <p className="text-xs text-muted-foreground">Nessun extra disponibile.</p>
+                  )}
+                </div>
               </div>
-            </div>
+            )}
           </div>
           </div>
 

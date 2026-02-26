@@ -7,12 +7,37 @@ if (!supabaseUrl || !supabaseAnonKey) {
   console.error('[supabase] Missing NEXT_PUBLIC_SUPABASE_URL or NEXT_PUBLIC_SUPABASE_ANON_KEY')
 }
 
+const getProjectScopedStorageKey = () => {
+  try {
+    const host = new URL(supabaseUrl).hostname.replace(/[^a-z0-9.-]/gi, '_')
+    return `af-admin-auth-v1:${host}`
+  } catch {
+    return 'af-admin-auth-v1'
+  }
+}
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     // Isola la sessione auth del progetto e previene conflitti con token legacy corrotti.
-    storageKey: 'af-admin-auth-v1',
+    storageKey: getProjectScopedStorageKey(),
   },
 })
+
+if (typeof window !== 'undefined') {
+  void supabase.auth.getSession().then(async ({ error }) => {
+    if (!error) return
+    const message = String(error.message || '')
+    const invalidRefreshToken =
+      message.includes('Invalid Refresh Token') || message.includes('Refresh Token Not Found')
+    if (!invalidRefreshToken) return
+
+    try {
+      await supabase.auth.signOut({ scope: 'local' })
+    } catch {
+      // Ignore cleanup errors.
+    }
+  })
+}
 
 // Types
 export type Category = {

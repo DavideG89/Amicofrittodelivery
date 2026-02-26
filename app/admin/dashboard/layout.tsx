@@ -318,9 +318,10 @@ export default function AdminDashboardLayout({
       onNotificationAction: (action) => {
         const data = action.notification?.data || {}
         const orderId = String(data.orderId || data.order_id || data.order_number || '')
+        const pushTs = Date.now()
         const target = orderId
-          ? `/admin/dashboard?orderId=${encodeURIComponent(orderId)}`
-          : '/admin/dashboard'
+          ? `/admin/dashboard?orderId=${encodeURIComponent(orderId)}&pushTs=${pushTs}`
+          : `/admin/dashboard?pushTs=${pushTs}`
         router.push(target)
       },
     })

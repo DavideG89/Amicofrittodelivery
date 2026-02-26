@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
@@ -15,6 +16,7 @@ const ORDER_TERMINAL_STATUS_EVENT = 'af:order-terminal-status'
 const HOME_PRODUCTS_READY_EVENT = 'af:home-products-ready'
 
 export default function Home() {
+  const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [productsByCategory, setProductsByCategory] = useState<Record<string, Product[]>>({})
   const [activeCategory, setActiveCategory] = useState<string | null>(null)
@@ -272,36 +274,9 @@ export default function Home() {
     }
   }, [lastOrderNumber])
 
-  const handleRefreshLastOrder = async () => {
-    if (!lastOrderNumber || lastOrderLoading) return
-    setLastOrderLoading(true)
-    try {
-      const data = await fetchPublicOrderLight(lastOrderNumber)
-      if (!data) {
-        try {
-          localStorage.removeItem('lastOrderNumber')
-          localStorage.removeItem('lastOrderActive')
-        } catch {
-          // ignore storage errors
-        }
-        setLastOrderNumber(null)
-        setLastOrderStatus(null)
-        return
-      }
-      setLastOrderStatus(data.status as OrderStatus)
-      notifyTerminalStatus(data.order_number, data.status as OrderStatus)
-    } catch {
-      try {
-        localStorage.removeItem('lastOrderNumber')
-        localStorage.removeItem('lastOrderActive')
-      } catch {
-        // ignore storage errors
-      }
-      setLastOrderNumber(null)
-      setLastOrderStatus(null)
-    } finally {
-      setLastOrderLoading(false)
-    }
+  const handleViewLastOrder = () => {
+    if (!lastOrderNumber) return
+    router.push(`/order/${encodeURIComponent(lastOrderNumber)}`)
   }
 
 
@@ -442,7 +417,9 @@ export default function Home() {
                             product={product}
                             categorySlug={category.slug}
                             imageFit={isSaucesCategory ? 'contain' : 'cover'}
-                            skipAdditions={isSaucesCategory || isDrinksCategory || isFriedCategory}
+                            skipAdditions={isSaucesCategory || isDrinksCategory}
+                            saucesOnly={isFriedCategory}
+                            forceFreeSingleSauce={isFriedCategory}
                           />
                         )
                       })}
@@ -483,15 +460,14 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                className={`inline-flex h-8 items-center justify-center rounded-md border bg-white px-3 text-xs font-medium disabled:opacity-60 ${
+                className={`inline-flex h-8 items-center justify-center rounded-md border bg-white px-3 text-xs font-medium ${
                   isCancelledLastOrder
                     ? 'border-red-300 text-red-900 hover:bg-red-100'
                     : 'border-emerald-300 text-emerald-900 hover:bg-emerald-100'
                 }`}
-                onClick={handleRefreshLastOrder}
-                disabled={lastOrderLoading}
+                onClick={handleViewLastOrder}
               >
-                Aggiorna stato
+                Visualizza stato
               </button>
             </div>
           </div>

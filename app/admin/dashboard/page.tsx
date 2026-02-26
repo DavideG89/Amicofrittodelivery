@@ -1,8 +1,8 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { Package, ShoppingCart, Euro, TrendingUp, ChevronDown } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
@@ -11,6 +11,9 @@ import { supabase } from '@/lib/supabase'
 
 export default function AdminDashboardPage() {
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const orderIdParam = searchParams.get('orderId')
+  const pushTsParam = searchParams.get('pushTs')
   const adminPages = [
     { href: '/admin/dashboard', label: 'Dashboard' },
     { href: '/admin/dashboard/orders', label: 'Ordini' },
@@ -27,68 +30,106 @@ export default function AdminDashboardPage() {
   })
   const [dailyRevenue, setDailyRevenue] = useState<{ date: string; total: number }[]>([])
 
+  const fetchStats = useCallback(async () => {
+    try {
+      // Count products
+      const { count: productsCount } = await supabase
+        .from('products')
+        .select('id', { count: 'exact', head: true })
+
+      // Count all orders
+      const { count: ordersCount } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+
+      // Count pending orders
+      const { count: pendingCount } = await supabase
+        .from('orders')
+        .select('id', { count: 'exact', head: true })
+        .eq('status', 'pending')
+
+      // Daily revenue table (preferred)
+      const { data: dailyRevenueData } = await supabase
+        .from('daily_revenue')
+        .select('day, total')
+        .order('day', { ascending: false })
+
+      const dailyRows = (dailyRevenueData || []).map((row) => ({
+        date: new Date(row.day).toLocaleDateString('it-IT'),
+        total: Number(row.total || 0),
+      }))
+
+      // Calculate today's revenue (fallback to orders if daily table has no entry for today)
+      let revenue = 0
+      const todayKey = new Date().toLocaleDateString('it-IT')
+      const todayRow = dailyRows.find((row) => row.date === todayKey)
+      if (todayRow) {
+        revenue = todayRow.total || 0
+      } else {
+        const today = new Date()
+        today.setHours(0, 0, 0, 0)
+        const { data: todayOrders } = await supabase
+          .from('orders')
+          .select('total')
+          .gte('created_at', today.toISOString())
+          .neq('status', 'cancelled')
+        revenue = todayOrders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0
+      }
+
+      setDailyRevenue(dailyRows)
+
+      setStats({
+        totalProducts: productsCount || 0,
+        totalOrders: ordersCount || 0,
+        pendingOrders: pendingCount || 0,
+        todayRevenue: revenue,
+      })
+    } catch (error) {
+      console.error('[v0] Error fetching stats:', error)
+    }
+  }, [])
+
   useEffect(() => {
-    async function fetchStats() {
-      try {
-        // Count products
-        const { count: productsCount } = await supabase
-          .from('products')
-          .select('id', { count: 'exact', head: true })
+    void fetchStats()
+  }, [fetchStats, orderIdParam, pushTsParam])
 
-        // Count all orders
-        const { count: ordersCount } = await supabase
-          .from('orders')
-          .select('id', { count: 'exact', head: true })
-
-        // Count pending orders
-        const { count: pendingCount } = await supabase
-          .from('orders')
-          .select('id', { count: 'exact', head: true })
-          .eq('status', 'pending')
-
-        // Daily revenue table (preferred)
-        const { data: dailyRevenueData } = await supabase
-          .from('daily_revenue')
-          .select('day, total')
-          .order('day', { ascending: false })
-
-        const dailyRows = (dailyRevenueData || []).map((row) => ({
-          date: new Date(row.day).toLocaleDateString('it-IT'),
-          total: Number(row.total || 0),
-        }))
-
-        // Calculate today's revenue (fallback to orders if daily table has no entry for today)
-        let revenue = 0
-        const todayKey = new Date().toLocaleDateString('it-IT')
-        const todayRow = dailyRows.find((row) => row.date === todayKey)
-        if (todayRow) {
-          revenue = todayRow.total || 0
-        } else {
-          const today = new Date()
-          today.setHours(0, 0, 0, 0)
-          const { data: todayOrders } = await supabase
-            .from('orders')
-            .select('total')
-            .gte('created_at', today.toISOString())
-            .neq('status', 'cancelled')
-          revenue = todayOrders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0
-        }
-
-        setDailyRevenue(dailyRows)
-
-        setStats({
-          totalProducts: productsCount || 0,
-          totalOrders: ordersCount || 0,
-          pendingOrders: pendingCount || 0,
-          todayRevenue: revenue
-        })
-      } catch (error) {
-        console.error('[v0] Error fetching stats:', error)
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchStats()
       }
     }
+    const handleFocus = () => {
+      void fetchStats()
+    }
 
-    fetchStats()
-  }, [])
+    document.addEventListener('visibilitychange', handleVisibility)
+    window.addEventListener('focus', handleFocus)
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility)
+      window.removeEventListener('focus', handleFocus)
+    }
+  }, [fetchStats])
+
+  useEffect(() => {
+    let channel: ReturnType<typeof supabase.channel> | null = null
+
+    try {
+      channel = supabase
+        .channel('dashboard_orders_changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+          void fetchStats()
+        })
+        .subscribe()
+    } catch {
+      // ignore realtime subscription errors
+    }
+
+    return () => {
+      if (channel) supabase.removeChannel(channel)
+    }
+  }, [fetchStats])
 
   const statCards = [
     {
