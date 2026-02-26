@@ -206,6 +206,12 @@ export function OrderDetailsPage() {
   const timelineStatus = getUserFacingStatus(order.status as OrderStatus)
   const timelineCurrentIndex = timelineStatuses.indexOf(timelineStatus as (typeof timelineStatuses)[number])
   const showPreparingLottie = timelineStatus === 'preparing'
+  const showDeliveryLottie = timelineStatus === 'ready'
+  const statusLottieSrc = showPreparingLottie
+    ? '/Hamburger%20Loading.json'
+    : showDeliveryLottie
+      ? '/Delivery%20Riding.json'
+      : null
 
   return (
     <div className="min-h-screen bg-background">
@@ -230,7 +236,21 @@ export function OrderDetailsPage() {
 
         <Card className="mb-4 sm:mb-6">
           <CardHeader>
-            <div className="flex items-start justify-between gap-3">
+            <div className="flex flex-col items-center gap-3 text-center">
+              <div className="flex shrink-0 flex-col items-center gap-1">
+                {statusLottieSrc && (
+                  <LottiePlayer
+                    key={statusLottieSrc}
+                    src={statusLottieSrc}
+                    background="transparent"
+                    speed="1"
+                    loop
+                    autoplay
+                    className="h-[80px] w-[80px] scale-[1.65] [transform-origin:center]"
+                  />
+                )}
+                <Badge className={`${currentStatus.color} text-white border-none`}>{currentStatus.label}</Badge>
+              </div>
               <div className="min-w-0">
                 <CardTitle className="text-xl sm:text-2xl truncate">Ordine {order.order_number}</CardTitle>
                 <p className="text-xs sm:text-sm text-muted-foreground mt-1">
@@ -244,23 +264,10 @@ export function OrderDetailsPage() {
                   })}
                 </p>
               </div>
-              <div className="flex shrink-0 flex-col items-end gap-1">
-                {showPreparingLottie && (
-                  <LottiePlayer
-                    src="/Hamburger%20Loading.json"
-                    background="transparent"
-                    speed="1"
-                    loop
-                    autoplay
-                    className="h-16 w-16 sm:h-20 sm:w-20"
-                  />
-                )}
-                <Badge className={`${currentStatus.color} text-white border-none`}>{currentStatus.label}</Badge>
-              </div>
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground">{currentStatus.description}</p>
+            <p className="text-sm text-muted-foreground text-center">{currentStatus.description}</p>
           </CardContent>
         </Card>
 
