@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import Script from 'next/script'
 import { ArrowLeft, CircleCheckBig, Clock, Home, Loader2, RefreshCw, Utensils, XCircle, ChefHat } from 'lucide-react'
 import { Header } from '@/components/header'
 import { Badge } from '@/components/ui/badge'
@@ -13,6 +14,8 @@ import { saveOrderToDevice } from '@/lib/order-storage'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import type { OrderStatus } from '@/lib/supabase'
 import { fetchPublicOrder, fetchPublicOrderLight } from '@/lib/public-order-client'
+
+const LottiePlayer = 'lottie-player' as any
 
 const statusConfig = {
   pending: {
@@ -202,9 +205,14 @@ export function OrderDetailsPage() {
   const statusTimestamp = order.updated_at || order.created_at
   const timelineStatus = getUserFacingStatus(order.status as OrderStatus)
   const timelineCurrentIndex = timelineStatuses.indexOf(timelineStatus as (typeof timelineStatuses)[number])
+  const showPreparingLottie = timelineStatus === 'preparing'
 
   return (
     <div className="min-h-screen bg-background">
+      <Script
+        src="https://unpkg.com/@lottiefiles/lottie-player@2.0.12/dist/lottie-player.js"
+        strategy="afterInteractive"
+      />
       <Header />
       <main className="container py-4 sm:py-8 px-4 max-w-3xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
@@ -236,7 +244,19 @@ export function OrderDetailsPage() {
                   })}
                 </p>
               </div>
-              <Badge className={`${currentStatus.color} text-white border-none`}>{currentStatus.label}</Badge>
+              <div className="flex shrink-0 flex-col items-end gap-1">
+                {showPreparingLottie && (
+                  <LottiePlayer
+                    src="/Hamburger%20Loading.json"
+                    background="transparent"
+                    speed="1"
+                    loop
+                    autoplay
+                    className="h-16 w-16 sm:h-20 sm:w-20"
+                  />
+                )}
+                <Badge className={`${currentStatus.color} text-white border-none`}>{currentStatus.label}</Badge>
+              </div>
             </div>
           </CardHeader>
           <CardContent>
