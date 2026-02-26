@@ -38,11 +38,11 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-try {
-    def servicesJSON = file('google-services.json')
-    if (servicesJSON.text) {
-        apply plugin: 'com.google.gms.google-services'
-    }
-} catch(Exception e) {
-    logger.info("google-services.json not found, google-services plugin not applied. Push Notifications won't work")
+def servicesJSON = file('google-services.json')
+if (!servicesJSON.exists()) {
+    throw new GradleException(
+        "Missing Firebase config: android/app/google-services.json.\n" +
+        "Download it from Firebase Console (Android app package: it.amicofritto.ristoratore) and place it in android/app/."
+    )
 }
+apply plugin: 'com.google.gms.google-services'
