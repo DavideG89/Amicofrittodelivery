@@ -3,18 +3,62 @@
 import { useEffect, useState } from 'react'
 import Image from 'next/image'
 
-export function SplashScreen() {
+const HOME_PRODUCTS_READY_EVENT = 'af:home-products-ready'
+
+type SplashScreenProps = {
+  waitForHomeReady?: boolean
+}
+
+export function SplashScreen({ waitForHomeReady = false }: SplashScreenProps) {
   const [visible, setVisible] = useState(true)
 
   useEffect(() => {
-    const hide = () => setVisible(false)
-    const timeout = window.setTimeout(hide, 800)
-    window.addEventListener('load', hide, { once: true })
-    return () => {
-      window.clearTimeout(timeout)
-      window.removeEventListener('load', hide)
+    let loaded = document.readyState === 'complete'
+    let homeReady = !waitForHomeReady
+    let minDelayDone = false
+
+    const hideIfReady = () => {
+      if (loaded && homeReady && minDelayDone) {
+        setVisible(false)
+      }
     }
-  }, [])
+
+    const onWindowLoad = () => {
+      loaded = true
+      hideIfReady()
+    }
+
+    const onHomeReady = () => {
+      homeReady = true
+      hideIfReady()
+    }
+
+    const minDelay = window.setTimeout(() => {
+      minDelayDone = true
+      hideIfReady()
+    }, waitForHomeReady ? 2600 : 800)
+
+    // Safety fallback: never keep the splash forever if an event is missed.
+    const hardStop = window.setTimeout(() => {
+      setVisible(false)
+    }, waitForHomeReady ? 12000 : 3000)
+
+    window.addEventListener('load', onWindowLoad, { once: true })
+    if (waitForHomeReady) {
+      window.addEventListener(HOME_PRODUCTS_READY_EVENT, onHomeReady as EventListener)
+    }
+
+    hideIfReady()
+
+    return () => {
+      window.clearTimeout(minDelay)
+      window.clearTimeout(hardStop)
+      window.removeEventListener('load', onWindowLoad)
+      if (waitForHomeReady) {
+        window.removeEventListener(HOME_PRODUCTS_READY_EVENT, onHomeReady as EventListener)
+      }
+    }
+  }, [waitForHomeReady])
 
   if (!visible) return null
 

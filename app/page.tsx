@@ -12,6 +12,7 @@ import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order
 import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
 const ORDER_TERMINAL_STATUS_EVENT = 'af:order-terminal-status'
+const HOME_PRODUCTS_READY_EVENT = 'af:home-products-ready'
 
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([])
@@ -176,6 +177,9 @@ export default function Home() {
         })
       } finally {
         setLoading(false)
+        if (typeof window !== 'undefined') {
+          window.dispatchEvent(new Event(HOME_PRODUCTS_READY_EVENT))
+        }
       }
     }
 

@@ -13,11 +13,12 @@ import { GlobalOrderTerminalDialog } from '@/components/global-order-terminal-di
 export function RootProviders({ children }: { children: ReactNode }) {
   const pathname = usePathname()
   const isAdminPath = pathname.startsWith('/admin')
+  const isHomePath = pathname === '/'
 
   return (
     <>
       <AppVersionChecker />
-      <SplashScreen />
+      <SplashScreen waitForHomeReady={!isAdminPath && isHomePath} />
       <InstallBanner />
       {isAdminPath ? (
         children
