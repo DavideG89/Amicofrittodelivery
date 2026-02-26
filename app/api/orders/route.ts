@@ -116,11 +116,18 @@ async function notifyAdminsOnNewOrder(
   payload: { orderId: string; orderNumber: string; orderType: 'delivery' | 'takeaway'; total: number; createdAt: string }
 ) {
   try {
+    const maxTokensFromEnv = Number(process.env.ADMIN_PUSH_MAX_TOKENS || 5000)
+    const maxTokens = Number.isFinite(maxTokensFromEnv) && maxTokensFromEnv > 0 ? Math.floor(maxTokensFromEnv) : 5000
+    const activeDaysFromEnv = Number(process.env.ADMIN_PUSH_ACTIVE_DAYS || 180)
+    const activeDays = Number.isFinite(activeDaysFromEnv) && activeDaysFromEnv > 0 ? Math.floor(activeDaysFromEnv) : 180
+    const activeSince = new Date(Date.now() - activeDays * 24 * 60 * 60 * 1000).toISOString()
+
     const { data: tokensData, error: tokensError } = await supabase
       .from('admin_push_tokens')
       .select('token')
+      .gte('last_seen', activeSince)
       .order('last_seen', { ascending: false })
-      .limit(500)
+      .limit(maxTokens)
 
     if (tokensError || !tokensData || tokensData.length === 0) return
 

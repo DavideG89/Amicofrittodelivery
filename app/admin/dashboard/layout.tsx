@@ -136,8 +136,10 @@ export default function AdminDashboardLayout({
     let lastHeartbeatAt = 0
     let lastTokenRefreshAt = 0
     let lastNativeRefreshAt = 0
+    let lastNativeHeartbeatAt = 0
     const tokenRefreshIntervalMs = 15 * 60 * 1000
     const nativeRefreshIntervalMs = 15 * 60 * 1000
+    const nativeHeartbeatIntervalMs = 60 * 1000
 
     const readAdminPushActive = () => {
       try {
@@ -160,6 +162,15 @@ export default function AdminDashboardLayout({
 
           const now = Date.now()
           const storedNativeToken = localStorage.getItem(nativePushTokenKey) || ''
+          if (storedNativeToken && now - lastNativeHeartbeatAt > nativeHeartbeatIntervalMs) {
+            const heartbeat = await registerNativeTokenOnBackend(storedNativeToken)
+            if (heartbeat.ok) {
+              lastNativeHeartbeatAt = now
+              setPushErrorDetail('')
+              if (!cancelled) setPushStatus('enabled')
+            }
+          }
+
           if (storedNativeToken && now - lastNativeRefreshAt < nativeRefreshIntervalMs) {
             setPushErrorDetail('')
             if (!cancelled) setPushStatus('enabled')
@@ -190,6 +201,7 @@ export default function AdminDashboardLayout({
           localStorage.setItem('admin-push:active', 'true')
           setPushErrorDetail('')
           if (!cancelled) setPushStatus('enabled')
+          lastNativeHeartbeatAt = now
           lastNativeRefreshAt = now
           return
         }
