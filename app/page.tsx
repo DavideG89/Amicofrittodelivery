@@ -11,6 +11,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
+const ORDER_TERMINAL_STATUS_EVENT = 'af:order-terminal-status'
+
 export default function Home() {
   const [categories, setCategories] = useState<Category[]>([])
   const [productsByCategory, setProductsByCategory] = useState<Record<string, Product[]>>({})
@@ -60,6 +62,16 @@ export default function Home() {
       default:
         return null
     }
+  }
+
+  const notifyTerminalStatus = (orderNumber: string, status: OrderStatus) => {
+    if (typeof window === 'undefined') return
+    if (status !== 'completed' && status !== 'cancelled') return
+    window.dispatchEvent(
+      new CustomEvent(ORDER_TERMINAL_STATUS_EVENT, {
+        detail: { orderNumber, status },
+      })
+    )
   }
 
   const fetchProductsForCategory = async (categoryId: string) => {
@@ -223,6 +235,7 @@ export default function Home() {
           return
         }
         setLastOrderStatus(data.status as OrderStatus)
+        notifyTerminalStatus(data.order_number, data.status as OrderStatus)
       } catch {
         if (cancelled) return
         clearLastOrder()
@@ -256,6 +269,7 @@ export default function Home() {
         return
       }
       setLastOrderStatus(data.status as OrderStatus)
+      notifyTerminalStatus(data.order_number, data.status as OrderStatus)
     } catch {
       try {
         localStorage.removeItem('lastOrderNumber')
