@@ -46,6 +46,14 @@ export function GlobalOrderTerminalDialog() {
       setStatus(nextStatus)
     }
 
+    const broadcastTerminalStatus = (nextStatus: Exclude<TerminalStatus, null>, number: string) => {
+      window.dispatchEvent(
+        new CustomEvent(ORDER_TERMINAL_STATUS_EVENT, {
+          detail: { orderNumber: number, status: nextStatus },
+        })
+      )
+    }
+
     const checkTerminalStatus = async () => {
       if (inFlight) return
       inFlight = true
@@ -58,6 +66,7 @@ export function GlobalOrderTerminalDialog() {
         if (cancelled || !data?.status) return
         const current = String(data.status)
         if (!isTerminalStatus(current)) return
+        broadcastTerminalStatus(current, data.order_number)
         openIfNeeded(current, data.order_number)
       } catch {
         // ignore polling errors

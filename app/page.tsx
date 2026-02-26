@@ -252,6 +252,22 @@ export default function Home() {
     }
   }, [lastOrderNumber])
 
+  useEffect(() => {
+    const onTerminalStatus = (event: Event) => {
+      const detail = (event as CustomEvent<{ orderNumber?: string; status?: string }>)?.detail
+      const number = normalizeOrderNumber(detail?.orderNumber || '')
+      const status = String(detail?.status || '')
+      if (!number || (status !== 'completed' && status !== 'cancelled')) return
+      if (lastOrderNumber && number !== lastOrderNumber) return
+      setLastOrderStatus(status as OrderStatus)
+    }
+
+    window.addEventListener(ORDER_TERMINAL_STATUS_EVENT, onTerminalStatus as EventListener)
+    return () => {
+      window.removeEventListener(ORDER_TERMINAL_STATUS_EVENT, onTerminalStatus as EventListener)
+    }
+  }, [lastOrderNumber])
+
   const handleRefreshLastOrder = async () => {
     if (!lastOrderNumber || lastOrderLoading) return
     setLastOrderLoading(true)
