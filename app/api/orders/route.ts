@@ -87,8 +87,8 @@ function sanitizePublicOrderLight(order: Record<string, unknown>) {
   }
 }
 
-function buildAdminOrdersLink(orderNumber: string) {
-  const path = `/admin/dashboard/orders?order=${encodeURIComponent(orderNumber)}`
+function buildAdminDashboardLink(orderId: string) {
+  const path = `/admin/dashboard?orderId=${encodeURIComponent(orderId)}`
   const explicitSiteUrl = process.env.NEXT_PUBLIC_SITE_URL || ''
   const vercelUrl = process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : ''
   const baseUrl = explicitSiteUrl || vercelUrl
@@ -113,7 +113,7 @@ function maskToken(token: string) {
 
 async function notifyAdminsOnNewOrder(
   supabase: ReturnType<typeof getSupabaseServerClient>,
-  payload: { orderNumber: string; orderType: 'delivery' | 'takeaway'; total: number; createdAt: string }
+  payload: { orderId: string; orderNumber: string; orderType: 'delivery' | 'takeaway'; total: number; createdAt: string }
 ) {
   try {
     const maxTokensFromEnv = Number(process.env.ADMIN_PUSH_MAX_TOKENS || 5000)
@@ -134,12 +134,14 @@ async function notifyAdminsOnNewOrder(
     const tokens = [...new Set(tokensData.map((row) => row.token).filter(Boolean))]
     if (tokens.length === 0) return
 
-    const clickAction = buildAdminOrdersLink(payload.orderNumber)
+    const clickAction = buildAdminDashboardLink(payload.orderId)
     const results = await sendFcmMessages(tokens, {
       title: 'Nuovo ordine',
       body: `Ordine ${payload.orderNumber} • euro ${Number(payload.total).toFixed(2)}`,
       clickAction,
       data: {
+        orderId: payload.orderId,
+        order_id: payload.orderId,
         order_number: payload.orderNumber,
         order_type: payload.orderType,
         total: Number(payload.total).toFixed(2),
@@ -569,32 +571,37 @@ export async function POST(request: Request) {
       ? order.payment_method
       : null
 
-    const { error } = await supabase.from('orders').insert({
-      order_number: orderNumber,
-      customer_name: sanitized.customer_name,
-      customer_phone: sanitized.customer_phone,
-      customer_address: sanitized.customer_address,
-      order_type: order.order_type,
-      items: normalizedItems.map(({ available, ...item }) => item),
-      subtotal,
-      discount_code: discountCode,
-      discount_amount: discountAmount,
-      delivery_fee: deliveryFee,
-      total,
-      status: 'pending',
-      notes: sanitized.notes,
-      payment_method: paymentMethod,
-    })
+    const { data: insertedOrder, error } = await supabase
+      .from('orders')
+      .insert({
+        order_number: orderNumber,
+        customer_name: sanitized.customer_name,
+        customer_phone: sanitized.customer_phone,
+        customer_address: sanitized.customer_address,
+        order_type: order.order_type,
+        items: normalizedItems.map(({ available, ...item }) => item),
+        subtotal,
+        discount_code: discountCode,
+        discount_amount: discountAmount,
+        delivery_fee: deliveryFee,
+        total,
+        status: 'pending',
+        notes: sanitized.notes,
+        payment_method: paymentMethod,
+      })
+      .select('id, created_at')
+      .single()
 
     if (error) {
       return NextResponse.json({ error: 'Errore salvataggio ordine' }, { status: 500 })
     }
 
     await notifyAdminsOnNewOrder(supabase, {
+      orderId: insertedOrder?.id || orderNumber,
       orderNumber,
       orderType: order.order_type,
       total,
-      createdAt: new Date().toISOString(),
+      createdAt: insertedOrder?.created_at || new Date().toISOString(),
     })
 
     return NextResponse.json({ orderNumber }, { headers: rate.headers })

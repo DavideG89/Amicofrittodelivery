@@ -97,6 +97,15 @@ export async function sendFcmMessages(tokens: string[], message: FcmMessage) {
         token,
         notification: { title: message.title, body: message.body },
         data: dataPayload,
+        android: {
+          priority: 'high',
+          ttl: `${ttlSeconds}s`,
+          notification: {
+            channel_id: 'orders_high',
+            sound: 'default',
+            click_action: 'OPEN_ADMIN_DASHBOARD',
+          },
+        },
         webpush: {
           headers: {
             TTL: String(ttlSeconds),
