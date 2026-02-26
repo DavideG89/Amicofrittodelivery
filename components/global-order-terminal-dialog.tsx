@@ -11,6 +11,8 @@ import { normalizeOrderNumber } from '@/lib/order-number'
 import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
 type TerminalStatus = 'completed' | 'cancelled' | null
+const ORDER_TERMINAL_STATUS_EVENT = 'af:order-terminal-status'
+const TERMINAL_STATUS_POLL_MS = 10000
 const LottiePlayer = 'lottie-player' as any
 
 export function GlobalOrderTerminalDialog() {
@@ -31,8 +33,22 @@ export function GlobalOrderTerminalDialog() {
 
   useEffect(() => {
     let cancelled = false
+    let inFlight = false
+
+    const isTerminalStatus = (value: string): value is Exclude<TerminalStatus, null> =>
+      value === 'completed' || value === 'cancelled'
+
+    const openIfNeeded = (nextStatus: Exclude<TerminalStatus, null>, number: string) => {
+      const key = `order-terminal-dialog:${number}:${nextStatus}`
+      const alreadyShown = sessionStorage.getItem(key) === '1'
+      if (alreadyShown) return
+      setOrderNumber(number)
+      setStatus(nextStatus)
+    }
 
     const checkTerminalStatus = async () => {
+      if (inFlight) return
+      inFlight = true
       try {
         const number = normalizeOrderNumber(localStorage.getItem('lastOrderNumber'))
         if (!number) return
@@ -41,25 +57,47 @@ export function GlobalOrderTerminalDialog() {
 
         if (cancelled || !data?.status) return
         const current = String(data.status)
-        if (current !== 'completed' && current !== 'cancelled') return
-
-        const key = `order-terminal-dialog:${number}:${current}`
-        const alreadyShown = sessionStorage.getItem(key) === '1'
-        if (alreadyShown) return
-
-        setOrderNumber(data.order_number)
-        setStatus(current as Exclude<TerminalStatus, null>)
+        if (!isTerminalStatus(current)) return
+        openIfNeeded(current, data.order_number)
       } catch {
         // ignore polling errors
+      } finally {
+        inFlight = false
       }
     }
 
-    const id = window.setInterval(checkTerminalStatus, 30000)
+    const onTerminalStatus = (event: Event) => {
+      const detail = (event as CustomEvent<{ orderNumber?: string; status?: string }>)?.detail
+      const number = normalizeOrderNumber(detail?.orderNumber || '')
+      const nextStatus = String(detail?.status || '')
+      if (!number || !isTerminalStatus(nextStatus)) return
+      openIfNeeded(nextStatus, number)
+    }
+
+    const onFocus = () => {
+      void checkTerminalStatus()
+    }
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void checkTerminalStatus()
+      }
+    }
+
+    const id = window.setInterval(checkTerminalStatus, TERMINAL_STATUS_POLL_MS)
+    window.addEventListener(ORDER_TERMINAL_STATUS_EVENT, onTerminalStatus as EventListener)
+    window.addEventListener('focus', onFocus)
+    window.addEventListener('online', onFocus)
+    document.addEventListener('visibilitychange', onVisibilityChange)
     void checkTerminalStatus()
 
     return () => {
       cancelled = true
       window.clearInterval(id)
+      window.removeEventListener(ORDER_TERMINAL_STATUS_EVENT, onTerminalStatus as EventListener)
+      window.removeEventListener('focus', onFocus)
+      window.removeEventListener('online', onFocus)
+      document.removeEventListener('visibilitychange', onVisibilityChange)
     }
   }, [])
 
