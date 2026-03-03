@@ -6,7 +6,7 @@ import { Plus, Minus, Info } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useCart } from '@/lib/cart-context'
 import { Product, supabase, OrderAddition } from '@/lib/supabase'
@@ -289,26 +289,26 @@ export function ProductCard({
             <CardTitle className="text-[20px] sm:text-xl leading-tight text-pretty">
               {product.name}
             </CardTitle>
-            <Sheet
+            <Drawer
               open={detailsOpen}
               onOpenChange={(open) => {
                 setDetailsOpen(open)
                 if (open) void ensureDetails()
               }}
             >
-              <SheetTrigger asChild>
+              <DrawerTrigger asChild>
                 <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 -mt-1">
                   <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
                   <span className="sr-only">Informazioni prodotto</span>
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="bottom" className="max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pb-6 pt-10 sm:px-6">
-                <SheetHeader>
-                  <SheetTitle>{product.name}</SheetTitle>
-                  <SheetDescription className="text-pretty">
+              </DrawerTrigger>
+              <DrawerContent className="max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pb-6 pt-6 sm:px-6">
+                <DrawerHeader>
+                  <DrawerTitle>{product.name}</DrawerTitle>
+                  <DrawerDescription className="text-pretty">
                     {detailsLoading ? 'Caricamento dettagli...' : details?.description}
-                  </SheetDescription>
-                </SheetHeader>
+                  </DrawerDescription>
+                </DrawerHeader>
                 <div className="space-y-4">
                   {detailsLoading && (
                     <p className="text-sm text-muted-foreground">Recupero informazioni...</p>
@@ -337,8 +337,8 @@ export function ProductCard({
                     </div>
                   )}
                 </div>
-              </SheetContent>
-            </Sheet>
+              </DrawerContent>
+            </Drawer>
           </div>
 
           {product.available && (
@@ -394,16 +394,16 @@ export function ProductCard({
         )}
       </CardFooter>
 
-      <Sheet open={additionsOpen} onOpenChange={setAdditionsOpen}>
-        <SheetContent side="bottom" className="w-full max-h-[85vh] rounded-t-2xl p-0 overflow-hidden flex flex-col">
-          <SheetHeader className="px-6 pt-6 pb-3">
-            <SheetTitle>Aggiunte per {product.name}</SheetTitle>
-            <SheetDescription>
+      <Drawer open={additionsOpen} onOpenChange={setAdditionsOpen}>
+        <DrawerContent className="w-full max-h-[85vh] rounded-t-2xl p-0 overflow-hidden flex flex-col">
+          <DrawerHeader className="px-6 pt-6 pb-3">
+            <DrawerTitle>Aggiunte per {product.name}</DrawerTitle>
+            <DrawerDescription>
               {saucesOnly
                 ? 'Scegli una salsa per personalizzare il prodotto.'
                 : 'Scegli una salsa e gli extra per personalizzare il prodotto.'}
-            </SheetDescription>
-          </SheetHeader>
+            </DrawerDescription>
+          </DrawerHeader>
 
           <div className="flex-1 overflow-y-auto px-6 pb-4">
           <div className="space-y-4">
@@ -493,8 +493,8 @@ export function ProductCard({
               </Button>
             </div>
           </div>
-        </SheetContent>
-      </Sheet>
+        </DrawerContent>
+      </Drawer>
     </Card>
   )
 }
