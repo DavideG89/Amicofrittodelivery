@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Search, Star, Trash2, Clock } from 'lucide-react'
+import Image from 'next/image'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -54,7 +55,14 @@ export default function UserPage() {
         <div className="text-center mb-6 sm:mb-8">
           <div className="flex justify-center mb-4">
             <div className="p-4 rounded-full">
-              <Star className="h-10 w-10 sm:h-12 sm:w-12 text-primary" />
+               <Image
+                                src="/Acc.svg"
+                                alt=""
+                                aria-hidden="true"
+                                width={40}
+                                height={40}
+                                className="h-24 w-24 rounded-full object-cover"
+                              />
             </div>
           </div>
           <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Utente Amico</h1>

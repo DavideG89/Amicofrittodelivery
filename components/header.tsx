@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { ShoppingCart, Info, User } from 'lucide-react'
+import { ShoppingCart, Info } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { UpsellDialog } from '@/components/upsell-dialog'
@@ -46,7 +46,7 @@ export function Header() {
 
   return (
     <>
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur sm:backdrop-blur-0">
         <div className="container flex h-16 items-center justify-between px-3 sm:px-4">
           <Button variant="ghost" size="icon" asChild className="md:invisible h-10 w-10">
             <Link href="/info">
@@ -74,9 +74,21 @@ export function Header() {
               </Link>
             </Button>
 
-            <Button variant="ghost" size="icon" asChild className="h-10 w-10">
+            <Button
+              variant="ghost"
+              size="icon"
+              asChild
+              className="h-10 w-10 border border-transparent hover:bg-transparent active:bg-transparent focus-visible:bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0 focus-visible:border-ring"
+            >
               <Link href="/utente" aria-label="Utente">
-                <User className="h-5 w-5" />
+                <Image
+                  src="/Acc.svg"
+                  alt=""
+                  aria-hidden="true"
+                  width={20}
+                  height={20}
+                  className="h-10 w-10 rounded-full object-cover"
+                />
                 <span className="sr-only">Utente</span>
               </Link>
             </Button>
