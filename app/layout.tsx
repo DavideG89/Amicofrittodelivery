@@ -1,16 +1,18 @@
 import type { Metadata } from 'next'
-import { Geist, Geist_Mono } from 'next/font/google'
+import { Oswald, Geist_Mono } from 'next/font/google'
 import { RootProviders } from '@/components/root-providers'
 
 import './globals.css'
 
-const geist = Geist({ 
+const oswald = Oswald({
   subsets: ['latin'],
-  variable: '--font-geist'
+  weight: ['200', '300', '400', '500', '600', '700'],
+  display: 'swap',
+  variable: '--font-oswald',
 })
-const geistMono = Geist_Mono({ 
+const geistMono = Geist_Mono({
   subsets: ['latin'],
-  variable: '--font-geist-mono'
+  variable: '--font-geist-mono',
 })
 
 const siteUrl =
@@ -60,7 +62,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={`${geist.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${oswald.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
         <RootProviders>{children}</RootProviders>
       </body>
     </html>

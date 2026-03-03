@@ -14,7 +14,6 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { supabase, Order } from '@/lib/supabase'
-import { printReceipt } from '@/lib/print-receipt'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/components/ui/use-mobile'
 
@@ -131,6 +130,7 @@ export default function OrdersManagementPage() {
       : 'pending'
   }
   const initialTab = normalizeTab(searchParams.get('tab'))
+  const openOrderIdParam = searchParams.get('openOrderId')
   const [activeTab, setActiveTab] = useState<(typeof allowedTabs)[number]>(initialTab)
   const pageSize = 20
   const lastFetchAtRef = useRef(0)
@@ -138,6 +138,7 @@ export default function OrdersManagementPage() {
   const pollingIntervalMs = 20000
   const pollingIdRef = useRef<number | null>(null)
   const isLeaderRef = useRef(false)
+  const autoOpenedOrderIdRef = useRef<string | null>(null)
 
   useEffect(() => {
     const requested = searchParams.get('tab')
@@ -425,7 +426,12 @@ export default function OrdersManagementPage() {
         throw new Error(data?.error || 'Errore aggiornamento ordine')
       }
 
-      toast.success('Stato aggiornato')
+      const data = await res.json().catch(() => ({}))
+      const queuedMessage =
+        data?.printQueued && (newStatus === 'confirmed' || newStatus === 'preparing')
+          ? 'Stato aggiornato e stampa accodata'
+          : 'Stato aggiornato'
+      toast.success(queuedMessage)
       fetchOrders(true)
       
       // Update selected order if it's open
@@ -441,6 +447,12 @@ export default function OrdersManagementPage() {
   const handleViewDetails = (order: Order) => {
     setSelectedOrder(order)
     setDetailsOpen(true)
+  }
+
+  const openPrintPreview = (order: Order) => {
+    const returnTo = `/admin/dashboard/orders?tab=${encodeURIComponent(activeTab)}&openOrderId=${encodeURIComponent(order.id)}`
+    const previewPath = `/admin/dashboard/orders/preview/${encodeURIComponent(order.id)}?returnTo=${encodeURIComponent(returnTo)}`
+    router.push(previewPath)
   }
 
   const filterOrdersByStatus = (status?: Order['status']) => {
@@ -506,6 +518,18 @@ export default function OrdersManagementPage() {
   const pendingOrders = filterOrdersByStatus('pending')
   const activeOrders = orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status))
   const completedOrders = filterOrdersByStatus('completed')
+
+  useEffect(() => {
+    if (!openOrderIdParam || orders.length === 0) return
+    if (autoOpenedOrderIdRef.current === openOrderIdParam) return
+
+    const match = orders.find((order) => order.id === openOrderIdParam)
+    if (!match) return
+
+    setSelectedOrder(match)
+    setDetailsOpen(true)
+    autoOpenedOrderIdRef.current = openOrderIdParam
+  }, [openOrderIdParam, orders])
 
   return (
     <div className="p-6 h-full flex flex-col min-h-0">
@@ -746,7 +770,7 @@ export default function OrdersManagementPage() {
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => printReceipt(selectedOrder, storeInfo || undefined)}
+                        onClick={() => openPrintPreview(selectedOrder)}
                       >
                         <Printer className="h-4 w-4 mr-2" />
                         Stampa
@@ -903,7 +927,7 @@ export default function OrdersManagementPage() {
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
-                      onClick={() => printReceipt(selectedOrder, storeInfo || undefined)}
+                      onClick={() => openPrintPreview(selectedOrder)}
                     >
                       <Printer className="h-4 w-4 mr-2" />
                       Stampa

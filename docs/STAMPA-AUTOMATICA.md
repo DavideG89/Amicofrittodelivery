@@ -14,6 +14,17 @@
 - Richiede interazione manuale (clic sul pulsante)
 - Richiede conferma nel dialogo di stampa del browser
 
+## Nuovo Flusso Robusto (Queue + Printer Agent)
+
+Con `scripts/13-add-print-jobs.sql` è disponibile una coda stampa server-side:
+
+- quando cambi stato ordine a `confirmed`/`preparing`, il backend accoda una comanda in `print_jobs`
+- un printer agent locale legge i job da `/api/print-agent/jobs/claim`
+- il printer agent conferma esito su:
+  - `/api/print-agent/jobs/{jobId}/complete`
+  - `/api/print-agent/jobs/{jobId}/fail`
+- autenticazione agent tramite `PRINTER_AGENT_KEY`
+
 ---
 
 ## Opzione 1: Stampante Termica ESC/POS + Electron App (Consigliato per ristoranti)

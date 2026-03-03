@@ -18,6 +18,7 @@ Il tuo progetto Supabase è: **AmicoFritto** (ID: sghftuvrupaswqhdckvs)
 10. Ripeti i passaggi 3-5 con `scripts/10-fix-security-advisor.sql`
 11. Ripeti i passaggi 3-5 con `scripts/11-fix-security-warnings.sql`
 12. Ripeti i passaggi 3-5 con `scripts/12-fix-function-search-path.sql`
+13. Ripeti i passaggi 3-5 con `scripts/13-add-print-jobs.sql`
 
 Gli script creano:
 - Tabelle: categories, products, store_info, discount_codes, orders, customer_push_tokens

@@ -3,6 +3,7 @@ import { createClient } from '@supabase/supabase-js'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { sendFcmMessages } from '@/lib/fcm'
 import type { OrderStatus } from '@/lib/supabase'
+import { enqueuePrintJob } from '@/lib/print-jobs-server'
 
 export const runtime = 'nodejs'
 
@@ -114,6 +115,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Ordine non trovato' }, { status: 404 })
     }
 
+    const previousStatus = order.status as OrderStatus
+
     const { error: updateError } = await supabase
       .from('orders')
       .update({ status: status as string })
@@ -121,6 +124,27 @@ export async function POST(request: Request) {
 
     if (updateError) {
       return NextResponse.json({ error: 'Errore aggiornamento ordine' }, { status: 500 })
+    }
+
+    let printQueued = false
+    const shouldQueuePrint = (status === 'confirmed' || status === 'preparing') && previousStatus !== status
+    if (shouldQueuePrint) {
+      const queued = await enqueuePrintJob(supabase, {
+        orderId,
+        orderNumber: order.order_number,
+        triggerStatus: status,
+        dedupeKey: `status:${orderId}:${status}`,
+      })
+      if (!queued.ok) {
+        console.error('[admin/orders/status] print queue enqueue failed', {
+          orderId,
+          orderNumber: order.order_number,
+          status,
+          error: queued.error,
+        })
+      } else {
+        printQueued = true
+      }
     }
 
     const notification = statusText[status]
@@ -184,7 +208,7 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, printQueued })
   } catch (error) {
     console.error('[v0] Error updating order status:', error)
     return NextResponse.json({ error: 'Errore server' }, { status: 500 })

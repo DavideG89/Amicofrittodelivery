@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
@@ -14,6 +15,31 @@ import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
 const ORDER_TERMINAL_STATUS_EVENT = 'af:order-terminal-status'
 const HOME_PRODUCTS_READY_EVENT = 'af:home-products-ready'
+const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
+  hamburger: '/icons/Products_Hamburger.svg',
+  mini: '/icons/Products_Hamburger.svg',
+  panini: '/icons/Products_Sandwich.svg',
+  sandwich: '/icons/Products_Sandwich.svg',
+  kebab: '/icons/Products_Kebab.svg',
+  fritti: '/icons/Products_Fritti.svg',
+  salse: '/icons/Products_Salse.svg',
+  bevande: '/icons/Products_Bevande.svg',
+  bevanda: '/icons/Products_Bevande.svg',
+}
+
+function getCategoryIconPath(category: Category): string | null {
+  const slug = (category.slug || '').toLowerCase()
+  if (CATEGORY_ICON_BY_SLUG[slug]) return CATEGORY_ICON_BY_SLUG[slug]
+
+  const name = (category.name || '').toLowerCase()
+  if (name.includes('hamburger') || name.includes('mini')) return CATEGORY_ICON_BY_SLUG.hamburger
+  if (name.includes('panini') || name.includes('sandwich')) return CATEGORY_ICON_BY_SLUG.panini
+  if (name.includes('kebab')) return CATEGORY_ICON_BY_SLUG.kebab
+  if (name.includes('fritti')) return CATEGORY_ICON_BY_SLUG.fritti
+  if (name.includes('salse')) return CATEGORY_ICON_BY_SLUG.salse
+  if (name.includes('bevande')) return CATEGORY_ICON_BY_SLUG.bevande
+  return null
+}
 
 export default function Home() {
   const router = useRouter()
@@ -317,11 +343,11 @@ export default function Home() {
       
       <main className="container px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
         <div className="mb-8 text-center space-y-2">
-          <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-balance">
+          <h1 className="text-[24px] lg:text-5xl font-bold text-balance">
             Benvenuto da Amico Fritto
           </h1>
-          <p className="text-muted-foreground text-base sm:text-lg">
-            Scopri il nostro menù e ordina i tuoi sfizi preferiti in pochi click!
+          <p className="text-muted-foreground text-base sm:text-lg md:text-lg">
+            Scopri i tuoi nuovi sfizi in pochi click
           </p>
         </div>
 
@@ -352,15 +378,30 @@ export default function Home() {
             <div className="sticky top-16 z-40 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur md:static md:top-auto">
               <div className="overflow-x-auto w-full no-scrollbar py-2">
                 <TabsList className="inline-flex w-max min-w-max sm:w-full sm:min-w-full justify-start h-auto gap-1.5 rounded-2xl bg-background/70 p-1.5 shadow-sm backdrop-blur">
-                  {categories.map((category) => (
-                    <TabsTrigger 
-                      key={category.id} 
-                      value={category.id}
-                      className="flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
-                    >
-                      {category.name}
-                    </TabsTrigger>
-                  ))}
+                  {categories.map((category) => {
+                    const iconPath = getCategoryIconPath(category)
+                    return (
+                      <TabsTrigger
+                        key={category.id}
+                        value={category.id}
+                        className="flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-sm font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
+                      >
+                        <span className="inline-flex items-center gap-2">
+                          {iconPath && (
+                            <Image
+                              src={iconPath}
+                              alt=""
+                              aria-hidden="true"
+                              width={20}
+                              height={20}
+                              className="h-8 w-8 sm:h-5 sm:w-5 shrink-0"
+                            />
+                          )}
+                          <span className="truncate">{category.name}</span>
+                        </span>
+                      </TabsTrigger>
+                    )
+                  })}
                 </TabsList>
               </div>
             </div>
@@ -377,7 +418,7 @@ export default function Home() {
                 <TabsContent key={category.id} value={category.id} className="mt-0 space-y-6">
                   <div className="sticky top-[7.5rem] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-2 sm:static sm:top-auto sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0">
                     <div className="flex items-baseline justify-between">
-                    <h2 className="text-xl sm:text-2xl font-bold">{category.name}</h2>
+                    <h2 className="font-bold text-2xl sm:text-xl">{category.name}</h2>
                     <span className="text-sm text-muted-foreground">
                       {categoryProducts.length} {categoryProducts.length === 1 ? 'prodotto' : 'prodotti'}
                     </span>

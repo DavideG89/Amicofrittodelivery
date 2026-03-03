@@ -38,6 +38,7 @@ Devi eseguire gli script SQL nel tuo progetto Supabase (**AmicoFritto** - ID: `s
    - `scripts/10-fix-security-advisor.sql` - Applica fix sicurezza (RLS + view invoker)
    - `scripts/11-fix-security-warnings.sql` - Applica fix warning sicurezza (policy RLS + estensione)
    - `scripts/12-fix-function-search-path.sql` - Fissa search_path della funzione trigger ordini
+   - `scripts/13-add-print-jobs.sql` - Crea coda stampa robusta (print_jobs)
 
 ### 2. Variabili d'Ambiente
 
