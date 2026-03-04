@@ -47,23 +47,23 @@ export function FloatingCartButton() {
     <>
       <Button
         size="lg"
-        className="fixed inset-x-0 bottom-0 z-50 h-[calc(4rem+env(safe-area-inset-bottom))] w-full justify-between overflow-visible rounded-none border-t border-black/10 px-5 pb-[env(safe-area-inset-bottom)] pt-0 text-black shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_-10px_34px_rgba(0,0,0,0.16)] disabled:opacity-100"
+        className="fixed inset-x-0 bottom-0 z-50 h-[calc(5rem+env(safe-area-inset-bottom))] w-full justify-center gap-28 overflow-visible rounded-none border-t border-black/50 px-5 pb-[env(safe-area-inset-bottom)] pt-0 text-black shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_-10px_34px_rgba(0,0,0,0.16)] disabled:opacity-100"
         style={{ backgroundColor: '#FCC103' }}
         onClick={handleCartClick}
         disabled={upsellLoading}
         aria-label={`Carrello (${totalItems} articoli)`}
       >
-        <span className="inline-flex items-center">
-          Vai al carrello
+        <span className="inline-flex items-center text-lg ">
+        Il tuo ordine
         </span>
-        <span className="relative mr-2 inline-flex h-full items-center pl-14">
+        <span className="relative inline-flex h-full items-center pl-14">
           <Image
             src="/Bag.svg"
             alt=""
             width={34}
             height={34}
             aria-hidden="true"
-            className="pointer-events-none absolute left-0 top-0 h-32 w-32 -translate-y-14"
+            className="pointer-events-none absolute left-0 top-2 h-32 w-32 -translate-y-14"
           />
           <Badge className="h-6 min-w-6 -translate-x-4 -translate-y-10 rounded-full bg-red-500 px-2 text-xs font-bold text-white">
             {totalItems}
