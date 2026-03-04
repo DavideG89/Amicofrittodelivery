@@ -18,7 +18,9 @@ export function FloatingCartButton() {
   const [upsellLoading, setUpsellLoading] = useState(false)
   const [upsellSuggestions, setUpsellSuggestions] = useState<Product[]>([])
 
-  if (totalItems === 0) {
+  const isHomePage = pathname === '/'
+
+  if (totalItems === 0 || !isHomePage) {
     return null
   }
 
@@ -27,7 +29,6 @@ export function FloatingCartButton() {
   }
 
   const handleCartClick = async () => {
-    if (pathname === '/cart') return
     setUpsellLoading(true)
     try {
       const suggestions = await fetchUpsellSuggestions(items.map((item) => item.product.id))
@@ -44,24 +45,23 @@ export function FloatingCartButton() {
 
   return (
     <>
-      <div className="md:hidden fixed bottom-24 left-6 right-auto z-50">
-        <Button 
-          size="lg"
-          className="h-14 w-14 rounded-full shadow-lg hover:shadow-xl transition-shadow"
-          style={{ backgroundColor: '#FCC103' }}
-          onClick={handleCartClick}
-          disabled={upsellLoading}
-          aria-label={`Carrello (${totalItems} articoli)`}
-        >
-          <ShoppingCart className="h-6 w-6 text-black" />
-          <Badge 
-            className="absolute -right-1 -top-1 h-6 w-6 rounded-full p-0 flex items-center justify-center text-xs font-bold bg-red-500 text-white border-2 border-white"
-          >
-            {totalItems}
-          </Badge>
-          <span className="sr-only">Carrello ({totalItems} articoli)</span>
-        </Button>
-      </div>
+      <Button
+        size="lg"
+        className="fixed inset-x-0 bottom-0 z-50 h-[calc(4rem+env(safe-area-inset-bottom))] w-full justify-between rounded-none border-t border-black/10 px-5 pb-[env(safe-area-inset-bottom)] pt-0 text-black shadow-[0_-8px_30px_rgba(0,0,0,0.12)] transition-shadow hover:shadow-[0_-10px_34px_rgba(0,0,0,0.16)] disabled:opacity-100"
+        style={{ backgroundColor: '#FCC103' }}
+        onClick={handleCartClick}
+        disabled={upsellLoading}
+        aria-label={`Carrello (${totalItems} articoli)`}
+      >
+        <span className="inline-flex items-center gap-2">
+          <ShoppingCart className="h-5 w-5" />
+          Vai al carrello
+        </span>
+        <Badge className="h-6 min-w-6 rounded-full bg-red-500 px-2 text-xs font-bold text-white">
+          {totalItems}
+        </Badge>
+        <span className="sr-only">Carrello ({totalItems} articoli)</span>
+      </Button>
 
       <UpsellDialog
         open={upsellOpen}
