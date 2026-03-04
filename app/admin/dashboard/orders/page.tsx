@@ -28,6 +28,26 @@ const statusConfig = {
 
 const statusOrder: Order['status'][] = ['pending', 'preparing', 'ready', 'completed', 'cancelled']
 
+const normalizeStatus = (value: unknown): Order['status'] => {
+  if (
+    value === 'pending' ||
+    value === 'confirmed' ||
+    value === 'preparing' ||
+    value === 'ready' ||
+    value === 'completed' ||
+    value === 'cancelled'
+  ) {
+    return value
+  }
+
+  // Backward compatibility for legacy/custom statuses stored in DB.
+  if (value === 'received' || value === 'new') return 'pending'
+  if (value === 'in_preparation' || value === 'processing') return 'preparing'
+  if (value === 'done') return 'completed'
+
+  return 'pending'
+}
+
 const toNumber = (value: unknown, fallback = 0) => {
   if (typeof value === 'number') {
     return Number.isFinite(value) ? value : fallback
@@ -64,12 +84,19 @@ const toItems = (value: unknown): Order['items'] => {
 
 const normalizeOrder = (order: Order): Order => ({
   ...order,
+  status: normalizeStatus(order.status),
   items: toItems(order.items),
   subtotal: toNumber(order.subtotal),
   discount_amount: toNumber(order.discount_amount),
   delivery_fee: toNumber(order.delivery_fee),
   total: toNumber(order.total),
 })
+
+const formatOrderDate = (value: string, pattern: 'PPp' | 'PPpp') => {
+  const date = new Date(value)
+  if (!Number.isFinite(date.getTime())) return 'Data non disponibile'
+  return format(date, pattern, { locale: it })
+}
 
 const getStatusOptions = (current: Order['status']): Order['status'][] => {
   if (current === 'ready') {
@@ -472,7 +499,7 @@ export default function OrdersManagementPage() {
             <div>
               <h3 className="font-bold text-lg">{order.order_number}</h3>
               <p className="text-sm text-muted-foreground">
-                {format(new Date(order.created_at), 'PPp', { locale: it })}
+                {formatOrderDate(order.created_at, 'PPp')}
               </p>
             </div>
             <Badge variant={config.variant}>
@@ -511,14 +538,6 @@ export default function OrdersManagementPage() {
     )
   }
 
-  if (loading) {
-    return <div className="p-6">Caricamento...</div>
-  }
-
-  const pendingOrders = filterOrdersByStatus('pending')
-  const activeOrders = orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status))
-  const completedOrders = filterOrdersByStatus('completed')
-
   useEffect(() => {
     if (!openOrderIdParam || orders.length === 0) return
     if (autoOpenedOrderIdRef.current === openOrderIdParam) return
@@ -530,6 +549,14 @@ export default function OrdersManagementPage() {
     setDetailsOpen(true)
     autoOpenedOrderIdRef.current = openOrderIdParam
   }, [openOrderIdParam, orders])
+
+  if (loading) {
+    return <div className="p-6">Caricamento...</div>
+  }
+
+  const pendingOrders = filterOrdersByStatus('pending')
+  const activeOrders = orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status))
+  const completedOrders = filterOrdersByStatus('completed')
 
   return (
     <div className="p-6 h-full flex flex-col min-h-0">
@@ -664,7 +691,7 @@ export default function OrdersManagementPage() {
                       </SheetClose>
                     </div>
                     <SheetDescription>
-                      {format(new Date(selectedOrder.created_at), 'PPpp', { locale: it })}
+                      {formatOrderDate(selectedOrder.created_at, 'PPpp')}
                     </SheetDescription>
                   </SheetHeader>
                 </div>
@@ -822,7 +849,7 @@ export default function OrdersManagementPage() {
                 <DialogHeader>
                   <DialogTitle>Ordine {selectedOrder.order_number}</DialogTitle>
                   <DialogDescription>
-                    {format(new Date(selectedOrder.created_at), 'PPpp', { locale: it })}
+                    {formatOrderDate(selectedOrder.created_at, 'PPpp')}
                   </DialogDescription>
                 </DialogHeader>
 

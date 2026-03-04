@@ -183,6 +183,10 @@ function getClientIp(request: Request) {
   return header.split(',')[0]?.trim() || 'unknown'
 }
 
+function isUuid(value: string) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
 async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = 8000) {
   const controller = new AbortController()
   const id = setTimeout(() => controller.abort(), timeoutMs)
@@ -191,6 +195,18 @@ async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = 80
   } finally {
     clearTimeout(id)
   }
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => {
+    setTimeout(resolve, ms)
+  })
+}
+
+function generateFallbackOrderNumber() {
+  const epochSeconds = Math.floor(Date.now() / 1000) % 1_000_000
+  const randomSuffix = Math.floor(Math.random() * 1000)
+  return `AF${String(epochSeconds).padStart(6, '0')}${String(randomSuffix).padStart(3, '0')}`
 }
 
 async function verifyRecaptcha(token: string) {
@@ -216,7 +232,8 @@ async function getNextOrderNumber(supabase: ReturnType<typeof getSupabaseServerC
   const { data, error } = await supabase
     .from('orders')
     .select('order_number')
-    .order('created_at', { ascending: false })
+    .like('order_number', 'AF%')
+    .order('order_number', { ascending: false })
     .limit(1)
     .maybeSingle()
 
@@ -372,7 +389,6 @@ export async function POST(request: Request) {
     })
 
     const supabase = getSupabaseServerClient()
-    const orderNumber = await getNextOrderNumber(supabase)
 
     const items = order.items.map((item) => ({
       product_id: String(item.product_id || ''),
@@ -388,71 +404,72 @@ export async function POST(request: Request) {
     }
 
     const productIds = [...new Set(items.map((item) => item.product_id))]
+    if (productIds.some((id) => !isUuid(id))) {
+      return NextResponse.json({ error: 'ID prodotto non valido' }, { status: 400 })
+    }
+
     const { data: productsData, error: productsError } = await supabase
       .from('products')
       .select('id, category_id, name, price, available')
       .in('id', productIds)
 
     if (productsError) {
-      return NextResponse.json({ error: 'Errore verifica prodotti' }, { status: 500 })
+      console.error('[orders-api] Product verification error:', productsError)
+      return NextResponse.json(
+        {
+          error: 'Errore verifica prodotti',
+          details:
+            process.env.NODE_ENV !== 'production'
+              ? {
+                  message: productsError.message,
+                  code: productsError.code,
+                  details: productsError.details,
+                  hint: productsError.hint,
+                }
+              : undefined,
+        },
+        { status: 500 }
+      )
     }
 
     const productMap = new Map(productsData?.map((product) => [product.id, product]) ?? [])
-    const categoryIds = [
-      ...new Set(
-        (productsData ?? [])
-          .map((product) => product.category_id)
-          .filter((id): id is string => typeof id === 'string' && id.length > 0)
-      ),
-    ]
-    const categorySlugMap = new Map<string, string>()
-
-    if (categoryIds.length > 0) {
-      const { data: categoriesData } = await supabase
-        .from('categories')
-        .select('id, slug')
-        .in('id', categoryIds)
-
-      for (const category of categoriesData || []) {
-        categorySlugMap.set(category.id, String(category.slug || '').toLowerCase())
-      }
-    }
-
-    const categorySlugs = [...new Set(Array.from(categorySlugMap.values()).filter(Boolean))]
-    const sauceRulesMap = new Map<string, SauceRule>()
-    if (categorySlugs.length > 0) {
-      const { data: rulesData } = await supabase
-        .from('order_addition_category_rules')
-        .select('category_slug, sauce_mode, max_sauces, sauce_price, active')
-        .in('category_slug', categorySlugs)
-        .eq('active', true)
-
-      for (const row of rulesData || []) {
-        const key = String(row.category_slug || '').toLowerCase()
-        if (!key) continue
-        sauceRulesMap.set(
-          key,
-          normalizeSauceRule({
-            sauce_mode: row.sauce_mode as SauceRule['sauce_mode'],
-            max_sauces: Number(row.max_sauces || 0),
-            sauce_price: Number(row.sauce_price || 0),
-          })
-        )
-      }
-    }
-
     const additionIds = [...new Set(items.flatMap((item) => item.additions_ids))]
+    const hasRequestedAdditions = additionIds.length > 0
+    const categorySlugMap = new Map<string, string>()
+    const sauceRulesMap = new Map<string, SauceRule>()
     const additionsMap = new Map<string, { type: 'sauce' | 'extra'; name: string; price: number }>()
 
-    if (additionIds.length > 0) {
-      const { data: additionsData, error: additionsError } = await supabase
+    if (hasRequestedAdditions) {
+      const categoryIds = [
+        ...new Set(
+          (productsData ?? [])
+            .map((product) => product.category_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        ),
+      ]
+
+      const categoriesPromise =
+        categoryIds.length > 0
+          ? supabase.from('categories').select('id, slug').in('id', categoryIds)
+          : Promise.resolve({ data: null, error: null })
+
+      const additionsPromise = supabase
         .from('order_additions')
         .select('id, type, name, price, active')
         .in('id', additionIds)
         .eq('active', true)
 
+      const [{ data: categoriesData }, { data: additionsData, error: additionsError }] = await Promise.all([
+        categoriesPromise,
+        additionsPromise,
+      ])
+
       if (additionsError) {
         return NextResponse.json({ error: 'Errore verifica aggiunte' }, { status: 500 })
+      }
+
+      for (const category of categoriesData || []) {
+        categorySlugMap.set(category.id, String(category.slug || '').toLowerCase())
       }
 
       for (const addition of additionsData || []) {
@@ -462,13 +479,51 @@ export async function POST(request: Request) {
           price: Number(addition.price || 0),
         })
       }
+
+      const categorySlugs = [...new Set(Array.from(categorySlugMap.values()).filter(Boolean))]
+      if (categorySlugs.length > 0) {
+        const { data: rulesData } = await supabase
+          .from('order_addition_category_rules')
+          .select('category_slug, sauce_mode, max_sauces, sauce_price, active')
+          .in('category_slug', categorySlugs)
+          .eq('active', true)
+
+        for (const row of rulesData || []) {
+          const key = String(row.category_slug || '').toLowerCase()
+          if (!key) continue
+          sauceRulesMap.set(
+            key,
+            normalizeSauceRule({
+              sauce_mode: row.sauce_mode as SauceRule['sauce_mode'],
+              max_sauces: Number(row.max_sauces || 0),
+              sauce_price: Number(row.sauce_price || 0),
+            })
+          )
+        }
+      }
     }
 
     let additionsValidationError: string | null = null
     const normalizedItems = items.map((item) => {
       const product = productMap.get(item.product_id)
+      if (!hasRequestedAdditions) {
+        return {
+          product_id: item.product_id,
+          name: product?.name ?? '',
+          price: product?.price ?? 0,
+          quantity: Math.min(Math.floor(item.quantity), 99),
+          additions: null,
+          additions_unit_price: 0,
+          additions_ids: [],
+          available: product?.available ?? false,
+        }
+      }
+
       const categorySlug = product?.category_id ? categorySlugMap.get(product.category_id) || '' : ''
-      const sauceRule = sauceRulesMap.get(categorySlug) || getFallbackSauceRuleByCategorySlug(categorySlug) || DEFAULT_SAUCE_RULE
+      const sauceRule =
+        sauceRulesMap.get(categorySlug) ||
+        getFallbackSauceRuleByCategorySlug(categorySlug) ||
+        DEFAULT_SAUCE_RULE
       const normalizedAdditionIds = [...new Set(item.additions_ids)].filter((id) => additionsMap.has(id))
       const selectedAdditions = normalizedAdditionIds
         .map((id) => additionsMap.get(id))
@@ -519,16 +574,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Totale non valido' }, { status: 400 })
     }
 
-    const { data: storeInfo } = await supabase
-      .from('store_info')
-      .select('delivery_fee, min_order_delivery')
-      .limit(1)
-      .maybeSingle()
+    let deliveryFee = 0
+    if (order.order_type === 'delivery') {
+      const { data: storeInfo } = await supabase
+        .from('store_info')
+        .select('delivery_fee, min_order_delivery')
+        .limit(1)
+        .maybeSingle()
 
-    const deliveryFee = order.order_type === 'delivery' ? Number(storeInfo?.delivery_fee || 0) : 0
-    const minOrderDelivery = Number(storeInfo?.min_order_delivery || 0)
-    if (order.order_type === 'delivery' && minOrderDelivery > 0 && subtotal < minOrderDelivery) {
-      return NextResponse.json({ error: 'Ordine minimo non raggiunto' }, { status: 400 })
+      deliveryFee = Number(storeInfo?.delivery_fee || 0)
+      const minOrderDelivery = Number(storeInfo?.min_order_delivery || 0)
+      if (minOrderDelivery > 0 && subtotal < minOrderDelivery) {
+        return NextResponse.json({ error: 'Ordine minimo non raggiunto' }, { status: 400 })
+      }
     }
 
     let discountCode: string | null = order.discount_code ? order.discount_code.toUpperCase() : null
@@ -571,32 +629,102 @@ export async function POST(request: Request) {
       ? order.payment_method
       : null
 
-    const { data: insertedOrder, error } = await supabase
-      .from('orders')
-      .insert({
-        order_number: orderNumber,
-        customer_name: sanitized.customer_name,
-        customer_phone: sanitized.customer_phone,
-        customer_address: sanitized.customer_address,
-        order_type: order.order_type,
-        items: normalizedItems.map(({ available, ...item }) => item),
-        subtotal,
-        discount_code: discountCode,
-        discount_amount: discountAmount,
-        delivery_fee: deliveryFee,
-        total,
-        status: 'pending',
-        notes: sanitized.notes,
-        payment_method: paymentMethod,
-      })
-      .select('id, created_at')
-      .single()
+    const maxInsertAttempts = 20
+    const maxFallbackInsertAttempts = 20
+    let orderNumber = ''
+    let insertedOrder: { id: string; created_at: string } | null = null
+    let insertError: {
+      message?: string
+      code?: string
+      details?: string
+      hint?: string
+    } | null = null
 
-    if (error) {
-      return NextResponse.json({ error: 'Errore salvataggio ordine' }, { status: 500 })
+    const insertOrder = async (candidateOrderNumber: string) => {
+      return supabase
+        .from('orders')
+        .insert({
+          order_number: candidateOrderNumber,
+          customer_name: sanitized.customer_name,
+          customer_phone: sanitized.customer_phone,
+          customer_address: sanitized.customer_address,
+          order_type: order.order_type,
+          items: normalizedItems.map(({ available, ...item }) => item),
+          subtotal,
+          discount_code: discountCode,
+          discount_amount: discountAmount,
+          delivery_fee: deliveryFee,
+          total,
+          status: 'pending',
+          notes: sanitized.notes,
+          payment_method: paymentMethod,
+        })
+        .select('id, created_at')
+        .single()
     }
 
-    await notifyAdminsOnNewOrder(supabase, {
+    for (let attempt = 0; attempt < maxInsertAttempts; attempt += 1) {
+      orderNumber = await getNextOrderNumber(supabase)
+      const { data, error } = await insertOrder(orderNumber)
+
+      if (!error && data) {
+        insertedOrder = data
+        insertError = null
+        break
+      }
+
+      const duplicateOrderNumber =
+        error?.code === '23505' &&
+        `${error?.message || ''} ${error?.details || ''}`.toLowerCase().includes('order_number')
+
+      insertError = error
+      if (!duplicateOrderNumber) break
+      // Desynchronize concurrent inserts racing on the next sequential AF number.
+      await sleep(15 + Math.floor(Math.random() * 70) + attempt * 10)
+    }
+
+    const duplicateAfterSequentialRetries =
+      insertError?.code === '23505' &&
+      `${insertError?.message || ''} ${insertError?.details || ''}`.toLowerCase().includes('order_number')
+
+    if (!insertedOrder && duplicateAfterSequentialRetries) {
+      for (let attempt = 0; attempt < maxFallbackInsertAttempts; attempt += 1) {
+        orderNumber = generateFallbackOrderNumber()
+        const { data, error } = await insertOrder(orderNumber)
+        if (!error && data) {
+          insertedOrder = data
+          insertError = null
+          break
+        }
+
+        const duplicateFallback =
+          error?.code === '23505' &&
+          `${error?.message || ''} ${error?.details || ''}`.toLowerCase().includes('order_number')
+        insertError = error
+        if (!duplicateFallback) break
+      }
+    }
+
+    if (!insertedOrder || insertError) {
+      console.error('[orders-api] Order insert error:', insertError)
+      return NextResponse.json(
+        {
+          error: 'Errore salvataggio ordine',
+          details:
+            process.env.NODE_ENV !== 'production'
+              ? {
+                  message: insertError?.message,
+                  code: insertError?.code,
+                  details: insertError?.details,
+                  hint: insertError?.hint,
+                }
+              : undefined,
+        },
+        { status: 500 }
+      )
+    }
+
+    void notifyAdminsOnNewOrder(supabase, {
       orderId: insertedOrder?.id || orderNumber,
       orderNumber,
       orderType: order.order_type,
@@ -607,6 +735,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ orderNumber }, { headers: rate.headers })
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string }
+    console.error('[orders-api] Unhandled POST error:', error)
     const message = err?.name === 'AbortError' ? 'Timeout verifica captcha' : 'Errore server'
     const details =
       process.env.NODE_ENV !== 'production'

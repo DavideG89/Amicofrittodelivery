@@ -12,3 +12,10 @@ node_modules/
 supabase/.temp/
 amicofritto-firebase-adminsdk-fbsvc-2ddba61450 18.27.05.json
 .gradle/
+
+# JMeter artifacts
+*.jtl
+jmeter.log
+orders-report/
+orders-report-*/
+report/
