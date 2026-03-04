@@ -19,7 +19,7 @@ import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
 export default function CartPage() {
   const router = useRouter()
-  const { items, updateQuantity, removeItem, subtotal } = useCart()
+  const { items, updateQuantity, removeItem, clearCart, subtotal } = useCart()
   const [isDelivery, setIsDelivery] = useState(false)
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
@@ -114,6 +114,13 @@ export default function CartPage() {
     router.push(`/checkout?delivery=${isDelivery}`)
   }
 
+  const handleClearCart = () => {
+    if (items.length === 0) return
+    const confirmed = window.confirm('Vuoi svuotare completamente il carrello?')
+    if (!confirmed) return
+    clearCart()
+  }
+
   return (
     <div className="min-h-screen bg-background pb-24 md:pb-6">
       <Header />
@@ -127,12 +134,27 @@ export default function CartPage() {
             </Link>
           </Button>
           
-          <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Il tuo carrello</h1>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h1 className="text-2xl sm:text-3xl font-bold">Il tuo carrello</h1>
+              {items.length > 0 && (
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {items.length} {items.length === 1 ? 'articolo' : 'articoli'}
+                </p>
+              )}
+            </div>
             {items.length > 0 && (
-              <p className="text-sm text-muted-foreground mt-1">
-                {items.length} {items.length === 1 ? 'articolo' : 'articoli'}
-              </p>
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={handleClearCart}
+                className="border-destructive/30 text-destructive hover:bg-destructive/10"
+                aria-label="Svuota carrello"
+              >
+                <Trash2 className="mr-2 h-4 w-4" />
+                Svuota carrello
+              </Button>
             )}
           </div>
         </div>

@@ -173,7 +173,7 @@ export function UpsellDialog({
           : 'mt-4 pt-4',
       )}
     >
-      <div className={cn('gap-3', mobileLayout ? 'grid grid-cols-2' : 'flex flex-col sm:flex-row')}>
+      <div className={cn('gap-3', mobileLayout ? 'grid grid-cols-2 pb-8' : 'flex flex-col sm:flex-row')}>
         <Button variant="outline" onClick={handleSkip} className="flex-1">
           No, grazie
         </Button>
