@@ -1,4 +1,4 @@
-import { Order, Product } from './supabase'
+import { Order } from './supabase'
 
 function escapeHtml(value: string): string {
   return value
@@ -15,8 +15,7 @@ function safeText(value: string | null | undefined): string {
 }
 
 export function printReceipt(order: Order, storeInfo?: { name: string; phone?: string | null; address?: string | null }) {
-  // Create a hidden iframe for printing
-  const printWindow = window.open('', '_blank', 'width=300,height=600')
+  const printWindow = window.open('', '_blank', 'width=420,height=900')
   
   if (!printWindow) {
     alert('Abilita i popup per stampare le comande')
@@ -48,12 +47,23 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
             box-sizing: border-box;
           }
           
+          html,
+          body {
+            width: 80mm;
+            margin: 0;
+            padding: 0;
+          }
+
           body {
             font-family: 'Courier New', monospace;
-            font-size: 12pt;
-            line-height: 1.4;
-            padding: 10mm;
-            width: 80mm;
+            font-size: 11pt;
+            line-height: 1.3;
+            letter-spacing: 0;
+            word-spacing: 0;
+            font-kerning: none;
+            padding: 3mm;
+            color: #000;
+            background: #fff;
           }
           
           .header {
@@ -70,7 +80,7 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
           }
           
           .header p {
-            font-size: 10pt;
+            font-size: 9pt;
             margin: 2px 0;
           }
           
@@ -104,6 +114,21 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
           table td {
             padding: 5px 2px;
             vertical-align: top;
+          }
+
+          table td:first-child {
+            width: 11mm;
+            white-space: nowrap;
+          }
+
+          table td:nth-child(2) {
+            word-break: break-word;
+          }
+
+          table td:last-child {
+            width: 18mm;
+            text-align: right;
+            white-space: nowrap;
           }
           
           .totals {
@@ -140,14 +165,24 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
           .footer {
             text-align: center;
             margin-top: 20px;
-            font-size: 10pt;
+            font-size: 9pt;
             border-top: 2px dashed #000;
             padding-top: 10px;
           }
           
           @media print {
+            @page {
+              size: 80mm auto;
+              margin: 0;
+            }
+
+            html,
             body {
+              width: 80mm;
+              margin: 0;
               padding: 0;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
             }
           }
         </style>
@@ -165,7 +200,7 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
         </div>
         
         <div class="order-type">
-          ${order.order_type === 'delivery' ? '🚗 DOMICILIO' : '🏪 ASPORTO'}
+          ${order.order_type === 'delivery' ? 'DOMICILIO' : 'ASPORTO'}
         </div>
         
         <div style="margin: 15px 0;">

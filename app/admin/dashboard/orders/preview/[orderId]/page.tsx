@@ -6,6 +6,7 @@ import { ArrowLeft, Loader2, Printer } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent } from '@/components/ui/card'
 import { supabase, type Order } from '@/lib/supabase'
+import { printReceipt } from '@/lib/print-receipt'
 import { toast } from 'sonner'
 
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i
@@ -137,6 +138,16 @@ export default function OrderPrintPreviewPage() {
     }
   }
 
+  const handleBrowserPrint = () => {
+    if (!order) return
+
+    printReceipt(order, {
+      name: storeInfo?.name || 'AMICO FRITTO',
+      phone: storeInfo?.phone ?? null,
+      address: storeInfo?.address ?? null,
+    })
+  }
+
   const orderTypeLabel = useMemo(() => {
     if (!order) return ''
     return order.order_type === 'delivery' ? 'DOMICILIO' : 'ASPORTO'
@@ -179,7 +190,7 @@ export default function OrderPrintPreviewPage() {
           {queueLoading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
           Invia a coda stampante
         </Button>
-        <Button onClick={() => window.print()}>
+        <Button onClick={handleBrowserPrint}>
           <Printer className="mr-2 h-4 w-4" />
           Stampa
         </Button>
