@@ -185,7 +185,10 @@ export default function OrderPrintPreviewPage() {
         </Button>
       </div>
 
-      <div className="mx-auto w-full max-w-[360px] rounded border bg-white p-4 text-black shadow print:mx-0 print:w-[80mm] print:max-w-[80mm] print:rounded-none print:border-0 print:p-[3mm] print:shadow-none">
+      <div
+        id="receipt-print-root"
+        className="mx-auto w-full max-w-[360px] rounded border bg-white p-4 text-black shadow print:mx-0 print:w-[80mm] print:max-w-[80mm] print:rounded-none print:border-0 print:p-[3mm] print:shadow-none"
+      >
         <div className="border-b-2 border-dashed pb-3 text-center">
           <h1 className="text-2xl font-bold">{storeInfo?.name || 'AMICO FRITTO'}</h1>
           {storeInfo?.address ? <p className="text-sm">{storeInfo.address}</p> : null}
@@ -280,6 +283,21 @@ export default function OrderPrintPreviewPage() {
           @page {
             size: 80mm auto;
             margin: 0;
+          }
+
+          body * {
+            visibility: hidden !important;
+          }
+
+          #receipt-print-root,
+          #receipt-print-root * {
+            visibility: visible !important;
+          }
+
+          #receipt-print-root {
+            position: absolute;
+            left: 0;
+            top: 0;
           }
 
           html,
