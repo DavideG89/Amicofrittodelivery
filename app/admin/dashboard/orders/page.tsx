@@ -14,6 +14,7 @@ import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigge
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { supabase, Order } from '@/lib/supabase'
+import { printReceipt } from '@/lib/print-receipt'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/components/ui/use-mobile'
 
@@ -476,10 +477,12 @@ export default function OrdersManagementPage() {
     setDetailsOpen(true)
   }
 
-  const openPrintPreview = (order: Order) => {
-    const returnTo = `/admin/dashboard/orders?tab=${encodeURIComponent(activeTab)}&openOrderId=${encodeURIComponent(order.id)}`
-    const previewPath = `/admin/dashboard/orders/preview/${encodeURIComponent(order.id)}?returnTo=${encodeURIComponent(returnTo)}`
-    router.push(previewPath)
+  const handleDirectPrint = (order: Order) => {
+    printReceipt(order, {
+      name: storeInfo?.name || 'AMICO FRITTO',
+      phone: storeInfo?.phone ?? null,
+      address: storeInfo?.address ?? null,
+    })
   }
 
   const filterOrdersByStatus = (status?: Order['status']) => {
@@ -797,7 +800,7 @@ export default function OrdersManagementPage() {
                     <div className="flex gap-2">
                       <Button
                         variant="outline"
-                        onClick={() => openPrintPreview(selectedOrder)}
+                        onClick={() => handleDirectPrint(selectedOrder)}
                       >
                         <Printer className="h-4 w-4 mr-2" />
                         Stampa
@@ -954,7 +957,7 @@ export default function OrdersManagementPage() {
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
-                      onClick={() => openPrintPreview(selectedOrder)}
+                      onClick={() => handleDirectPrint(selectedOrder)}
                     >
                       <Printer className="h-4 w-4 mr-2" />
                       Stampa

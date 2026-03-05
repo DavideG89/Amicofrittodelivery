@@ -14,14 +14,7 @@ function safeText(value: string | null | undefined): string {
   return escapeHtml(value)
 }
 
-export function printReceipt(order: Order, storeInfo?: { name: string; phone?: string | null; address?: string | null }) {
-  const printWindow = window.open('', '_blank', 'width=420,height=900')
-  
-  if (!printWindow) {
-    alert('Abilita i popup per stampare le comande')
-    return
-  }
-
+function buildReceiptHtml(order: Order, storeInfo?: { name: string; phone?: string | null; address?: string | null }) {
   const itemsHTML = order.items.map(item => `
     <tr>
       <td>${item.quantity}x</td>
@@ -34,7 +27,7 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
     </tr>
   `).join('')
 
-  const html = `
+  return `
     <!DOCTYPE html>
     <html>
       <head>
@@ -172,7 +165,6 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
           
           @media print {
             @page {
-              size: 80mm auto;
               margin: 0;
             }
 
@@ -257,18 +249,76 @@ export function printReceipt(order: Order, storeInfo?: { name: string; phone?: s
       </body>
     </html>
   `
+}
 
-  printWindow.document.write(html)
-  printWindow.document.close()
-  
-  // Wait for content to load, then print
-  printWindow.onload = () => {
-    setTimeout(() => {
-      printWindow.print()
-      // Close the window after printing (optional)
-      setTimeout(() => {
-        printWindow.close()
-      }, 100)
-    }, 250)
+export function printReceipt(order: Order, storeInfo?: { name: string; phone?: string | null; address?: string | null }) {
+  const html = buildReceiptHtml(order, storeInfo)
+  const iframe = document.createElement('iframe')
+  iframe.setAttribute('aria-hidden', 'true')
+  iframe.style.position = 'fixed'
+  iframe.style.right = '0'
+  iframe.style.bottom = '0'
+  iframe.style.width = '0'
+  iframe.style.height = '0'
+  iframe.style.border = '0'
+  iframe.style.opacity = '0'
+  iframe.style.pointerEvents = 'none'
+
+  let cleanupTimeout: number | null = null
+  const cleanup = () => {
+    if (cleanupTimeout !== null) {
+      window.clearTimeout(cleanupTimeout)
+      cleanupTimeout = null
+    }
+    if (iframe.parentNode) {
+      iframe.parentNode.removeChild(iframe)
+    }
   }
+
+  const scheduleCleanup = (delayMs: number) => {
+    if (cleanupTimeout !== null) {
+      window.clearTimeout(cleanupTimeout)
+    }
+    cleanupTimeout = window.setTimeout(cleanup, delayMs)
+  }
+
+  iframe.onload = () => {
+    const frameWindow = iframe.contentWindow
+    if (!frameWindow) {
+      alert('Impossibile avviare la stampa della comanda')
+      cleanup()
+      return
+    }
+
+    const handleAfterPrint = () => {
+      frameWindow.removeEventListener('afterprint', handleAfterPrint)
+      scheduleCleanup(500)
+    }
+
+    frameWindow.addEventListener('afterprint', handleAfterPrint)
+
+    window.setTimeout(() => {
+      try {
+        frameWindow.focus()
+        frameWindow.print()
+        // Fallback cleanup in case afterprint is not fired by the browser/printer driver.
+        scheduleCleanup(60000)
+      } catch {
+        alert('Errore durante la stampa della comanda')
+        cleanup()
+      }
+    }, 150)
+  }
+
+  document.body.appendChild(iframe)
+  const frameDocument = iframe.contentDocument || iframe.contentWindow?.document
+  if (!frameDocument) {
+    alert('Impossibile preparare la stampa della comanda')
+    cleanup()
+    return
+  }
+
+  frameDocument.open()
+  frameDocument.write(html)
+  frameDocument.close()
 }
