@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
@@ -51,7 +51,6 @@ export default function Home() {
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
   const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
-  const categoryTopRef = useRef<HTMLDivElement>(null)
   const cacheKey = 'af:home-cache:v3'
   const cacheTtlMs = 10 * 60 * 1000
   const sortCategories = (list: Category[]) => {
@@ -342,7 +341,7 @@ export default function Home() {
       <Header />
       
       <main className="container px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
-        <div className="mb-8 text-center space-y-2">
+        <div className="mb-2 text-center space-y-2">
           <h1 className="text-[24px] lg:text-5xl font-bold text-balance">
             Benvenuto da Amico Fritto
           </h1>
@@ -372,7 +371,6 @@ export default function Home() {
             onValueChange={(value) => {
               setActiveCategory(value)
               void fetchProductsForCategory(value)
-              categoryTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
             }}
           >
             <div className="sticky top-16 z-40 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur md:static md:top-auto">
@@ -380,24 +378,37 @@ export default function Home() {
                 <TabsList className="inline-flex w-max min-w-max sm:w-full sm:min-w-full justify-start h-auto gap-1.5 rounded-2xl bg-background/70 p-1.5 shadow-sm backdrop-blur">
                   {categories.map((category) => {
                     const iconPath = getCategoryIconPath(category)
+                    const isActiveTab = (activeCategory ?? categories[0]?.id) === category.id
                     return (
                       <TabsTrigger
                         key={category.id}
                         value={category.id}
-                        className="flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-md font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-sm"
+                        className="relative flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-md font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none sm:data-[state=active]:bg-foreground sm:data-[state=active]:text-background sm:data-[state=active]:shadow-sm"
                       >
-                        <span className="inline-flex items-center gap-2">
+                        {isActiveTab && (
+                          <Image
+                            src="/Star.svg"
+                            alt=""
+                            aria-hidden="true"
+                            width={58}
+                            height={58}
+                            className="pointer-events-none absolute left-1/2 bottom-5 h-[90px] w-[90px] -translate-x-1/2 rotate-[-15deg] drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)] sm:hidden"
+                          />
+                        )}
+                        <span className="relative z-10 inline-flex flex-col items-center gap-1">
                           {iconPath && (
-                            <Image
-                              src={iconPath}
-                              alt=""
-                              aria-hidden="true"
-                              width={20}
-                              height={20}
-                              className="h-8 w-8 sm:h-5 sm:w-5 shrink-0"
-                            />
+                            <span className="relative inline-flex h-14 w-14 sm:h-8 sm:w-8 shrink-0 items-center justify-center">
+                              <Image
+                                src={iconPath}
+                                alt=""
+                                aria-hidden="true"
+                                width={20}
+                                height={20}
+                                className={`relative z-10 h-full w-full transition-transform duration-200 ${isActiveTab ? 'rotate-[20deg]' : 'rotate-0'}`}
+                              />
+                            </span>
                           )}
-                          <span className="truncate">{category.name}</span>
+                          <span className="text-center truncate">{category.name}</span>
                         </span>
                       </TabsTrigger>
                     )
@@ -405,8 +416,6 @@ export default function Home() {
                 </TabsList>
               </div>
             </div>
-
-            <div ref={categoryTopRef} className="scroll-mt-[7.5rem]" />
 
             {categories.map((category) => {
               const categoryProducts = getProductsByCategory(category.id)
@@ -416,7 +425,7 @@ export default function Home() {
               
               return (
                 <TabsContent key={category.id} value={category.id} className="mt-0 space-y-6">
-                  <div className="sticky top-[7.5rem] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-4 sm:static sm:top-auto sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0">
+                  <div className="sticky top-[10.5rem] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-4 sm:static sm:top-auto sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0">
                     <div className="flex items-baseline justify-between">
                     <h2 className="font-bold text-2xl sm:text-xl">{category.name}</h2>
                     <span className="text-sm text-muted-foreground">
