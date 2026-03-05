@@ -7,7 +7,9 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
+import { useIsMobile } from '@/components/ui/use-mobile'
 import { useCart } from '@/lib/cart-context'
 import { Product, supabase, OrderAddition } from '@/lib/supabase'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
@@ -33,6 +35,7 @@ export function ProductCard({
   forceFreeSingleSauce = false,
 }: ProductCardProps) {
   const { addItem, items, updateQuantity } = useCart()
+  const isMobile = useIsMobile()
   const [details, setDetails] = useState<{
     description?: string | null
     ingredients?: string | null
@@ -394,107 +397,211 @@ export function ProductCard({
         )}
       </CardFooter>
 
-      <Drawer open={additionsOpen} onOpenChange={setAdditionsOpen}>
-        <DrawerContent className="w-full max-h-[85vh] rounded-t-2xl p-0 overflow-hidden flex flex-col">
-          <DrawerHeader className="px-6 pt-6 pb-3">
-            <DrawerTitle>Aggiunte per {product.name}</DrawerTitle>
-            <DrawerDescription>
-              {saucesOnly
-                ? 'Scegli una salsa per personalizzare il prodotto.'
-                : 'Scegli una salsa e gli extra per personalizzare il prodotto.'}
-            </DrawerDescription>
-          </DrawerHeader>
+      {isMobile ? (
+        <Drawer open={additionsOpen} onOpenChange={setAdditionsOpen}>
+          <DrawerContent className="w-full max-h-[85vh] rounded-t-2xl p-0 overflow-hidden flex flex-col">
+            <DrawerHeader className="px-6 pt-6 pb-3">
+              <DrawerTitle>Aggiunte per {product.name}</DrawerTitle>
+              <DrawerDescription>
+                {saucesOnly
+                  ? 'Scegli una salsa per personalizzare il prodotto.'
+                  : 'Scegli una salsa e gli extra per personalizzare il prodotto.'}
+              </DrawerDescription>
+            </DrawerHeader>
 
-          <div className="flex-1 overflow-y-auto px-6 pb-4">
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <p className="text-lg font-semibold">
-                Salse
-                {effectiveSauceRule.sauce_mode === 'paid_multi' && ` (${selectedSauceIds.size}/${effectiveSauceRule.max_sauces})`}
-                {effectiveSauceRule.sauce_mode === 'free_single' && ' (max 1 gratuita)'}
-              </p>
-              {effectiveSauceRule.sauce_mode === 'none' ? (
-                <p className="text-xs text-muted-foreground">Salse non disponibili per questa categoria.</p>
-              ) : (
-                <div className="grid gap-2">
-                  {saucesLoading && (
-                    <p className="text-xs text-muted-foreground">Caricamento salse...</p>
-                  )}
-                  {!saucesLoading &&
-                    sauceOptions.map((sauce) => {
-                      const checked = selectedSauceIds.has(sauce.id)
-                      const disableByLimit =
-                        effectiveSauceRule.sauce_mode === 'paid_multi' &&
-                        !checked &&
-                        selectedSauceIds.size >= effectiveSauceRule.max_sauces
-                      return (
-                        <label key={sauce.id} className="flex items-center justify-between rounded-md border p-2.5 text">
-                          <div className="flex items-center gap-2">
-                            <Checkbox
-                              checked={checked}
-                              disabled={disableByLimit}
-                              onCheckedChange={(value) => toggleSauce(sauce.id, Boolean(value))}
-                            />
-                            <span>{sauce.name}</span>
-                          </div>
-                          {effectiveSauceRule.sauce_mode === 'paid_multi' && (
-                            <span className="font-medium">
-                              +{Number(effectiveSauceRule.sauce_price).toFixed(2).replace('.', ',')}€
-                            </span>
-                          )}
-                        </label>
-                      )
-                    })}
-                  {!saucesLoading && sauceOptions.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Nessuna salsa disponibile.</p>
+            <div className="flex-1 overflow-y-auto px-6 pb-4">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-lg font-semibold">
+                    Salse
+                    {effectiveSauceRule.sauce_mode === 'paid_multi' && ` (${selectedSauceIds.size}/${effectiveSauceRule.max_sauces})`}
+                    {effectiveSauceRule.sauce_mode === 'free_single' && ' (max 1 gratuita)'}
+                  </p>
+                  {effectiveSauceRule.sauce_mode === 'none' ? (
+                    <p className="text-xs text-muted-foreground">Salse non disponibili per questa categoria.</p>
+                  ) : (
+                    <div className="grid gap-2">
+                      {saucesLoading && (
+                        <p className="text-xs text-muted-foreground">Caricamento salse...</p>
+                      )}
+                      {!saucesLoading &&
+                        sauceOptions.map((sauce) => {
+                          const checked = selectedSauceIds.has(sauce.id)
+                          const disableByLimit =
+                            effectiveSauceRule.sauce_mode === 'paid_multi' &&
+                            !checked &&
+                            selectedSauceIds.size >= effectiveSauceRule.max_sauces
+                          return (
+                            <label key={sauce.id} className="flex items-center justify-between rounded-md border p-2.5 text">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={checked}
+                                  disabled={disableByLimit}
+                                  onCheckedChange={(value) => toggleSauce(sauce.id, Boolean(value))}
+                                />
+                                <span>{sauce.name}</span>
+                              </div>
+                              {effectiveSauceRule.sauce_mode === 'paid_multi' && (
+                                <span className="font-medium">
+                                  +{Number(effectiveSauceRule.sauce_price).toFixed(2).replace('.', ',')}€
+                                </span>
+                              )}
+                            </label>
+                          )
+                        })}
+                      {!saucesLoading && sauceOptions.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nessuna salsa disponibile.</p>
+                      )}
+                    </div>
                   )}
                 </div>
-              )}
-            </div>
 
-            {!saucesOnly && (
-              <div className="space-y-2">
-                <p className="text-lg font-semibold">Extra</p>
-                <div className="grid gap-2">
-                  {extraOptions.map((extra) => {
-                    const checked = selectedExtras.has(extra.id)
-                    return (
-                      <label key={extra.id} className="flex items-center justify-between rounded-md border p-2.5 text">
-                        <div className="flex items-center gap-2">
-                          <Checkbox
-                            checked={checked}
-                            onCheckedChange={(value) => toggleExtra(extra.id, Boolean(value))}
-                          />
-                          <span>{extra.name}</span>
-                        </div>
-                        <span className="font-medium">+{Number(extra.price || 0).toFixed(2).replace('.', ',')}€</span>
-                      </label>
-                    )
-                  })}
-                  {!saucesLoading && extraOptions.length === 0 && (
-                    <p className="text-xs text-muted-foreground">Nessun extra disponibile.</p>
-                  )}
-                </div>
+                {!saucesOnly && (
+                  <div className="space-y-2">
+                    <p className="text-lg font-semibold">Extra</p>
+                    <div className="grid gap-2">
+                      {extraOptions.map((extra) => {
+                        const checked = selectedExtras.has(extra.id)
+                        return (
+                          <label key={extra.id} className="flex items-center justify-between rounded-md border p-2.5 text">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) => toggleExtra(extra.id, Boolean(value))}
+                              />
+                              <span>{extra.name}</span>
+                            </div>
+                            <span className="font-medium">+{Number(extra.price || 0).toFixed(2).replace('.', ',')}€</span>
+                          </label>
+                        )
+                      })}
+                      {!saucesLoading && extraOptions.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nessun extra disponibile.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
-            )}
-          </div>
-          </div>
+            </div>
 
-          <div className="border-t bg-background/95 backdrop-blur px-6 py-3 space-y-3 pb-8">
-            <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
-              Totale aggiunte: +{additionsTotalLabel}€
+            <div className="border-t bg-background/95 backdrop-blur px-6 py-3 space-y-3 pb-8">
+              <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
+                Totale aggiunte: +{additionsTotalLabel}€
+              </div>
+              <div className="flex gap-2 ">
+                <Button variant="outline" className="flex-1" onClick={() => setAdditionsOpen(false)}>
+                  Annulla
+                </Button>
+                <Button className="flex-1" onClick={handleConfirmAddToCart}>
+                  Aggiungi al carrello
+                </Button>
+              </div>
             </div>
-            <div className="flex gap-2 ">
-              <Button variant="outline" className="flex-1" onClick={() => setAdditionsOpen(false)}>
-                Annulla
-              </Button>
-              <Button className="flex-1" onClick={handleConfirmAddToCart}>
-                Aggiungi al carrello
-              </Button>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={additionsOpen} onOpenChange={setAdditionsOpen}>
+          <DialogContent className="flex h-[85vh] max-h-[85vh] max-w-xl flex-col overflow-hidden p-0 gap-0">
+            <DialogHeader className="px-6 pt-6 pb-3 text-left">
+              <DialogTitle>Aggiunte per {product.name}</DialogTitle>
+              <DialogDescription>
+                {saucesOnly
+                  ? 'Scegli una salsa per personalizzare il prodotto.'
+                  : 'Scegli una salsa e gli extra per personalizzare il prodotto.'}
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
+              <div className="space-y-4">
+                <div className="space-y-2">
+                  <p className="text-lg font-semibold">
+                    Salse
+                    {effectiveSauceRule.sauce_mode === 'paid_multi' && ` (${selectedSauceIds.size}/${effectiveSauceRule.max_sauces})`}
+                    {effectiveSauceRule.sauce_mode === 'free_single' && ' (max 1 gratuita)'}
+                  </p>
+                  {effectiveSauceRule.sauce_mode === 'none' ? (
+                    <p className="text-xs text-muted-foreground">Salse non disponibili per questa categoria.</p>
+                  ) : (
+                    <div className="grid gap-2">
+                      {saucesLoading && (
+                        <p className="text-xs text-muted-foreground">Caricamento salse...</p>
+                      )}
+                      {!saucesLoading &&
+                        sauceOptions.map((sauce) => {
+                          const checked = selectedSauceIds.has(sauce.id)
+                          const disableByLimit =
+                            effectiveSauceRule.sauce_mode === 'paid_multi' &&
+                            !checked &&
+                            selectedSauceIds.size >= effectiveSauceRule.max_sauces
+                          return (
+                            <label key={sauce.id} className="flex items-center justify-between rounded-md border p-2.5 text">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  checked={checked}
+                                  disabled={disableByLimit}
+                                  onCheckedChange={(value) => toggleSauce(sauce.id, Boolean(value))}
+                                />
+                                <span>{sauce.name}</span>
+                              </div>
+                              {effectiveSauceRule.sauce_mode === 'paid_multi' && (
+                                <span className="font-medium">
+                                  +{Number(effectiveSauceRule.sauce_price).toFixed(2).replace('.', ',')}€
+                                </span>
+                              )}
+                            </label>
+                          )
+                        })}
+                      {!saucesLoading && sauceOptions.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nessuna salsa disponibile.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                {!saucesOnly && (
+                  <div className="space-y-2">
+                    <p className="text-lg font-semibold">Extra</p>
+                    <div className="grid gap-2">
+                      {extraOptions.map((extra) => {
+                        const checked = selectedExtras.has(extra.id)
+                        return (
+                          <label key={extra.id} className="flex items-center justify-between rounded-md border p-2.5 text">
+                            <div className="flex items-center gap-2">
+                              <Checkbox
+                                checked={checked}
+                                onCheckedChange={(value) => toggleExtra(extra.id, Boolean(value))}
+                              />
+                              <span>{extra.name}</span>
+                            </div>
+                            <span className="font-medium">+{Number(extra.price || 0).toFixed(2).replace('.', ',')}€</span>
+                          </label>
+                        )
+                      })}
+                      {!saucesLoading && extraOptions.length === 0 && (
+                        <p className="text-xs text-muted-foreground">Nessun extra disponibile.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        </DrawerContent>
-      </Drawer>
+
+            <div className="sticky bottom-0 z-10 shrink-0 border-t bg-background px-6 py-3 space-y-3">
+              <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
+                Totale aggiunte: +{additionsTotalLabel}€
+              </div>
+              <div className="flex gap-2">
+                <Button variant="outline" className="flex-1" onClick={() => setAdditionsOpen(false)}>
+                  Annulla
+                </Button>
+                <Button className="flex-1" onClick={handleConfirmAddToCart}>
+                  Aggiungi al carrello
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+      )}
     </Card>
   )
 }
