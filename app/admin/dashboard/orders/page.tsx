@@ -9,10 +9,11 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
-import { Sheet, SheetClose, SheetContent, SheetDescription, SheetHeader, SheetTitle } from '@/components/ui/sheet'
+import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Capacitor } from '@capacitor/core'
 import { supabase, Order } from '@/lib/supabase'
 import { printReceipt } from '@/lib/print-receipt'
 import { toast } from 'sonner'
@@ -477,7 +478,49 @@ export default function OrdersManagementPage() {
     setDetailsOpen(true)
   }
 
-  const handleDirectPrint = (order: Order) => {
+  const handleDirectPrint = async (order: Order) => {
+    const isNativeApp = Capacitor.isNativePlatform()
+
+    if (isNativeApp) {
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        const accessToken = sessionData.session?.access_token
+        if (!accessToken) throw new Error('Sessione admin non valida')
+
+        const controller = new AbortController()
+        const timeoutId = window.setTimeout(() => controller.abort(), 8000)
+        let res: Response
+        try {
+          res = await fetch('/api/admin/print-jobs', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Bearer ${accessToken}`,
+            },
+            body: JSON.stringify({ orderId: order.id, triggerStatus: 'manual_native' }),
+            signal: controller.signal,
+          })
+        } finally {
+          window.clearTimeout(timeoutId)
+        }
+
+        if (!res.ok) {
+          const data = await res.json().catch(() => ({}))
+          throw new Error(data?.error || 'Errore coda stampa')
+        }
+
+        toast.success('Comanda accodata per stampa ESC/POS')
+        return
+      } catch (error) {
+        console.error('[orders] Native print queue error:', error)
+        const message =
+          error instanceof Error && error.name === 'AbortError'
+            ? 'Timeout coda ESC/POS, provo stampa browser'
+            : 'Stampa ESC/POS non disponibile, provo stampa browser'
+        toast.error(message)
+      }
+    }
+
     printReceipt(order, {
       name: storeInfo?.name || 'AMICO FRITTO',
       phone: storeInfo?.phone ?? null,
@@ -678,25 +721,25 @@ export default function OrdersManagementPage() {
         </div>
       </Tabs>
 
-      {/* Order Details Dialog / Sheet */}
+      {/* Order Details Dialog / Drawer */}
       {isMobile ? (
-        <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <SheetContent side="bottom" className="max-h-[85vh] overflow-y-auto rounded-t-2xl p-4 pt-0 [&>button]:hidden">
+        <Drawer open={detailsOpen} onOpenChange={setDetailsOpen}>
+          <DrawerContent className="max-h-[85vh] overflow-y-auto rounded-t-2xl p-4 pt-0">
             {selectedOrder && (
               <>
                 <div className="-mx-4 px-4 pt-4 pb-4 sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
-                  <SheetHeader>
+                  <DrawerHeader>
                     <div className="flex items-start justify-between gap-4">
-                      <SheetTitle>Ordine n° {selectedOrder.order_number}</SheetTitle>
-                      <SheetClose className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                      <DrawerTitle>Ordine n° {selectedOrder.order_number}</DrawerTitle>
+                      <DrawerClose className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                         <span className="sr-only">Chiudi</span>
                         <X className="h-4 w-4" />
-                      </SheetClose>
+                      </DrawerClose>
                     </div>
-                    <SheetDescription>
+                    <DrawerDescription>
                       {formatOrderDate(selectedOrder.created_at, 'PPpp')}
-                    </SheetDescription>
-                  </SheetHeader>
+                    </DrawerDescription>
+                  </DrawerHeader>
                 </div>
 
                 <div className="space-y-6 pt-4 pb-24">
@@ -842,8 +885,8 @@ export default function OrdersManagementPage() {
                 </div>
               </>
             )}
-          </SheetContent>
-        </Sheet>
+          </DrawerContent>
+        </Drawer>
       ) : (
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
           <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
