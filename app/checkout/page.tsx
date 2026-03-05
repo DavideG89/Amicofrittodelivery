@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useEffect, Suspense, useRef } from 'react'
+import { useState, useEffect, Suspense, useRef, useMemo } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
+import Image from 'next/image'
 import Script from 'next/script'
 import { ArrowLeft, Loader2 } from 'lucide-react'
 import { Header } from '@/components/header'
@@ -10,6 +11,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
@@ -53,6 +55,8 @@ function CheckoutForm() {
     isLocalhost
   
   const [isDelivery, setIsDelivery] = useState(searchParams.get('delivery') === 'true')
+  const [orderTiming, setOrderTiming] = useState<'asap' | 'scheduled' | ''>('')
+  const [scheduledTime, setScheduledTime] = useState('')
   
   const [formData, setFormData] = useState({
     name: '',
@@ -65,6 +69,45 @@ function CheckoutForm() {
 
   const [discountAmount, setDiscountAmount] = useState(0)
   const [verifyingDiscount, setVerifyingDiscount] = useState(false)
+
+  const pad = (value: number) => String(value).padStart(2, '0')
+  const roundToNextQuarterHour = (date: Date) => {
+    const next = new Date(date)
+    next.setSeconds(0, 0)
+    const remainder = next.getMinutes() % 15
+    if (remainder !== 0) {
+      next.setMinutes(next.getMinutes() + (15 - remainder))
+    }
+    return next
+  }
+  const timeToMinutes = (value: string) => {
+    const [hoursRaw, minutesRaw] = value.split(':')
+    const hours = Number(hoursRaw)
+    const minutes = Number(minutesRaw)
+    if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
+    return hours * 60 + minutes
+  }
+  const minutesToTime = (value: number) => `${pad(Math.floor(value / 60))}:${pad(value % 60)}`
+  const minScheduledMinutes = (() => {
+    const minDate = roundToNextQuarterHour(new Date(Date.now() + 10 * 60 * 1000))
+    return minDate.getHours() * 60 + minDate.getMinutes()
+  })()
+  const minScheduledTime = (() => {
+    return minutesToTime(minScheduledMinutes)
+  })()
+  const scheduledTimeOptions = useMemo(() => {
+    const options: string[] = []
+    for (let minutes = minScheduledMinutes; minutes <= 23 * 60 + 45; minutes += 15) {
+      options.push(minutesToTime(minutes))
+    }
+    return options
+  }, [minScheduledMinutes])
+  const timingSummaryLabel =
+    orderTiming === 'asap'
+      ? 'Prima possibile'
+      : orderTiming === 'scheduled' && scheduledTime
+        ? scheduledTime
+        : null
 
   useEffect(() => {
     async function fetchStoreInfo() {
@@ -118,6 +161,13 @@ function CheckoutForm() {
   useEffect(() => {
     setIsDelivery(searchParams.get('delivery') === 'true')
   }, [searchParams])
+
+  useEffect(() => {
+    if (orderTiming !== 'scheduled') return
+    if (!scheduledTime) return
+    if (scheduledTimeOptions.includes(scheduledTime)) return
+    setScheduledTime('')
+  }, [orderTiming, scheduledTime, scheduledTimeOptions])
 
   if (orderPlaced) {
     return (
@@ -197,6 +247,34 @@ function CheckoutForm() {
       return
     }
 
+    if (!orderTiming) {
+      toast.error('Seleziona l\'orario prima di confermare')
+      return
+    }
+
+    if (orderTiming === 'scheduled') {
+      if (scheduledTimeOptions.length === 0) {
+        toast.error('Nessuno slot disponibile oggi')
+        return
+      }
+
+      if (!scheduledTime) {
+        toast.error('Seleziona un orario')
+        return
+      }
+
+      if (!scheduledTimeOptions.includes(scheduledTime)) {
+        toast.error('Seleziona uno degli slot disponibili')
+        return
+      }
+
+      const selectedMinutes = timeToMinutes(scheduledTime)
+      if (selectedMinutes === null || selectedMinutes < minScheduledMinutes) {
+        toast.error(`Scegli un orario dopo le ${minScheduledTime}`)
+        return
+      }
+    }
+
     if (!orderStatus.isOpen) {
       toast.error('Ordinazioni chiuse al momento')
       return
@@ -207,12 +285,18 @@ function CheckoutForm() {
       return
     }
 
+    const requestedTimeLine =
+      orderTiming === 'asap'
+        ? `Orario ${isDelivery ? 'consegna' : 'ritiro'}: prima possibile`
+        : `Orario ${isDelivery ? 'consegna' : 'ritiro'}: ${scheduledTime}`
+    const combinedNotes = [requestedTimeLine, formData.notes?.trim() || ''].filter(Boolean).join('\n').slice(0, 1000)
+
     // Validate input data
     const validation = validateOrderData({
       customer_name: formData.name,
       customer_phone: formData.phone,
       customer_address: formData.address,
-      notes: formData.notes
+      notes: combinedNotes
     })
 
     if (!validation.valid) {
@@ -227,7 +311,7 @@ function CheckoutForm() {
         customer_name: formData.name,
         customer_phone: formData.phone,
         customer_address: isDelivery ? formData.address : null,
-        notes: formData.notes
+        notes: combinedNotes
       })
 
       const orderData = {
@@ -253,7 +337,7 @@ function CheckoutForm() {
         delivery_fee: deliveryFee,
         total,
         status: 'pending',
-        notes: formData.notes || null,
+        notes: sanitizedData.notes,
         payment_method: formData.paymentMethod
       }
 
@@ -390,26 +474,125 @@ function CheckoutForm() {
                   </div>
                 )}
 
+                <div className="space-y-3">
+                  <Label>Orario {isDelivery ? 'consegna' : 'ritiro'} *</Label>
+                  <RadioGroup
+                    value={orderTiming}
+                    onValueChange={(value) => setOrderTiming(value as 'asap' | 'scheduled')}
+                    className="grid gap-2"
+                  >
+                    <label
+                      htmlFor="timing-asap"
+                      className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
+                    >
+                      <RadioGroupItem id="timing-asap" value="asap" />
+                      Prima possibile
+                    </label>
+                    <label
+                      htmlFor="timing-scheduled"
+                      className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
+                    >
+                      <RadioGroupItem id="timing-scheduled" value="scheduled" />
+                      Programma orario
+                    </label>
+                  </RadioGroup>
+                  {orderTiming === 'scheduled' && (
+                    <div className="space-y-2">
+                      <Label htmlFor="scheduled-time">Orario desiderato *</Label>
+                      <Select value={scheduledTime} onValueChange={setScheduledTime} disabled={scheduledTimeOptions.length === 0}>
+                        <SelectTrigger id="scheduled-time">
+                          <SelectValue placeholder="Seleziona un orario" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {scheduledTimeOptions.map((time) => (
+                            <SelectItem key={time} value={time}>
+                              {time}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      <p className="text-xs text-muted-foreground">
+                        Slot da 15 minuti ({`00, 15, 30, 45`}) · minimo: {minScheduledTime}
+                      </p>
+                      {scheduledTimeOptions.length === 0 && (
+                        <p className="text-xs text-destructive">Nessuno slot disponibile oggi.</p>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="space-y-2">
                   <Label>Metodo di pagamento</Label>
                   <RadioGroup
                     value={formData.paymentMethod}
                     onValueChange={(value) => setFormData({ ...formData, paymentMethod: value as 'cash' | 'card' })}
-                    className="grid gap-2 sm:grid-cols-2"
+                    className="grid grid-cols-2 gap-2"
                   >
                     <label
                       htmlFor="payment-cash"
-                      className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
+                      className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-sm font-medium cursor-pointer transition-colors ${
+                        formData.paymentMethod === 'cash'
+                          ? 'border-primary bg-primary/15 text-foreground'
+                          : 'hover:border-primary'
+                      }`}
                     >
-                      <RadioGroupItem id="payment-cash" value="cash" />
-                      Contanti
+                      <RadioGroupItem id="payment-cash" value="cash" className="sr-only" />
+                      <span className="relative inline-flex h-14 w-14 shrink-0 items-center justify-center">
+                        {formData.paymentMethod === 'cash' && (
+                          <Image
+                            src="/Star.svg"
+                            alt=""
+                            aria-hidden="true"
+                            width={56}
+                            height={56}
+                            className="pointer-events-none absolute h-16 w-16 -rotate-[15deg] opacity-90"
+                          />
+                        )}
+                        <Image
+                          src="/cash.svg"
+                          alt=""
+                          aria-hidden="true"
+                          width={40}
+                          height={40}
+                          className={`relative z-10 h-16 w-16 transition-transform duration-200 ${
+                            formData.paymentMethod === 'cash' ? 'rotate-[20deg]' : 'rotate-0'
+                          }`}
+                        />
+                      </span>
+                      <span>Contanti</span>
                     </label>
                     <label
                       htmlFor="payment-card"
-                      className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
+                      className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-sm font-medium cursor-pointer transition-colors ${
+                        formData.paymentMethod === 'card'
+                          ? 'border-primary bg-primary/15 text-foreground'
+                          : 'hover:border-primary'
+                      }`}
                     >
-                      <RadioGroupItem id="payment-card" value="card" />
-                      Carta (POS)
+                      <RadioGroupItem id="payment-card" value="card" className="sr-only" />
+                      <span className="relative inline-flex h-14 w-14 shrink-0 items-center justify-center">
+                        {formData.paymentMethod === 'card' && (
+                          <Image
+                            src="/Star.svg"
+                            alt=""
+                            aria-hidden="true"
+                            width={56}
+                            height={56}
+                            className="pointer-events-none absolute h-14 w-14 -rotate-[15deg] opacity-90"
+                          />
+                        )}
+                        <Image
+                          src="/card.svg"
+                          alt=""
+                          aria-hidden="true"
+                          width={40}
+                          height={40}
+                          className={`relative z-10 h-10 w-10 transition-transform duration-200 ${
+                            formData.paymentMethod === 'card' ? 'rotate-[20deg]' : 'rotate-0'
+                          }`}
+                        />
+                      </span>
+                      <span>Carta (POS)</span>
                     </label>
                   </RadioGroup>
                 </div>
@@ -460,6 +643,12 @@ function CheckoutForm() {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
+                  {timingSummaryLabel && (
+                    <div className="flex justify-between text-sm">
+                      <span className="text-muted-foreground">Orario</span>
+                      <span className="font-medium">{timingSummaryLabel}</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotale</span>
                     <span className="font-medium">{subtotal.toFixed(2)}€</span>
@@ -521,7 +710,13 @@ function CheckoutForm() {
                   type="submit"
                   className="w-full"
                   size="lg"
-                  disabled={loading || !orderStatus.isOpen || (!disableRecaptcha && !recaptchaToken)}
+                  disabled={
+                    loading ||
+                    !orderStatus.isOpen ||
+                    !orderTiming ||
+                    (orderTiming === 'scheduled' && !scheduledTime) ||
+                    (!disableRecaptcha && !recaptchaToken)
+                  }
                 >
                   {loading ? (
                     <>
