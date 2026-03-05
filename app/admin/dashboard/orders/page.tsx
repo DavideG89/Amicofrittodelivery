@@ -13,7 +13,6 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, Dr
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
-import { Capacitor } from '@capacitor/core'
 import { supabase, Order } from '@/lib/supabase'
 import { printReceipt } from '@/lib/print-receipt'
 import { toast } from 'sonner'
@@ -479,48 +478,6 @@ export default function OrdersManagementPage() {
   }
 
   const handleDirectPrint = async (order: Order) => {
-    const isNativeApp = Capacitor.isNativePlatform()
-
-    if (isNativeApp) {
-      try {
-        const { data: sessionData } = await supabase.auth.getSession()
-        const accessToken = sessionData.session?.access_token
-        if (!accessToken) throw new Error('Sessione admin non valida')
-
-        const controller = new AbortController()
-        const timeoutId = window.setTimeout(() => controller.abort(), 8000)
-        let res: Response
-        try {
-          res = await fetch('/api/admin/print-jobs', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${accessToken}`,
-            },
-            body: JSON.stringify({ orderId: order.id, triggerStatus: 'manual_native' }),
-            signal: controller.signal,
-          })
-        } finally {
-          window.clearTimeout(timeoutId)
-        }
-
-        if (!res.ok) {
-          const data = await res.json().catch(() => ({}))
-          throw new Error(data?.error || 'Errore coda stampa')
-        }
-
-        toast.success('Comanda accodata per stampa ESC/POS')
-        return
-      } catch (error) {
-        console.error('[orders] Native print queue error:', error)
-        const message =
-          error instanceof Error && error.name === 'AbortError'
-            ? 'Timeout coda ESC/POS, provo stampa browser'
-            : 'Stampa ESC/POS non disponibile, provo stampa browser'
-        toast.error(message)
-      }
-    }
-
     printReceipt(order, {
       name: storeInfo?.name || 'AMICO FRITTO',
       phone: storeInfo?.phone ?? null,
