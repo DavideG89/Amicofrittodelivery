@@ -169,7 +169,7 @@ export default function OrderPrintPreviewPage() {
   }
 
   return (
-    <div className="p-6 print:p-0">
+    <div className="p-6 print:bg-white print:p-0">
       <div className="mb-4 flex flex-wrap items-center gap-2 print:hidden">
         <Button variant="outline" onClick={() => router.push(safeReturnTo)}>
           <ArrowLeft className="mr-2 h-4 w-4" />
@@ -185,7 +185,7 @@ export default function OrderPrintPreviewPage() {
         </Button>
       </div>
 
-      <div className="mx-auto w-full max-w-[360px] rounded border bg-white p-4 text-black shadow print:max-w-none print:border-0 print:shadow-none">
+      <div className="mx-auto w-full max-w-[360px] rounded border bg-white p-4 text-black shadow print:mx-0 print:w-[80mm] print:max-w-[80mm] print:rounded-none print:border-0 print:p-[3mm] print:shadow-none">
         <div className="border-b-2 border-dashed pb-3 text-center">
           <h1 className="text-2xl font-bold">{storeInfo?.name || 'AMICO FRITTO'}</h1>
           {storeInfo?.address ? <p className="text-sm">{storeInfo.address}</p> : null}
@@ -274,6 +274,24 @@ export default function OrderPrintPreviewPage() {
           <p className="mt-1">Anteprima stampata il: {new Date().toLocaleString('it-IT')}</p>
         </div>
       </div>
+
+      <style jsx global>{`
+        @media print {
+          @page {
+            size: 80mm auto;
+            margin: 0;
+          }
+
+          html,
+          body {
+            width: 80mm !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+        }
+      `}</style>
     </div>
   )
 }
