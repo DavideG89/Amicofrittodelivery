@@ -94,6 +94,7 @@ export async function POST(request: Request) {
     const orderId = typeof body?.orderId === 'string' ? body.orderId.trim() : ''
     const statusRaw = typeof body?.status === 'string' ? body.status.trim() : ''
     const status = statusRaw as OrderStatus
+    const skipPrintQueue = body?.skipPrintQueue === true
 
     if (!orderId || !status) {
       return NextResponse.json({ error: 'Dati mancanti' }, { status: 400 })
@@ -127,7 +128,8 @@ export async function POST(request: Request) {
     }
 
     let printQueued = false
-    const shouldQueuePrint = (status === 'confirmed' || status === 'preparing') && previousStatus !== status
+    const shouldQueuePrint =
+      !skipPrintQueue && (status === 'confirmed' || status === 'preparing') && previousStatus !== status
     if (shouldQueuePrint) {
       const queued = await enqueuePrintJob(supabase, {
         orderId,

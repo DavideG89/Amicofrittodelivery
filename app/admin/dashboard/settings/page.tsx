@@ -7,11 +7,12 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Textarea } from '@/components/ui/textarea'
 import { Switch } from '@/components/ui/switch'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { toast } from 'sonner'
-import { Save, ChevronDown } from 'lucide-react'
+import { Save, ChevronDown, Printer, RefreshCcw, Bluetooth } from 'lucide-react'
 import {
   AlertDialog,
   AlertDialogAction,
@@ -23,6 +24,17 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog'
+import {
+  buildNativePrinterTestLines,
+  clearSavedNativePrinterConfig,
+  getSavedNativePrinterConfig,
+  isNativeBluetoothPrintingAvailable,
+  listNativePairedPrinters,
+  openNativeBluetoothSettings,
+  printLinesOnNativePrinter,
+  saveNativePrinterConfig,
+  type NativePrinterDevice,
+} from '@/lib/native-printer'
 import {
   buildOpeningHoursValue,
   createEmptySchedule,
@@ -68,9 +80,27 @@ export default function SettingsPage() {
     { href: '/admin/dashboard/settings', label: 'Impostazioni' },
   ]
   const [orderSchedule, setOrderSchedule] = useState<OrderSchedule>(createEmptySchedule())
+  const [isNativeAndroid, setIsNativeAndroid] = useState(false)
+  const [pairedPrinters, setPairedPrinters] = useState<NativePrinterDevice[]>([])
+  const [selectedPrinterAddress, setSelectedPrinterAddress] = useState('')
+  const [savedPrinterName, setSavedPrinterName] = useState('')
+  const [loadingPrinters, setLoadingPrinters] = useState(false)
+  const [testingPrinter, setTestingPrinter] = useState(false)
 
   useEffect(() => {
     fetchStoreInfo()
+  }, [])
+
+  useEffect(() => {
+    const nativeAvailable = isNativeBluetoothPrintingAvailable()
+    setIsNativeAndroid(nativeAvailable)
+    if (!nativeAvailable) return
+
+    const savedPrinter = getSavedNativePrinterConfig()
+    if (!savedPrinter) return
+
+    setSelectedPrinterAddress(savedPrinter.address)
+    setSavedPrinterName(savedPrinter.name)
   }, [])
 
   async function fetchStoreInfo() {
@@ -205,6 +235,86 @@ export default function SettingsPage() {
     }
   }
 
+  async function handleRefreshPairedPrinters() {
+    if (!isNativeAndroid) return
+
+    setLoadingPrinters(true)
+    try {
+      const printers = await listNativePairedPrinters()
+      setPairedPrinters(printers)
+
+      if (printers.length === 0) {
+        toast.error('Nessuna stampante Bluetooth abbinata trovata')
+        return
+      }
+
+      const savedPrinter = getSavedNativePrinterConfig()
+      const nextAddress =
+        savedPrinter && printers.some((printer) => printer.address === savedPrinter.address)
+          ? savedPrinter.address
+          : selectedPrinterAddress || printers[0].address
+
+      setSelectedPrinterAddress(nextAddress)
+      toast.success('Stampanti Bluetooth aggiornate')
+    } catch (error) {
+      console.error('[settings] Error listing paired printers:', error)
+      const message = error instanceof Error ? error.message : 'Errore lettura stampanti Bluetooth'
+      toast.error(message)
+    } finally {
+      setLoadingPrinters(false)
+    }
+  }
+
+  function handleSaveNativePrinter() {
+    const selectedPrinter = pairedPrinters.find((printer) => printer.address === selectedPrinterAddress)
+    if (!selectedPrinter) {
+      toast.error('Seleziona prima una stampante Bluetooth')
+      return
+    }
+
+    saveNativePrinterConfig(selectedPrinter)
+    setSavedPrinterName(selectedPrinter.name)
+    toast.success('Stampante Bluetooth salvata su questo dispositivo')
+  }
+
+  function handleClearNativePrinter() {
+    clearSavedNativePrinterConfig()
+    setSavedPrinterName('')
+    setSelectedPrinterAddress('')
+    toast.success('Configurazione stampante rimossa')
+  }
+
+  async function handleTestNativePrinter() {
+    const savedPrinter = getSavedNativePrinterConfig()
+    if (!savedPrinter) {
+      toast.error('Configura prima una stampante Bluetooth')
+      return
+    }
+
+    setTestingPrinter(true)
+    try {
+      await printLinesOnNativePrinter(buildNativePrinterTestLines(savedPrinter.name), {
+        address: savedPrinter.address,
+      })
+      toast.success('Test stampa inviato alla stampante Bluetooth')
+    } catch (error) {
+      console.error('[settings] Error printing test receipt:', error)
+      const message = error instanceof Error ? error.message : 'Errore stampa Bluetooth'
+      toast.error(message)
+    } finally {
+      setTestingPrinter(false)
+    }
+  }
+
+  async function handleOpenBluetooth() {
+    try {
+      await openNativeBluetoothSettings()
+    } catch (error) {
+      console.error('[settings] Error opening Bluetooth settings:', error)
+      toast.error('Impossibile aprire le impostazioni Bluetooth')
+    }
+  }
+
   const updateRange = (day: DayKey, index: number, field: 'start' | 'end', value: string) => {
     setOrderSchedule((prev) => {
       const next = { ...prev, days: { ...prev.days, [day]: [...prev.days[day]] } }
@@ -226,6 +336,13 @@ export default function SettingsPage() {
       days: { ...prev.days, [day]: prev.days[day].filter((_, i) => i !== index) },
     }))
   }
+
+  const printerOptions = (() => {
+    const savedPrinter = getSavedNativePrinterConfig()
+    if (!savedPrinter) return pairedPrinters
+    if (pairedPrinters.some((printer) => printer.address === savedPrinter.address)) return pairedPrinters
+    return [{ name: savedPrinter.name, address: savedPrinter.address }, ...pairedPrinters]
+  })()
 
   if (loading) {
     return (
@@ -443,6 +560,75 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+
+      {isNativeAndroid ? (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Printer className="h-5 w-5" />
+              Stampa Bluetooth Android
+            </CardTitle>
+            <CardDescription>
+              Configurazione locale del dispositivo per stampanti termiche ESC/POS via Bluetooth.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+              Questa configurazione vale solo per questo telefono/tablet Android. Per stabilita usiamo stampa nativa
+              ESC/POS con testo ASCII fisso, non il layout del browser.
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Button type="button" variant="outline" onClick={handleRefreshPairedPrinters} disabled={loadingPrinters}>
+                <RefreshCcw className="mr-2 h-4 w-4" />
+                {loadingPrinters ? 'Ricerca...' : 'Aggiorna stampanti abbinate'}
+              </Button>
+              <Button type="button" variant="outline" onClick={handleOpenBluetooth}>
+                <Bluetooth className="mr-2 h-4 w-4" />
+                Apri Bluetooth Android
+              </Button>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="native-printer">Stampante abbinata</Label>
+              <Select value={selectedPrinterAddress} onValueChange={setSelectedPrinterAddress}>
+                <SelectTrigger id="native-printer">
+                  <SelectValue placeholder="Seleziona una stampante Bluetooth" />
+                </SelectTrigger>
+                <SelectContent>
+                  {printerOptions.map((printer) => (
+                    <SelectItem key={printer.address} value={printer.address}>
+                      {printer.name} ({printer.address})
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-muted-foreground">
+                Se non vedi la stampante, abbinala prima dalle impostazioni Bluetooth di Android.
+              </p>
+            </div>
+
+            <div className="flex flex-wrap gap-3">
+              <Button type="button" onClick={handleSaveNativePrinter} disabled={!selectedPrinterAddress}>
+                Salva stampante su questo dispositivo
+              </Button>
+              <Button type="button" variant="outline" onClick={handleTestNativePrinter} disabled={testingPrinter}>
+                {testingPrinter ? 'Test in corso...' : 'Test stampa'}
+              </Button>
+              <Button type="button" variant="ghost" onClick={handleClearNativePrinter}>
+                Rimuovi configurazione
+              </Button>
+            </div>
+
+            <div className="rounded-lg border p-4 text-sm">
+              <p className="font-medium">Stampante attiva</p>
+              <p className="mt-1 text-muted-foreground">
+                {savedPrinterName ? savedPrinterName : 'Nessuna stampante salvata'}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

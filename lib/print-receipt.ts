@@ -1,6 +1,6 @@
 import { Order } from './supabase'
 
-type StoreInfo = {
+export type StoreInfo = {
   name: string
   phone?: string | null
   address?: string | null
@@ -124,7 +124,7 @@ function amountLine(label: string, amount: string, width = LINE_WIDTH): string {
   return `${safeLabel.slice(0, labelWidth)} ${safeAmount}`
 }
 
-function buildReceiptLines(order: Order, storeInfo?: StoreInfo): string[] {
+export function buildReceiptLines(order: Order, storeInfo?: StoreInfo): string[] {
   const lines: string[] = []
 
   const storeName = cleanText(storeInfo?.name) || 'AMICO FRITTO'

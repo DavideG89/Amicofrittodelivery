@@ -15,6 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Capacitor } from '@capacitor/core'
 import { supabase, Order } from '@/lib/supabase'
+import { hasSavedNativePrinterConfig, printOrderOnNativePrinter } from '@/lib/native-printer'
 import { printReceipt } from '@/lib/print-receipt'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/components/ui/use-mobile'
@@ -433,6 +434,32 @@ export default function OrdersManagementPage() {
     fetchOrders(false, nextPage)
   }
 
+  const getOrderForPrinting = (orderId: string, nextStatus?: Order['status']) => {
+    const source =
+      selectedOrder?.id === orderId
+        ? selectedOrder
+        : orders.find((candidate) => candidate.id === orderId) || null
+
+    if (!source) return null
+    return nextStatus ? { ...source, status: nextStatus } : source
+  }
+
+  const printOrderNatively = async (order: Order) => {
+    try {
+      await printOrderOnNativePrinter(order, {
+        name: storeInfo?.name || 'AMICO FRITTO',
+        phone: storeInfo?.phone ?? null,
+        address: storeInfo?.address ?? null,
+      })
+      return true
+    } catch (error) {
+      console.error('[orders] Native print error:', error)
+      const message = error instanceof Error ? error.message : 'Errore stampa Bluetooth'
+      toast.error(message)
+      return false
+    }
+  }
+
   const handleStatusChange = async (orderId: string, newStatus: Order['status']) => {
     try {
       const { data: sessionData } = await supabase.auth.getSession()
@@ -441,13 +468,24 @@ export default function OrdersManagementPage() {
         throw new Error('Sessione admin non valida')
       }
 
+      const shouldPrintOnNative =
+        Capacitor.isNativePlatform() &&
+        hasSavedNativePrinterConfig() &&
+        (newStatus === 'confirmed' || newStatus === 'preparing')
+
+      const orderForPrinting = shouldPrintOnNative ? getOrderForPrinting(orderId, newStatus) : null
+
       const res = await fetch('/api/admin/orders/status', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           Authorization: `Bearer ${accessToken}`,
         },
-        body: JSON.stringify({ orderId, status: newStatus }),
+        body: JSON.stringify({
+          orderId,
+          status: newStatus,
+          skipPrintQueue: shouldPrintOnNative,
+        }),
       })
 
       if (!res.ok) {
@@ -456,17 +494,26 @@ export default function OrdersManagementPage() {
       }
 
       const data = await res.json().catch(() => ({}))
-      const queuedMessage =
-        data?.printQueued && (newStatus === 'confirmed' || newStatus === 'preparing')
-          ? 'Stato aggiornato e stampa accodata'
-          : 'Stato aggiornato'
-      toast.success(queuedMessage)
-      fetchOrders(true)
-      
+
       // Update selected order if it's open
       if (selectedOrder?.id === orderId) {
         setSelectedOrder({ ...selectedOrder, status: newStatus })
       }
+
+      let printedNatively = false
+      if (orderForPrinting) {
+        printedNatively = await printOrderNatively(orderForPrinting)
+      }
+
+      const queuedMessage =
+        printedNatively
+          ? 'Stato aggiornato e comanda stampata'
+          : data?.printQueued && (newStatus === 'confirmed' || newStatus === 'preparing')
+            ? 'Stato aggiornato e stampa accodata'
+            : 'Stato aggiornato'
+
+      toast.success(queuedMessage)
+      fetchOrders(true)
     } catch (error) {
       console.error('[v0] Error updating status:', error)
       toast.error('Errore durante l\'aggiornamento')
@@ -478,39 +525,13 @@ export default function OrdersManagementPage() {
     setDetailsOpen(true)
   }
 
-  const queueEscPosPrint = async (order: Order, triggerStatus = 'manual_native_fallback') => {
-    try {
-      const { data: sessionData } = await supabase.auth.getSession()
-      const accessToken = sessionData.session?.access_token
-      if (!accessToken) throw new Error('Sessione admin non valida')
-
-      const res = await fetch('/api/admin/print-jobs', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${accessToken}`,
-        },
-        body: JSON.stringify({ orderId: order.id, triggerStatus }),
-      })
-
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        throw new Error(data?.error || 'Errore coda stampa')
-      }
-
-      toast.success('Comanda accodata per stampa ESC/POS')
-      return true
-    } catch (error) {
-      console.error('[orders] Queue ESC/POS error:', error)
-      toast.error('Stampa non riuscita e coda ESC/POS non disponibile')
-      return false
-    }
-  }
-
   const handleDirectPrint = async (order: Order) => {
     const isNativeApp = Capacitor.isNativePlatform()
     if (isNativeApp) {
-      await queueEscPosPrint(order, 'manual_native')
+      const printed = await printOrderNatively(order)
+      if (printed) {
+        toast.success('Comanda inviata alla stampante Bluetooth')
+      }
       return
     }
 
