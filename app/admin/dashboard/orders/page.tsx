@@ -13,6 +13,7 @@ import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, Dr
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { Capacitor } from '@capacitor/core'
 import { supabase, Order } from '@/lib/supabase'
 import { printReceipt } from '@/lib/print-receipt'
 import { toast } from 'sonner'
@@ -478,10 +479,13 @@ export default function OrdersManagementPage() {
   }
 
   const handleDirectPrint = async (order: Order) => {
+    const isNativeApp = Capacitor.isNativePlatform()
     printReceipt(order, {
       name: storeInfo?.name || 'AMICO FRITTO',
       phone: storeInfo?.phone ?? null,
       address: storeInfo?.address ?? null,
+    }, {
+      preferPopup: isNativeApp,
     })
   }
 
@@ -681,7 +685,7 @@ export default function OrdersManagementPage() {
       {/* Order Details Dialog / Drawer */}
       {isMobile ? (
         <Drawer open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DrawerContent className="max-h-[85vh] overflow-y-auto rounded-t-2xl p-4 pt-0">
+          <DrawerContent className="max-h-[92dvh] overflow-hidden rounded-t-2xl p-4 pt-0">
             {selectedOrder && (
               <>
                 <div className="-mx-4 px-4 pt-4 pb-4 sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
@@ -699,7 +703,7 @@ export default function OrdersManagementPage() {
                   </DrawerHeader>
                 </div>
 
-                <div className="space-y-6 pt-4 pb-24">
+                <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pt-4 pb-24">
                   <div>
                     <h3 className="font-semibold mb-3">Informazioni cliente</h3>
                     <div className="space-y-2 text-sm">
@@ -796,7 +800,7 @@ export default function OrdersManagementPage() {
                     </div>
                   )}
 
-                  <div className="fixed inset-x-0 bottom-0 z-10 border-t bg-background/95 backdrop-blur px-4 pt-4 pb-8">
+                  <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/95 backdrop-blur px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                     <div className="flex gap-2">
                       <Button
                         variant="outline"

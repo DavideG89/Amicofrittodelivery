@@ -15,29 +15,25 @@ import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
 const ORDER_TERMINAL_STATUS_EVENT = 'af:order-terminal-status'
 const HOME_PRODUCTS_READY_EVENT = 'af:home-products-ready'
-const CATEGORY_ICON_BY_SLUG: Record<string, string> = {
-  hamburger: '/icons/Products_Hamburger.svg',
-  mini: '/icons/Products_Hamburger.svg',
-  panini: '/icons/Products_Sandwich.svg',
-  sandwich: '/icons/Products_Sandwich.svg',
-  kebab: '/icons/Products_Kebab.svg',
-  fritti: '/icons/Products_Fritti.svg',
-  salse: '/icons/Products_Salse.svg',
-  bevande: '/icons/Products_Bevande.svg',
-  bevanda: '/icons/Products_Bevande.svg',
-}
+const CATEGORY_ICONS = {
+  mini: '/icons/cheeseburger-v2.png',
+  hamburger: '/icons/Products_Hamburger.png',
+  panini: '/icons/Products_Sandwich.png',
+  kebab: '/icons/Products_Kebab.png',
+  fritti: '/icons/Products_Fritti.png',
+  salse: '/icons/Products_Salse.png',
+  bevande: '/icons/Products_Bevande.png',
+} as const
 
 function getCategoryIconPath(category: Category): string | null {
-  const slug = (category.slug || '').toLowerCase()
-  if (CATEGORY_ICON_BY_SLUG[slug]) return CATEGORY_ICON_BY_SLUG[slug]
-
-  const name = (category.name || '').toLowerCase()
-  if (name.includes('hamburger') || name.includes('mini')) return CATEGORY_ICON_BY_SLUG.hamburger
-  if (name.includes('panini') || name.includes('sandwich')) return CATEGORY_ICON_BY_SLUG.panini
-  if (name.includes('kebab')) return CATEGORY_ICON_BY_SLUG.kebab
-  if (name.includes('fritti')) return CATEGORY_ICON_BY_SLUG.fritti
-  if (name.includes('salse')) return CATEGORY_ICON_BY_SLUG.salse
-  if (name.includes('bevande')) return CATEGORY_ICON_BY_SLUG.bevande
+  const text = `${category.slug || ''} ${category.name || ''}`.toLowerCase()
+  if (text.includes('mini')) return CATEGORY_ICONS.mini
+  if (text.includes('hamburger') || text.includes('burger')) return CATEGORY_ICONS.hamburger
+  if (text.includes('panini') || text.includes('sandwich')) return CATEGORY_ICONS.panini
+  if (text.includes('kebab')) return CATEGORY_ICONS.kebab
+  if (text.includes('fritti')) return CATEGORY_ICONS.fritti
+  if (text.includes('salse')) return CATEGORY_ICONS.salse
+  if (text.includes('bevande') || text.includes('bevanda')) return CATEGORY_ICONS.bevande
   return null
 }
 
@@ -383,7 +379,7 @@ export default function Home() {
                       <TabsTrigger
                         key={category.id}
                         value={category.id}
-                        className="relative flex-shrink-0 max-w-[10rem] sm:max-w-none truncate rounded-xl px-3 sm:px-4 py-2 text-md font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none sm:data-[state=active]:bg-foreground sm:data-[state=active]:text-background sm:data-[state=active]:shadow-sm"
+                        className="relative flex h-[6rem] w-[6.7rem] flex-shrink-0 sm:h-auto sm:w-auto truncate rounded-xl px-2.5 sm:px-4 py-2 text-md font-medium text-muted-foreground transition-all hover:bg-muted/70 hover:text-foreground data-[state=active]:bg-transparent data-[state=active]:text-foreground data-[state=active]:shadow-none sm:data-[state=active]:bg-foreground sm:data-[state=active]:text-background sm:data-[state=active]:shadow-sm"
                       >
                         {isActiveTab && (
                           <Image
@@ -392,12 +388,12 @@ export default function Home() {
                             aria-hidden="true"
                             width={58}
                             height={58}
-                            className="pointer-events-none absolute left-1/2 bottom-5 h-[90px] w-[90px] -translate-x-1/2 rotate-[-15deg] drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)] sm:hidden"
+                            className="pointer-events-none absolute left-1/2 top-1/2 h-[80px] w-[80px] -translate-x-1/2 -translate-y-14 rotate-[-15deg] object-contain drop-shadow-[0_2px_3px_rgba(0,0,0,0.25)] sm:hidden"
                           />
                         )}
                         <span className="relative z-10 inline-flex flex-col items-center gap-1">
                           {iconPath && (
-                            <span className="relative inline-flex h-14 w-14 sm:h-8 sm:w-8 shrink-0 items-center justify-center">
+                            <span className="relative inline-flex h-12 w-12 sm:h-8 sm:w-8 shrink-0 items-center justify-center">
                               <Image
                                 src={iconPath}
                                 alt=""

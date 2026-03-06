@@ -275,8 +275,62 @@ function buildReceiptHtml(order: Order, storeInfo?: { name: string; phone?: stri
   `
 }
 
-export function printReceipt(order: Order, storeInfo?: { name: string; phone?: string | null; address?: string | null }) {
+type PrintReceiptOptions = {
+  preferPopup?: boolean
+}
+
+function tryPopupPrint(html: string): boolean {
+  const popup = window.open('', '_blank')
+  if (!popup) return false
+
+  try {
+    popup.document.open()
+    popup.document.write(html)
+    popup.document.close()
+
+    const closePopup = () => {
+      try {
+        popup.close()
+      } catch {
+        // ignore
+      }
+    }
+
+    popup.addEventListener('afterprint', closePopup, { once: true })
+    window.setTimeout(() => {
+      try {
+        popup.focus()
+        popup.print()
+        // Fallback close if afterprint is not fired.
+        window.setTimeout(closePopup, 60000)
+      } catch {
+        closePopup()
+      }
+    }, 180)
+
+    return true
+  } catch {
+    try {
+      popup.close()
+    } catch {
+      // ignore
+    }
+    return false
+  }
+}
+
+export function printReceipt(
+  order: Order,
+  storeInfo?: { name: string; phone?: string | null; address?: string | null },
+  options?: PrintReceiptOptions
+) {
   const html = buildReceiptHtml(order, storeInfo)
+
+  if (options?.preferPopup) {
+    const printedByPopup = tryPopupPrint(html)
+    if (printedByPopup) return
+  }
+
   const iframe = document.createElement('iframe')
   iframe.setAttribute('aria-hidden', 'true')
   iframe.style.position = 'fixed'
