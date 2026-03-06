@@ -549,12 +549,12 @@ function CheckoutForm() {
                           />
                         )}
                         <Image
-                          src="/cash.svg"
+                          src="/cash-payment.png"
                           alt=""
                           aria-hidden="true"
                           width={40}
                           height={40}
-                          className={`relative z-10 h-16 w-16 transition-transform duration-200 ${
+                          className={`relative z-10 h-12 w-12 transition-transform duration-200 ${
                             formData.paymentMethod === 'cash' ? 'rotate-[20deg]' : 'rotate-0'
                           }`}
                         />
@@ -582,12 +582,12 @@ function CheckoutForm() {
                           />
                         )}
                         <Image
-                          src="/card.svg"
+                          src="/payment.png"
                           alt=""
                           aria-hidden="true"
                           width={40}
                           height={40}
-                          className={`relative z-10 h-10 w-10 transition-transform duration-200 ${
+                          className={`relative z-10 h-12 w-12 transition-transform duration-200 ${
                             formData.paymentMethod === 'card' ? 'rotate-[20deg]' : 'rotate-0'
                           }`}
                         />
