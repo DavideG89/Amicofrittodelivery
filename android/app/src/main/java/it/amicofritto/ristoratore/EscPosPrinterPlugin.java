@@ -194,19 +194,47 @@ public class EscPosPrinterPlugin extends Plugin {
             buffer.write(new byte[] { 0x1B, 0x40 });
             buffer.write(new byte[] { 0x1B, 0x61, 0x00 });
             buffer.write(new byte[] { 0x1B, 0x74, 0x00 });
+            buffer.write(new byte[] { 0x1B, 0x45, 0x00 });
+            buffer.write(new byte[] { 0x1D, 0x21, 0x01 });
 
             for (int index = 0; index < linesArray.length(); index++) {
                 String rawLine = linesArray.isNull(index) ? "" : linesArray.getString(index);
                 String line = normalizeForPrinter(rawLine);
-                buffer.write(line.getBytes(StandardCharsets.US_ASCII));
-                buffer.write('\n');
+                writeStyledLine(buffer, line);
             }
 
+            buffer.write(new byte[] { 0x1B, 0x45, 0x00 });
+            buffer.write(new byte[] { 0x1D, 0x21, 0x00 });
             buffer.write(new byte[] { 0x1B, 0x64, 0x04 });
             buffer.write(new byte[] { 0x1D, 0x56, 0x00 });
         }
 
         return buffer.toByteArray();
+    }
+
+    private void writeStyledLine(ByteArrayOutputStream buffer, String line) throws IOException {
+        if (isLargeLine(line)) {
+            buffer.write(new byte[] { 0x1B, 0x45, 0x01 });
+            buffer.write(new byte[] { 0x1D, 0x21, 0x11 });
+        } else {
+            buffer.write(new byte[] { 0x1B, 0x45, 0x00 });
+            buffer.write(new byte[] { 0x1D, 0x21, 0x01 });
+        }
+
+        buffer.write(line.getBytes(StandardCharsets.US_ASCII));
+        buffer.write('\n');
+    }
+
+    private boolean isLargeLine(String line) {
+        String trimmed = line != null ? line.trim() : "";
+        if (trimmed.isEmpty()) return false;
+
+        return trimmed.equals("AMICO FRITTO")
+            || trimmed.startsWith("COMANDA #")
+            || trimmed.equals("DOMICILIO")
+            || trimmed.equals("ASPORTO")
+            || trimmed.startsWith("TOTALE")
+            || trimmed.equals("TEST STAMPANTE BLUETOOTH");
     }
 
     private String normalizeForPrinter(String value) {
