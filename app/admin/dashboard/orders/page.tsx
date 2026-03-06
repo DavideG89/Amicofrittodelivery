@@ -514,11 +514,19 @@ export default function OrdersManagementPage() {
       return
     }
 
-    printReceipt(order, {
-      name: storeInfo?.name || 'AMICO FRITTO',
-      phone: storeInfo?.phone ?? null,
-      address: storeInfo?.address ?? null,
-    })
+    printReceipt(
+      order,
+      {
+        name: storeInfo?.name || 'AMICO FRITTO',
+        phone: storeInfo?.phone ?? null,
+        address: storeInfo?.address ?? null,
+      },
+      {
+        preferPopup: true,
+        suppressAlert: true,
+        onError: (message) => toast.error(message),
+      }
+    )
   }
 
   const filterOrdersByStatus = (status?: Order['status']) => {
