@@ -33,6 +33,7 @@ import java.util.UUID;
 @CapacitorPlugin(
     name = "EscPosPrinter",
     permissions = {
+        @Permission(alias = "bluetoothScan", strings = { Manifest.permission.BLUETOOTH_SCAN }),
         @Permission(alias = "bluetoothConnect", strings = { Manifest.permission.BLUETOOTH_CONNECT })
     }
 )
@@ -46,12 +47,12 @@ public class EscPosPrinterPlugin extends Plugin {
             return;
         }
 
-        if (getPermissionState("bluetoothConnect") == PermissionState.GRANTED) {
+        if (hasBluetoothPermission()) {
             call.resolve(buildPermissionsResult());
             return;
         }
 
-        requestPermissionForAlias("bluetoothConnect", call, "bluetoothPermissionCallback");
+        requestPermissionForAliases(new String[] { "bluetoothScan", "bluetoothConnect" }, call, "bluetoothPermissionCallback");
     }
 
     @PluginMethod
@@ -169,12 +170,17 @@ public class EscPosPrinterPlugin extends Plugin {
 
     private JSObject buildPermissionsResult() {
         JSObject result = new JSObject();
+        result.put("bluetoothScan", permissionStateToString(getPermissionState("bluetoothScan")));
         result.put("bluetoothConnect", permissionStateToString(getPermissionState("bluetoothConnect")));
         return result;
     }
 
     private boolean hasBluetoothPermission() {
-        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S || getPermissionState("bluetoothConnect") == PermissionState.GRANTED;
+        return Build.VERSION.SDK_INT < Build.VERSION_CODES.S
+            || (
+                getPermissionState("bluetoothScan") == PermissionState.GRANTED
+                && getPermissionState("bluetoothConnect") == PermissionState.GRANTED
+            );
     }
 
     private String permissionStateToString(PermissionState state) {

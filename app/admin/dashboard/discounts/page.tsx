@@ -54,6 +54,7 @@ export default function DiscountsPage() {
     { href: '/admin/dashboard/menu', label: 'Menu' },
     { href: '/admin/dashboard/upsell', label: 'Upsell' },
     { href: '/admin/dashboard/discounts', label: 'Sconti' },
+    { href: '/admin/dashboard/delivery-area', label: 'Area Delivery' },
     { href: '/admin/dashboard/settings', label: 'Impostazioni' },
   ]
 

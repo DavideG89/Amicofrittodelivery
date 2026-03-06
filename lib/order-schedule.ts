@@ -16,6 +16,10 @@ export type OpeningHoursValue =
   | {
       display?: string | Record<string, string> | null
       order_schedule?: OrderSchedule | null
+      delivery_area?: {
+        polygon?: [number, number][] | null
+      } | null
+      [key: string]: unknown
     }
   | null
 
@@ -82,14 +86,26 @@ export function extractOpeningHours(
 
 export function buildOpeningHoursValue(
   display: string | Record<string, string> | null,
-  schedule: OrderSchedule | null
+  schedule: OrderSchedule | null,
+  existing?: OpeningHoursValue
 ): OpeningHoursValue {
-  if (schedule) {
-    return {
-      display: display ?? null,
-      order_schedule: schedule,
+  const extras: Record<string, unknown> = {}
+  if (existing && typeof existing === 'object' && !Array.isArray(existing)) {
+    for (const [key, value] of Object.entries(existing)) {
+      if (key === 'display' || key === 'order_schedule') continue
+      extras[key] = value
     }
   }
+
+  const hasExtras = Object.keys(extras).length > 0
+  if (schedule || hasExtras) {
+    return {
+      ...extras,
+      display: display ?? null,
+      order_schedule: schedule ?? null,
+    }
+  }
+
   return display ?? null
 }
 

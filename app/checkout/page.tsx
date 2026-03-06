@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, Suspense, useRef, useMemo } from 'react'
+import { useState, useEffect, Suspense, useRef, useMemo, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -33,6 +33,49 @@ declare global {
   }
 }
 
+type CheckoutFormData = {
+  name: string
+  phone: string
+  addressCity: string
+  addressZip: string
+  addressStreet: string
+  addressStreetNumber: string
+  addressDetails: string
+  notes: string
+  discountCode: string
+  paymentMethod: 'cash' | 'card'
+}
+
+type DeliveryCheckState = 'idle' | 'checking' | 'inside' | 'outside' | 'unverifiable' | 'not_configured' | 'error'
+
+type DeliveryCheckApiResponse = {
+  eligible?: boolean
+  mode?: DeliveryCheckState
+  message?: string | null
+  error?: string
+}
+
+type DeliveryCheckResult = {
+  ok: boolean
+  mode: DeliveryCheckState
+  message: string
+}
+
+function buildDeliveryAddress(formData: CheckoutFormData) {
+  const streetLine = [formData.addressStreet.trim(), formData.addressStreetNumber.trim()].filter(Boolean).join(' ')
+  const cityLine = [formData.addressZip.trim(), formData.addressCity.trim()].filter(Boolean).join(' ')
+  return [streetLine, formData.addressDetails.trim(), cityLine].filter(Boolean).join(', ')
+}
+
+function hasMinimumDeliveryFields(formData: CheckoutFormData) {
+  return Boolean(
+    formData.addressStreet.trim() &&
+      formData.addressStreetNumber.trim() &&
+      formData.addressZip.trim() &&
+      formData.addressCity.trim()
+  )
+}
+
 function CheckoutForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -58,10 +101,14 @@ function CheckoutForm() {
   const [orderTiming, setOrderTiming] = useState<'asap' | 'scheduled' | ''>('')
   const [scheduledTime, setScheduledTime] = useState('')
   
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<CheckoutFormData>({
     name: '',
     phone: '',
-    address: '',
+    addressCity: 'Misilmeri',
+    addressZip: '90036',
+    addressStreet: '',
+    addressStreetNumber: '',
+    addressDetails: '',
     notes: '',
     discountCode: '',
     paymentMethod: 'cash' as 'cash' | 'card'
@@ -69,6 +116,9 @@ function CheckoutForm() {
 
   const [discountAmount, setDiscountAmount] = useState(0)
   const [verifyingDiscount, setVerifyingDiscount] = useState(false)
+  const [deliveryCheckState, setDeliveryCheckState] = useState<DeliveryCheckState>('idle')
+  const [deliveryCheckMessage, setDeliveryCheckMessage] = useState('')
+  const deliveryCheckRequestIdRef = useRef(0)
 
   const pad = (value: number) => String(value).padStart(2, '0')
   const roundToNextQuarterHour = (date: Date) => {
@@ -108,6 +158,8 @@ function CheckoutForm() {
       : orderTiming === 'scheduled' && scheduledTime
         ? scheduledTime
         : null
+  const deliveryAddress = buildDeliveryAddress(formData)
+  const hasRequiredDeliveryAddress = hasMinimumDeliveryFields(formData)
 
   useEffect(() => {
     async function fetchStoreInfo() {
@@ -169,6 +221,107 @@ function CheckoutForm() {
     setScheduledTime('')
   }, [orderTiming, scheduledTime, scheduledTimeOptions])
 
+  const verifyDeliveryAddress = useCallback(
+    async (address: string): Promise<DeliveryCheckResult> => {
+      const normalizedAddress = address.trim()
+      if (!isDelivery) {
+        setDeliveryCheckState('idle')
+        setDeliveryCheckMessage('')
+        return { ok: true, mode: 'idle', message: '' }
+      }
+
+      if (!normalizedAddress) {
+        const message = 'Compila via, civico, CAP e comune.'
+        setDeliveryCheckState('idle')
+        setDeliveryCheckMessage(message)
+        return { ok: false, mode: 'idle', message }
+      }
+
+      const requestId = ++deliveryCheckRequestIdRef.current
+      setDeliveryCheckState('checking')
+      setDeliveryCheckMessage('Verifica indirizzo in corso...')
+
+      try {
+        const response = await fetch('/api/delivery/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ address: normalizedAddress }),
+        })
+
+        const payload = (await response.json().catch(() => null)) as DeliveryCheckApiResponse | null
+        if (requestId !== deliveryCheckRequestIdRef.current) {
+          return { ok: false, mode: 'checking', message: 'Verifica indirizzo in corso...' }
+        }
+
+        if (!response.ok) {
+          const message = payload?.error || 'Errore durante la verifica dell indirizzo.'
+          setDeliveryCheckState('error')
+          setDeliveryCheckMessage(message)
+          return { ok: false, mode: 'error', message }
+        }
+
+        const mode = payload?.mode
+        if (mode === 'inside' || mode === 'not_configured') {
+          const message =
+            payload?.message ||
+            (mode === 'inside' ? 'Consegna disponibile per questo indirizzo.' : 'Verifica area non configurata.')
+          setDeliveryCheckState(mode)
+          setDeliveryCheckMessage(message)
+          return { ok: true, mode, message }
+        }
+
+        if (mode === 'outside' || mode === 'unverifiable') {
+          const message = payload?.message || 'Indirizzo non disponibile per la consegna.'
+          setDeliveryCheckState(mode)
+          setDeliveryCheckMessage(message)
+          return { ok: false, mode, message }
+        }
+
+        const fallbackMessage = 'Risposta verifica indirizzo non valida.'
+        setDeliveryCheckState('error')
+        setDeliveryCheckMessage(fallbackMessage)
+        return { ok: false, mode: 'error', message: fallbackMessage }
+      } catch (error) {
+        if (requestId !== deliveryCheckRequestIdRef.current) {
+          return { ok: false, mode: 'checking', message: 'Verifica indirizzo in corso...' }
+        }
+        console.error('[checkout] Delivery check error:', error)
+        const message = 'Errore di rete durante la verifica indirizzo.'
+        setDeliveryCheckState('error')
+        setDeliveryCheckMessage(message)
+        return { ok: false, mode: 'error', message }
+      }
+    },
+    [isDelivery]
+  )
+
+  useEffect(() => {
+    if (!isDelivery) {
+      setDeliveryCheckState('idle')
+      setDeliveryCheckMessage('')
+      return
+    }
+
+    if (!hasRequiredDeliveryAddress) {
+      setDeliveryCheckState('idle')
+      setDeliveryCheckMessage(
+        formData.addressStreet.trim() ? 'Completa civico, CAP e comune per verificare la consegna.' : ''
+      )
+      return
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      void verifyDeliveryAddress(deliveryAddress)
+    }, 700)
+
+    return () => window.clearTimeout(timeoutId)
+  }, [isDelivery, hasRequiredDeliveryAddress, formData.addressStreet, deliveryAddress, verifyDeliveryAddress])
+
+  const handleDeliveryAddressBlur = useCallback(() => {
+    if (!isDelivery || !hasRequiredDeliveryAddress) return
+    void verifyDeliveryAddress(deliveryAddress)
+  }, [isDelivery, hasRequiredDeliveryAddress, verifyDeliveryAddress, deliveryAddress])
+
   if (orderPlaced) {
     return (
       <div className="min-h-screen bg-background">
@@ -197,6 +350,12 @@ function CheckoutForm() {
   const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
   const orderStatus = getOrderStatus(schedule)
   const nextOpenLabel = formatNextOpen(orderStatus.nextOpen)
+  const deliveryCheckMessageClass =
+    deliveryCheckState === 'inside' || deliveryCheckState === 'not_configured'
+      ? 'text-green-600'
+      : deliveryCheckState === 'checking' || deliveryCheckState === 'idle'
+        ? 'text-muted-foreground'
+        : 'text-destructive'
 
   const handleVerifyDiscount = async () => {
     if (!formData.discountCode.trim()) {
@@ -242,9 +401,39 @@ function CheckoutForm() {
       return
     }
 
-    if (isDelivery && !formData.address) {
-      toast.error('Inserisci l\'indirizzo di consegna')
-      return
+    if (isDelivery) {
+      if (
+        !formData.addressStreet.trim() ||
+        !formData.addressStreetNumber.trim() ||
+        !formData.addressZip.trim() ||
+        !formData.addressCity.trim()
+      ) {
+        toast.error('Compila via, civico, CAP e comune per la consegna')
+        return
+      }
+
+      if (!deliveryAddress) {
+        toast.error('Indirizzo di consegna non valido')
+        return
+      }
+
+      if (deliveryCheckState === 'checking') {
+        toast.error('Attendi il completamento della verifica indirizzo')
+        return
+      }
+
+      if (deliveryCheckState === 'outside' || deliveryCheckState === 'unverifiable' || deliveryCheckState === 'error') {
+        toast.error(deliveryCheckMessage || 'Indirizzo non coperto dalla consegna')
+        return
+      }
+
+      if (deliveryCheckState === 'idle') {
+        const checkResult = await verifyDeliveryAddress(deliveryAddress)
+        if (!checkResult.ok) {
+          toast.error(checkResult.message || 'Indirizzo non coperto dalla consegna')
+          return
+        }
+      }
     }
 
     if (!orderTiming) {
@@ -295,7 +484,7 @@ function CheckoutForm() {
     const validation = validateOrderData({
       customer_name: formData.name,
       customer_phone: formData.phone,
-      customer_address: formData.address,
+      customer_address: isDelivery ? deliveryAddress : '',
       notes: combinedNotes
     })
 
@@ -310,7 +499,7 @@ function CheckoutForm() {
       const sanitizedData = sanitizeOrderData({
         customer_name: formData.name,
         customer_phone: formData.phone,
-        customer_address: isDelivery ? formData.address : null,
+        customer_address: isDelivery ? deliveryAddress : null,
         notes: combinedNotes
       })
 
@@ -338,7 +527,7 @@ function CheckoutForm() {
         total,
         status: 'pending',
         notes: sanitizedData.notes,
-        payment_method: formData.paymentMethod
+        payment_method: formData.paymentMethod,
       }
 
       const res = await fetch('/api/orders', {
@@ -462,15 +651,73 @@ function CheckoutForm() {
                 </div>
 
                 {isDelivery && (
-                  <div className="space-y-2">
-                    <Label htmlFor="address">Indirizzo di consegna *</Label>
-                    <Textarea
-                      id="address"
-                      placeholder="Via Roma 123, Milano"
-                      value={formData.address}
-                      onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-                      required={isDelivery}
-                    />
+                  <div className="space-y-3">
+                    <Label>Indirizzo di consegna *</Label>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="address-street">Via/Piazza *</Label>
+                        <Input
+                          id="address-street"
+                          placeholder="Corso Vittorio Emanuele"
+                          value={formData.addressStreet}
+                          onChange={(e) => setFormData({ ...formData, addressStreet: e.target.value })}
+                          onBlur={handleDeliveryAddressBlur}
+                          required={isDelivery}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="address-number">Numero civico *</Label>
+                        <Input
+                          id="address-number"
+                          placeholder="12"
+                          value={formData.addressStreetNumber}
+                          onChange={(e) => setFormData({ ...formData, addressStreetNumber: e.target.value })}
+                          onBlur={handleDeliveryAddressBlur}
+                          required={isDelivery}
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="address-zip">CAP *</Label>
+                        <Input
+                          id="address-zip"
+                          placeholder="90036"
+                          value={formData.addressZip}
+                          onChange={(e) => setFormData({ ...formData, addressZip: e.target.value })}
+                          onBlur={handleDeliveryAddressBlur}
+                          required={isDelivery}
+                        />
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="address-city">Comune *</Label>
+                        <Input
+                          id="address-city"
+                          placeholder="Misilmeri"
+                          value={formData.addressCity}
+                          onChange={(e) => setFormData({ ...formData, addressCity: e.target.value })}
+                          onBlur={handleDeliveryAddressBlur}
+                          required={isDelivery}
+                        />
+                        {(deliveryCheckState === 'checking' || Boolean(deliveryCheckMessage)) && (
+                          <p className={`text-xs ${deliveryCheckMessageClass}`}>
+                            {deliveryCheckState === 'checking' ? 'Verifica indirizzo in corso...' : deliveryCheckMessage}
+                          </p>
+                        )}
+                      </div>
+                      <div className="space-y-2 sm:col-span-2">
+                        <Label htmlFor="address-details">Scala / Interno (opzionale)</Label>
+                        <Input
+                          id="address-details"
+                          placeholder="Scala B, Interno 3"
+                          value={formData.addressDetails}
+                          onChange={(e) => setFormData({ ...formData, addressDetails: e.target.value })}
+                        />
+                      </div>
+                    </div>
+                    {deliveryAddress && (
+                      <p className="text-xs text-muted-foreground">
+                        Indirizzo completo: {deliveryAddress}
+                      </p>
+                    )}
                   </div>
                 )}
 
@@ -715,6 +962,7 @@ function CheckoutForm() {
                     !orderStatus.isOpen ||
                     !orderTiming ||
                     (orderTiming === 'scheduled' && !scheduledTime) ||
+                    (isDelivery && deliveryCheckState === 'checking') ||
                     (!disableRecaptcha && !recaptchaToken)
                   }
                 >

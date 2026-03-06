@@ -22,9 +22,9 @@ import { useIsMobile } from '@/components/ui/use-mobile'
 
 const statusConfig = {
   pending: { label: 'In attesa', icon: Clock, variant: 'secondary' as const },
-  confirmed: { label: 'In preparazione', icon: Package, variant: 'default' as const },
-  preparing: { label: 'In preparazione', icon: Package, variant: 'default' as const },
-  ready: { label: 'Pronto', icon: Truck, variant: 'default' as const },
+  confirmed: { label: 'Accetta Ordine', icon: Package, variant: 'default' as const },
+  preparing: { label: 'Accetta Ordine', icon: Package, variant: 'default' as const },
+  ready: { label: 'In consegna', icon: Truck, variant: 'default' as const },
   completed: { label: 'Completato', icon: CheckCircle, variant: 'default' as const },
   cancelled: { label: 'Annullato', icon: XCircle, variant: 'destructive' as const }
 }
@@ -128,7 +128,7 @@ const getNextStatusLabel = (current: Order['status']) => {
     ? 'Inizia preparazione'
     : statusConfig[next].label === 'Pronto'
         ? 'Segna come pronto'
-        : `Passa a ${statusConfig[next].label.toLowerCase()}`
+        : `${statusConfig[next].label.toLowerCase()}`
 }
 
 export default function OrdersManagementPage() {
@@ -150,6 +150,7 @@ export default function OrdersManagementPage() {
     { href: '/admin/dashboard/menu', label: 'Menu' },
     { href: '/admin/dashboard/upsell', label: 'Upsell' },
     { href: '/admin/dashboard/discounts', label: 'Sconti' },
+    { href: '/admin/dashboard/delivery-area', label: 'Area Delivery' },
     { href: '/admin/dashboard/settings', label: 'Impostazioni' },
   ]
   const allowedTabs = ['pending', 'active', 'completed', 'all'] as const

@@ -6,6 +6,7 @@ import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceR
 import { sendFcmMessages } from '@/lib/fcm'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import type { OrderStatus } from '@/lib/supabase'
+import { getDeliveryPolygonFromOpeningHours, isDeliveryPolygonReady, isPointInsideDeliveryPolygon } from '@/lib/delivery-area'
 
 type OrderItem = {
   product_id: string
@@ -35,6 +36,8 @@ type OrderPayload = {
 
 const limiter = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 20 })
 const readLimiter = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 120 })
+const geocodeCache = new Map<string, { lat: number; lng: number; expiresAt: number }>()
+const geocodeCacheTtlMs = 6 * 60 * 60 * 1000
 const PUBLIC_ORDER_SELECT =
   'order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at'
 const PUBLIC_ORDER_LIGHT_SELECT = 'order_number, status, updated_at'
@@ -195,6 +198,66 @@ async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = 80
   } finally {
     clearTimeout(id)
   }
+}
+
+function normalizeGeocodeKey(address: string) {
+  return address.trim().toLowerCase().replace(/\s+/g, ' ')
+}
+
+function withCountryHint(address: string) {
+  return /\bitalia\b/i.test(address) ? address : `${address}, Italia`
+}
+
+async function geocodeDeliveryAddress(rawAddress: string) {
+  const key = normalizeGeocodeKey(rawAddress)
+  if (!key) return null
+
+  const cached = geocodeCache.get(key)
+  if (cached && cached.expiresAt > Date.now()) {
+    return { lat: cached.lat, lng: cached.lng }
+  }
+
+  const query = withCountryHint(rawAddress)
+  const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&countrycodes=it&q=${encodeURIComponent(query)}`
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || process.env.VERCEL_URL || 'localhost'
+  const response = await fetchWithTimeout(
+    url,
+    {
+      headers: {
+        Accept: 'application/json',
+        'Accept-Language': 'it-IT,it;q=0.9',
+        'User-Agent': `AmicoFrittoDelivery/1.0 (${siteUrl})`,
+      },
+      cache: 'no-store',
+    },
+    6000
+  )
+
+  if (!response.ok) {
+    return null
+  }
+
+  const data = (await response.json().catch(() => null)) as
+    | Array<{ lat?: string | number; lon?: string | number }>
+    | null
+
+  if (!Array.isArray(data) || data.length === 0) {
+    return null
+  }
+
+  const lat = Number(data[0]?.lat)
+  const lng = Number(data[0]?.lon)
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+    return null
+  }
+
+  geocodeCache.set(key, {
+    lat,
+    lng,
+    expiresAt: Date.now() + geocodeCacheTtlMs,
+  })
+
+  return { lat, lng }
 }
 
 function sleep(ms: number) {
@@ -578,7 +641,7 @@ export async function POST(request: Request) {
     if (order.order_type === 'delivery') {
       const { data: storeInfo } = await supabase
         .from('store_info')
-        .select('delivery_fee, min_order_delivery')
+        .select('delivery_fee, min_order_delivery, opening_hours')
         .limit(1)
         .maybeSingle()
 
@@ -586,6 +649,26 @@ export async function POST(request: Request) {
       const minOrderDelivery = Number(storeInfo?.min_order_delivery || 0)
       if (minOrderDelivery > 0 && subtotal < minOrderDelivery) {
         return NextResponse.json({ error: 'Ordine minimo non raggiunto' }, { status: 400 })
+      }
+
+      const deliveryPolygon = getDeliveryPolygonFromOpeningHours(storeInfo?.opening_hours ?? null)
+      if (isDeliveryPolygonReady(deliveryPolygon)) {
+        const deliveryAddress = String(order.customer_address || '').trim()
+        if (!deliveryAddress) {
+          return NextResponse.json({ error: 'Indirizzo di consegna richiesto' }, { status: 400 })
+        }
+
+        const geocoded = await geocodeDeliveryAddress(deliveryAddress)
+        if (!geocoded) {
+          return NextResponse.json(
+            { error: 'Impossibile verificare l indirizzo. Sarà un indirizzo estero o al di fuori dalla nostra area di consegna.' },
+            { status: 400 }
+          )
+        }
+
+        if (!isPointInsideDeliveryPolygon([geocoded.lat, geocoded.lng], deliveryPolygon)) {
+          return NextResponse.json({ error: 'Delivery non disponibile in questa zona, ci dispiace' }, { status: 400 })
+        }
       }
     }
 
