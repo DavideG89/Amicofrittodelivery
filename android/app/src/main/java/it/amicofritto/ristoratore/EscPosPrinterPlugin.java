@@ -233,7 +233,6 @@ public class EscPosPrinterPlugin extends Plugin {
             || trimmed.startsWith("COMANDA #")
             || trimmed.equals("DOMICILIO")
             || trimmed.equals("ASPORTO")
-            || trimmed.startsWith("TOTALE")
             || trimmed.equals("TEST STAMPANTE BLUETOOTH");
     }
 

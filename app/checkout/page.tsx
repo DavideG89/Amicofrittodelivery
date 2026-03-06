@@ -513,6 +513,7 @@ function CheckoutForm() {
           name: item.product.name,
           price: item.product.price,
           quantity: item.quantity,
+          piece_option_id: item.piece_option_id || null,
           additions: item.additions?.trim() ? item.additions.trim() : null,
           additions_unit_price:
             Number.isFinite(Number(item.additions_unit_price)) && Number(item.additions_unit_price) > 0

@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { parseProductPieceOptionsInput, serializeProductPieceOptions } from '@/lib/product-piece-options'
 import { supabase, Category, Product, OrderAddition, OrderAdditionType } from '@/lib/supabase'
 import { toast } from 'sonner'
 
@@ -47,6 +48,7 @@ export default function MenuManagementPage() {
     image_url: '',
     ingredients: '',
     allergens: '',
+    piece_options_text: '',
     available: true,
     label: '' as '' | 'sconto' | 'novita'
   })
@@ -63,6 +65,17 @@ export default function MenuManagementPage() {
     active: true,
   })
 
+  const getCategoryById = (categoryId: string) => categories.find((category) => category.id === categoryId) || null
+
+  const isFrittiCategory = (categoryId: string) => {
+    const category = getCategoryById(categoryId)
+    if (!category) return false
+
+    const slug = category.slug.toLowerCase()
+    const name = category.name.toLowerCase()
+    return slug.includes('fritti') || name.includes('fritti')
+  }
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -76,7 +89,7 @@ export default function MenuManagementPage() {
 
       const { data: productsData } = await supabase
         .from('products')
-        .select('id, category_id, name, description, price, image_url, ingredients, allergens, available, label, display_order, created_at, updated_at')
+        .select('id, category_id, name, description, price, image_url, ingredients, allergens, piece_options, available, label, display_order, created_at, updated_at')
         .order('display_order', { ascending: true })
 
       const { data: additionsData, error: additionsError } = await supabase
@@ -107,6 +120,7 @@ export default function MenuManagementPage() {
       image_url: '',
       ingredients: '',
       allergens: '',
+      piece_options_text: '',
       available: true,
       label: ''
     })
@@ -141,6 +155,7 @@ export default function MenuManagementPage() {
       image_url: product.image_url || '',
       ingredients: product.ingredients || '',
       allergens: product.allergens || '',
+      piece_options_text: serializeProductPieceOptions(product.piece_options),
       available: product.available,
       label: product.label || ''
     })
@@ -154,6 +169,12 @@ export default function MenuManagementPage() {
     }
 
     try {
+      const parsedPieceOptions = parseProductPieceOptionsInput(productForm.piece_options_text)
+      if (parsedPieceOptions.error) {
+        toast.error(parsedPieceOptions.error)
+        return
+      }
+
       const productData = {
         category_id: productForm.category_id,
         name: productForm.name,
@@ -162,6 +183,10 @@ export default function MenuManagementPage() {
         image_url: productForm.image_url || null,
         ingredients: productForm.ingredients || null,
         allergens: productForm.allergens || null,
+        piece_options:
+          isFrittiCategory(productForm.category_id) && parsedPieceOptions.options.length > 0
+            ? parsedPieceOptions.options
+            : null,
         available: productForm.available,
         label: productForm.label || null
       }
@@ -393,6 +418,7 @@ export default function MenuManagementPage() {
 
   const sauceAdditions = additions.filter((addition) => addition.type === 'sauce')
   const extraAdditions = additions.filter((addition) => addition.type === 'extra')
+  const selectedCategorySupportsPieces = isFrittiCategory(productForm.category_id)
 
   if (loading) {
     return <div className="p-6">Caricamento...</div>
@@ -664,6 +690,21 @@ export default function MenuManagementPage() {
                     placeholder="Glutine, Lattosio"
                   />
                 </div>
+
+                {selectedCategorySupportsPieces ? (
+                  <div>
+                    <Label htmlFor="piece-options">Quantità / pezzi opzionali</Label>
+                    <Textarea
+                      id="piece-options"
+                      value={productForm.piece_options_text}
+                      onChange={(e) => setProductForm({ ...productForm, piece_options_text: e.target.value })}
+                      placeholder={`3:4.50\n6:8.50`}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Solo per fritti. Una riga per opzione: `pezzi:prezzo`. Esempio: `3:4.50`, `6:8.50`.
+                    </p>
+                  </div>
+                ) : null}
 
                 <div className="flex items-center justify-between">
                   <Label htmlFor="available">Disponibile</Label>

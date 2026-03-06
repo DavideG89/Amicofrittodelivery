@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
+import type { ProductPieceOption } from './product-piece-options'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
@@ -58,6 +59,7 @@ export type Product = {
   image_url: string | null
   ingredients?: string | null
   allergens?: string | null
+  piece_options?: ProductPieceOption[] | null
   available: boolean
   label: 'sconto' | 'novita' | null
   display_order: number
@@ -114,6 +116,7 @@ export type OrderItem = {
   name: string
   price: number
   quantity: number
+  piece_option_id?: string | null
   additions?: string | null
   additions_unit_price?: number | null
   additions_ids?: string[] | null

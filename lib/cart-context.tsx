@@ -6,12 +6,14 @@ import { Product } from './supabase'
 export type CartItem = {
   product: Product
   quantity: number
+  piece_option_id?: string
   additions?: string
   additions_unit_price?: number
   additions_ids?: string[]
 }
 
 type AddItemOptions = {
+  pieceOptionId?: string
   additions?: string
   additionsUnitPrice?: number
   additionsIds?: string[]
@@ -20,8 +22,8 @@ type AddItemOptions = {
 type CartContextType = {
   items: CartItem[]
   addItem: (product: Product, options?: string | AddItemOptions) => void
-  removeItem: (productId: string) => void
-  updateQuantity: (productId: string, quantity: number) => void
+  removeItem: (itemKey: string) => void
+  updateQuantity: (itemKey: string, quantity: number) => void
   clearCart: () => void
   totalItems: number
   subtotal: number
@@ -38,6 +40,7 @@ type StoredCartItem = {
     image_url: string | null
   }
   quantity: number
+  piece_option_id?: string
   additions?: string
   additions_unit_price?: number
   additions_ids?: string[]
@@ -63,12 +66,25 @@ const hydrateProduct = (stored: StoredCartItem['product']): Product => ({
   description: null,
   ingredients: null,
   allergens: null,
+  piece_options: null,
   available: true,
   label: null,
   display_order: 0,
   created_at: '',
   updated_at: '',
 })
+
+export const getCartItemKey = (item: Pick<CartItem, 'product' | 'piece_option_id' | 'additions' | 'additions_ids'>) => {
+  const additionsIds = Array.isArray(item.additions_ids) ? [...item.additions_ids].sort().join(',') : ''
+  return [
+    item.product.id,
+    item.piece_option_id || '',
+    item.product.name || '',
+    Number(item.product.price || 0).toFixed(2),
+    item.additions || '',
+    additionsIds,
+  ].join('::')
+}
 
 const normalizeStoredCart = (raw: unknown): CartItem[] => {
   if (!Array.isArray(raw)) return []
@@ -102,6 +118,7 @@ const normalizeStoredCart = (raw: unknown): CartItem[] => {
       return {
         product,
         quantity,
+        piece_option_id: typeof item.piece_option_id === 'string' ? item.piece_option_id : undefined,
         additions: typeof item.additions === 'string' ? item.additions : '',
         additions_unit_price: Number.isFinite(Number(item.additions_unit_price))
           ? Number(item.additions_unit_price)
@@ -135,6 +152,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const compactItems: StoredCartItem[] = items.map((item) => ({
         product: toSafeProductForStorage(item.product),
         quantity: item.quantity,
+        piece_option_id: item.piece_option_id,
         additions: item.additions || '',
         additions_unit_price: Number(item.additions_unit_price) || 0,
         additions_ids: Array.isArray(item.additions_ids) ? item.additions_ids : [],
@@ -155,6 +173,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               image_url: null,
             },
             quantity: item.quantity,
+            piece_option_id: item.piece_option_id,
             additions: '',
             additions_unit_price: Number(item.additions_unit_price) || 0,
             additions_ids: Array.isArray(item.additions_ids) ? item.additions_ids : [],
@@ -170,6 +189,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items])
 
   const addItem = (product: Product, options?: string | AddItemOptions) => {
+    const pieceOptionId =
+      typeof options === 'string' ? undefined : (typeof options?.pieceOptionId === 'string' ? options.pieceOptionId : undefined)
     const additionsText =
       typeof options === 'string' ? options : (options?.additions ?? '')
     const rawAdditionsUnitPrice =
@@ -187,10 +208,17 @@ export function CartProvider({ children }: { children: ReactNode }) {
           : []
 
     setItems((prevItems) => {
-      const existingItem = prevItems.find((item) => item.product.id === product.id)
+      const existingItem = prevItems.find(
+        (item) =>
+          item.product.id === product.id &&
+          (item.piece_option_id || '') === (pieceOptionId || '') &&
+          (item.additions || '') === (normalizedAdditions || '') &&
+          Number(item.additions_unit_price || 0) === normalizedAdditionsUnitPrice &&
+          JSON.stringify(item.additions_ids || []) === JSON.stringify(normalizedAdditionsIds)
+      )
       if (existingItem) {
         return prevItems.map((item) =>
-          item.product.id === product.id
+          getCartItemKey(item) === getCartItemKey(existingItem)
             ? {
                 ...item,
                 quantity: item.quantity + 1,
@@ -212,6 +240,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         {
           product,
           quantity: 1,
+          piece_option_id: pieceOptionId,
           additions: normalizedAdditions,
           additions_unit_price: normalizedAdditionsUnitPrice,
           additions_ids: normalizedAdditionsIds,
@@ -220,18 +249,18 @@ export function CartProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  const removeItem = (productId: string) => {
-    setItems((prevItems) => prevItems.filter((item) => item.product.id !== productId))
+  const removeItem = (itemKey: string) => {
+    setItems((prevItems) => prevItems.filter((item) => getCartItemKey(item) !== itemKey))
   }
 
-  const updateQuantity = (productId: string, quantity: number) => {
+  const updateQuantity = (itemKey: string, quantity: number) => {
     if (quantity <= 0) {
-      removeItem(productId)
+      removeItem(itemKey)
       return
     }
     setItems((prevItems) =>
       prevItems.map((item) =>
-        item.product.id === productId ? { ...item, quantity } : item
+        getCartItemKey(item) === itemKey ? { ...item, quantity } : item
       )
     )
   }

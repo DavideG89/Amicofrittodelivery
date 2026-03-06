@@ -11,7 +11,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/componen
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
-import { useCart } from '@/lib/cart-context'
+import { getCartItemKey, useCart } from '@/lib/cart-context'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import { supabase, StoreInfo, OrderStatus } from '@/lib/supabase'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
@@ -208,7 +208,7 @@ export default function CartPage() {
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-3 sm:space-y-4">
               {items.map((item) => (
-                <Card key={item.product.id} className="overflow-hidden">
+                <Card key={getCartItemKey(item)} className="overflow-hidden">
                   <CardContent className="p-3 sm:p-4">
                     <div className="flex gap-3 sm:gap-4">
                       <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-md overflow-hidden flex-shrink-0">
@@ -247,7 +247,7 @@ export default function CartPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 sm:h-9 sm:w-9"
-                              onClick={() => updateQuantity(item.product.id, item.quantity - 1)}
+                              onClick={() => updateQuantity(getCartItemKey(item), item.quantity - 1)}
                             >
                               <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Button>
@@ -256,7 +256,7 @@ export default function CartPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 sm:h-9 sm:w-9"
-                              onClick={() => updateQuantity(item.product.id, item.quantity + 1)}
+                              onClick={() => updateQuantity(getCartItemKey(item), item.quantity + 1)}
                             >
                               <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Button>
@@ -270,7 +270,7 @@ export default function CartPage() {
                               variant="ghost"
                               size="icon"
                               className="h-8 w-8 sm:h-9 sm:w-9 text-destructive hover:bg-destructive/10"
-                              onClick={() => removeItem(item.product.id)}
+                              onClick={() => removeItem(getCartItemKey(item))}
                             >
                               <Trash2 className="h-4 w-4" />
                             </Button>

@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS products (
   image_url TEXT,
   ingredients TEXT,
   allergens TEXT,
+  piece_options JSONB,
   available BOOLEAN DEFAULT true,
   display_order INTEGER DEFAULT 0,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),

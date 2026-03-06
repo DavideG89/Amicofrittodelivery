@@ -29,6 +29,7 @@ type StoredPrinterConfig = NativePrinterDevice & {
 }
 
 const STORAGE_KEY = 'af:native-printer:v1'
+const NATIVE_PRINTER_LINE_WIDTH = 42
 
 const EscPosPrinter = registerPlugin<EscPosPrinterPlugin>('EscPosPrinter')
 
@@ -133,7 +134,7 @@ export async function printLinesOnNativePrinter(
 }
 
 export async function printOrderOnNativePrinter(order: Order, storeInfo?: StoreInfo) {
-  const lines = buildReceiptLines(order, storeInfo)
+  const lines = buildReceiptLines(order, storeInfo, NATIVE_PRINTER_LINE_WIDTH)
   return printLinesOnNativePrinter(lines)
 }
 
@@ -142,17 +143,17 @@ export function buildNativePrinterTestLines(deviceName?: string | null) {
 
   return [
     'AMICO FRITTO',
-    '--------------------------------',
+    '------------------------------------------',
     'TEST STAMPANTE BLUETOOTH',
     deviceName ? `Dispositivo: ${deviceName}` : 'Dispositivo: configurato',
     `Stampato: ${timestamp}`,
-    '--------------------------------',
+    '------------------------------------------',
     'Se leggi bene questo testo,',
     'la stampante e configurata.',
     '',
-    '1x Fritto misto       EUR 8.50',
-    '2x Crocche            EUR 6.00',
-    '--------------------------------',
-    'TOTALE               EUR 14.50',
+    '1x Fritto misto                 EUR 8.50',
+    '2x Crocche                      EUR 6.00',
+    '------------------------------------------',
+    'TOTALE                         EUR 14.50',
   ]
 }

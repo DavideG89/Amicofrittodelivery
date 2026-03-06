@@ -1,7 +1,7 @@
 import { supabase, type Category, type Product, type UpsellSettings } from '@/lib/supabase'
 
 const productSelectColumns =
-  'id, category_id, name, description, price, image_url, available, label, display_order, created_at, updated_at'
+  'id, category_id, name, description, price, image_url, piece_options, available, label, display_order, created_at, updated_at'
 
 const compareProductName = (a: Product, b: Product) =>
   a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })

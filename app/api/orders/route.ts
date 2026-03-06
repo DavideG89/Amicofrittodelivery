@@ -5,6 +5,7 @@ import { createRateLimiter } from '@/lib/rate-limit'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
 import { sendFcmMessages } from '@/lib/fcm'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { buildProductNameWithPieceOption, normalizeProductPieceOptions } from '@/lib/product-piece-options'
 import type { OrderStatus } from '@/lib/supabase'
 import { getDeliveryPolygonFromOpeningHours, isDeliveryPolygonReady, isPointInsideDeliveryPolygon } from '@/lib/delivery-area'
 
@@ -13,6 +14,7 @@ type OrderItem = {
   name: string
   price: number
   quantity: number
+  piece_option_id?: string | null
   additions?: string | null
   additions_unit_price?: number | null
   additions_ids?: string[] | null
@@ -456,6 +458,7 @@ export async function POST(request: Request) {
     const items = order.items.map((item) => ({
       product_id: String(item.product_id || ''),
       quantity: Number(item.quantity || 0),
+      piece_option_id: typeof item.piece_option_id === 'string' ? item.piece_option_id.trim().slice(0, 64) : null,
       additions: item.additions ? sanitizeString(String(item.additions), 160) : null,
       additions_ids: Array.isArray(item.additions_ids)
         ? item.additions_ids.filter((id): id is string => typeof id === 'string')
@@ -473,7 +476,7 @@ export async function POST(request: Request) {
 
     const { data: productsData, error: productsError } = await supabase
       .from('products')
-      .select('id, category_id, name, price, available')
+      .select('id, category_id, name, price, available, piece_options')
       .in('id', productIds)
 
     if (productsError) {
@@ -567,14 +570,30 @@ export async function POST(request: Request) {
     }
 
     let additionsValidationError: string | null = null
+    let pieceOptionsValidationError: string | null = null
     const normalizedItems = items.map((item) => {
       const product = productMap.get(item.product_id)
+      const pieceOptions = normalizeProductPieceOptions(product?.piece_options)
+      const selectedPieceOption =
+        pieceOptions.find((option) => option.id === item.piece_option_id) || null
+
+      if (pieceOptions.length > 0 && !selectedPieceOption) {
+        pieceOptionsValidationError = 'Seleziona una quantità valida per il prodotto'
+      }
+
+      const itemName =
+        product?.name && selectedPieceOption
+          ? buildProductNameWithPieceOption(product.name, selectedPieceOption)
+          : product?.name ?? ''
+      const itemPrice = selectedPieceOption ? selectedPieceOption.price : product?.price ?? 0
+
       if (!hasRequestedAdditions) {
         return {
           product_id: item.product_id,
-          name: product?.name ?? '',
-          price: product?.price ?? 0,
+          name: itemName,
+          price: itemPrice,
           quantity: Math.min(Math.floor(item.quantity), 99),
+          piece_option_id: selectedPieceOption?.id || null,
           additions: null,
           additions_unit_price: 0,
           additions_ids: [],
@@ -611,9 +630,10 @@ export async function POST(request: Request) {
 
       return {
         product_id: item.product_id,
-        name: product?.name ?? '',
-        price: product?.price ?? 0,
+        name: itemName,
+        price: itemPrice,
         quantity: Math.min(Math.floor(item.quantity), 99),
+        piece_option_id: selectedPieceOption?.id || null,
         additions: additionsLabelParts.join(' | ') || null,
         additions_unit_price: Math.round(additionsUnitPrice * 100) / 100,
         additions_ids: normalizedAdditionIds,
@@ -623,6 +643,10 @@ export async function POST(request: Request) {
 
     if (additionsValidationError) {
       return NextResponse.json({ error: additionsValidationError }, { status: 400 })
+    }
+
+    if (pieceOptionsValidationError) {
+      return NextResponse.json({ error: pieceOptionsValidationError }, { status: 400 })
     }
 
     if (normalizedItems.some((item) => !item.name || !item.available)) {

@@ -103,7 +103,7 @@ export default function Home() {
     if (productsByCategory[categoryId]) return
     const { data, error } = await supabase
       .from('products')
-      .select('id, category_id, name, price, image_url, available, label, display_order, created_at, updated_at')
+      .select('id, category_id, name, price, image_url, piece_options, available, label, display_order, created_at, updated_at')
       .eq('category_id', categoryId)
       .order('display_order', { ascending: true })
     if (error) {

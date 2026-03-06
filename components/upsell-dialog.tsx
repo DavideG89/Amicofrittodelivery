@@ -174,13 +174,14 @@ export function UpsellDialog({
       )}
     >
       <div className={cn('gap-3', mobileLayout ? 'grid grid-cols-2 pb-8' : 'flex flex-col sm:flex-row')}>
-        <Button variant="outline" onClick={handleSkip} className="flex-1">
-          No, grazie
-        </Button>
-        <Button onClick={handleAddSelected} disabled={selectedProducts.size === 0} className="flex-1">
+      <Button onClick={handleAddSelected} disabled={selectedProducts.size === 0} className="flex-1">
           {confirmLabel}
           {selectedProducts.size > 0 && ` (${selectedProducts.size})`}
         </Button>
+        <Button variant="outline" onClick={handleSkip} className="flex-1">
+          No, grazie
+        </Button>
+     
       </div>
     </div>
   )

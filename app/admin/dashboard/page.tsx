@@ -114,21 +114,43 @@ export default function AdminDashboardPage() {
   }, [fetchStats])
 
   useEffect(() => {
-    let channel: ReturnType<typeof supabase.channel> | null = null
+    const canUseRealtime =
+      typeof window !== 'undefined' &&
+      window.isSecureContext &&
+      typeof WebSocket !== 'undefined'
 
-    try {
-      channel = supabase
-        .channel('dashboard_orders_changes')
-        .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-          void fetchStats()
-        })
-        .subscribe()
-    } catch {
-      // ignore realtime subscription errors
+    let channel: ReturnType<typeof supabase.channel> | null = null
+    let pollingId: number | null = null
+
+    const startPolling = () => {
+      if (pollingId !== null) return
+      pollingId = window.setInterval(() => {
+        void fetchStats()
+      }, 20000)
+    }
+
+    if (canUseRealtime) {
+      try {
+        channel = supabase
+          .channel('dashboard_orders_changes')
+          .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+            void fetchStats()
+          })
+          .subscribe((status) => {
+            if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
+              startPolling()
+            }
+          })
+      } catch {
+        startPolling()
+      }
+    } else {
+      startPolling()
     }
 
     return () => {
       if (channel) supabase.removeChannel(channel)
+      if (pollingId !== null) window.clearInterval(pollingId)
     }
   }, [fetchStats])
 

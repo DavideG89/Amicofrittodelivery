@@ -14,8 +14,7 @@ type PrintReceiptOptions = {
 
 const RECEIPT_WIDTH_MM = 80
 const CONTENT_WIDTH_MM = 76
-const LINE_WIDTH = 32
-const SEPARATOR = '-'.repeat(LINE_WIDTH)
+const DEFAULT_LINE_WIDTH = 32
 
 function escapeHtml(value: string): string {
   return value
@@ -58,7 +57,7 @@ function formatDateTime(value: unknown): string {
   return date.toLocaleString('it-IT')
 }
 
-function wrapText(value: string, width = LINE_WIDTH): string[] {
+function wrapText(value: string, width = DEFAULT_LINE_WIDTH): string[] {
   const input = String(value ?? '').replace(/\r\n/g, '\n').replace(/\r/g, '\n')
   const sourceLines = input.split('\n')
   const wrapped: string[] = []
@@ -102,7 +101,7 @@ function wrapText(value: string, width = LINE_WIDTH): string[] {
   return wrapped.length > 0 ? wrapped : ['']
 }
 
-function centerText(value: string, width = LINE_WIDTH): string {
+function centerText(value: string, width = DEFAULT_LINE_WIDTH): string {
   const text = cleanText(value)
   if (!text) return ''
   if (text.length >= width) return text
@@ -110,7 +109,7 @@ function centerText(value: string, width = LINE_WIDTH): string {
   return `${' '.repeat(leftPad)}${text}`
 }
 
-function amountLine(label: string, amount: string, width = LINE_WIDTH): string {
+function amountLine(label: string, amount: string, width = DEFAULT_LINE_WIDTH): string {
   const safeLabel = cleanText(label)
   const safeAmount = cleanText(amount)
   if (!safeAmount) return safeLabel.slice(0, width)
@@ -124,36 +123,37 @@ function amountLine(label: string, amount: string, width = LINE_WIDTH): string {
   return `${safeLabel.slice(0, labelWidth)} ${safeAmount}`
 }
 
-export function buildReceiptLines(order: Order, storeInfo?: StoreInfo): string[] {
+export function buildReceiptLines(order: Order, storeInfo?: StoreInfo, lineWidth = DEFAULT_LINE_WIDTH): string[] {
   const lines: string[] = []
+  const separator = '-'.repeat(lineWidth)
 
   const storeName = cleanText(storeInfo?.name) || 'AMICO FRITTO'
   const storeAddress = cleanText(storeInfo?.address)
   const storePhone = cleanText(storeInfo?.phone)
 
-  for (const line of wrapText(storeName)) {
-    lines.push(centerText(line))
+  for (const line of wrapText(storeName, lineWidth)) {
+    lines.push(centerText(line, lineWidth))
   }
   if (storeAddress) {
-    for (const line of wrapText(storeAddress)) {
-      lines.push(centerText(line))
+    for (const line of wrapText(storeAddress, lineWidth)) {
+      lines.push(centerText(line, lineWidth))
     }
   }
   if (storePhone) {
-    lines.push(centerText(`Tel: ${storePhone}`))
+    lines.push(centerText(`Tel: ${storePhone}`, lineWidth))
   }
 
-  lines.push(SEPARATOR)
-  lines.push(...wrapText(`COMANDA #${cleanText(order.order_number) || 'N/A'}`))
-  lines.push(...wrapText(`Data: ${formatDateTime(order.created_at)}`))
+  lines.push(separator)
+  lines.push(...wrapText(`COMANDA #${cleanText(order.order_number) || 'N/A'}`, lineWidth))
+  lines.push(...wrapText(`Data: ${formatDateTime(order.created_at)}`, lineWidth))
   lines.push(`Tipo: ${order.order_type === 'delivery' ? 'DOMICILIO' : 'ASPORTO'}`)
 
-  lines.push(SEPARATOR)
-  lines.push(...wrapText(`Cliente: ${cleanText(order.customer_name) || '-'}`))
-  lines.push(...wrapText(`Tel: ${cleanText(order.customer_phone) || '-'}`))
+  lines.push(separator)
+  lines.push(...wrapText(`Cliente: ${cleanText(order.customer_name) || '-'}`, lineWidth))
+  lines.push(...wrapText(`Tel: ${cleanText(order.customer_phone) || '-'}`, lineWidth))
 
   if (order.order_type === 'delivery' && cleanText(order.customer_address)) {
-    lines.push(...wrapText(`Indirizzo: ${cleanText(order.customer_address)}`))
+    lines.push(...wrapText(`Indirizzo: ${cleanText(order.customer_address)}`, lineWidth))
   }
 
   const paymentLabel =
@@ -162,9 +162,9 @@ export function buildReceiptLines(order: Order, storeInfo?: StoreInfo): string[]
     lines.push(`Pagamento: ${paymentLabel}`)
   }
 
-  lines.push(SEPARATOR)
+  lines.push(separator)
   lines.push('ARTICOLI')
-  lines.push(SEPARATOR)
+  lines.push(separator)
 
   const items = Array.isArray(order.items) ? order.items : []
   if (items.length === 0) {
@@ -179,17 +179,17 @@ export function buildReceiptLines(order: Order, storeInfo?: StoreInfo): string[]
     const unitPrice = basePrice + additionsPrice
     const lineTotal = unitPrice * quantity
     const amount = `EUR ${formatMoney(lineTotal)}`
-    const firstLineWidth = Math.max(8, LINE_WIDTH - amount.length - 1)
+    const firstLineWidth = Math.max(8, lineWidth - amount.length - 1)
     const itemTitleLines = wrapText(`${quantity}x ${itemName}`, firstLineWidth)
 
-    lines.push(amountLine(itemTitleLines[0] || `${quantity}x ${itemName}`, amount))
+    lines.push(amountLine(itemTitleLines[0] || `${quantity}x ${itemName}`, amount, lineWidth))
     for (const extraLine of itemTitleLines.slice(1)) {
       lines.push(extraLine)
     }
 
     const additions = cleanText(item.additions)
     if (additions) {
-      for (const additionLine of wrapText(`+ ${additions}`, LINE_WIDTH - 2)) {
+      for (const additionLine of wrapText(`+ ${additions}`, lineWidth - 2)) {
         lines.push(`  ${additionLine}`)
       }
     }
@@ -199,33 +199,33 @@ export function buildReceiptLines(order: Order, storeInfo?: StoreInfo): string[]
     }
   }
 
-  lines.push(SEPARATOR)
-  lines.push(amountLine('Subtotale', `EUR ${formatMoney(order.subtotal)}`))
+  lines.push(separator)
+  lines.push(amountLine('Subtotale', `EUR ${formatMoney(order.subtotal)}`, lineWidth))
 
   const deliveryFee = toNumber(order.delivery_fee)
   if (deliveryFee > 0) {
-    lines.push(amountLine('Consegna', `EUR ${formatMoney(deliveryFee)}`))
+    lines.push(amountLine('Consegna', `EUR ${formatMoney(deliveryFee)}`, lineWidth))
   }
 
   const discountAmount = toNumber(order.discount_amount)
   if (discountAmount > 0) {
     const discountCode = cleanText(order.discount_code)
     const discountLabel = discountCode ? `Sconto (${discountCode})` : 'Sconto'
-    lines.push(amountLine(discountLabel, `-EUR ${formatMoney(discountAmount)}`))
+    lines.push(amountLine(discountLabel, `-EUR ${formatMoney(discountAmount)}`, lineWidth))
   }
 
-  lines.push(SEPARATOR)
-  lines.push(amountLine('TOTALE', `EUR ${formatMoney(order.total)}`))
+  lines.push(separator)
+  lines.push(amountLine('TOTALE', `EUR ${formatMoney(order.total)}`, lineWidth))
 
   if (cleanText(order.notes)) {
-    lines.push(SEPARATOR)
+    lines.push(separator)
     lines.push('NOTE')
-    lines.push(...wrapText(String(order.notes)))
+    lines.push(...wrapText(String(order.notes), lineWidth))
   }
 
-  lines.push(SEPARATOR)
-  lines.push(centerText('Grazie per il tuo ordine!'))
-  lines.push(centerText(`Stampato ${formatDateTime(Date.now())}`))
+  lines.push(separator)
+  lines.push(centerText('Grazie per il tuo ordine!', lineWidth))
+  lines.push(centerText(`Stampato ${formatDateTime(Date.now())}`, lineWidth))
 
   return lines
 }

@@ -10,7 +10,8 @@ import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, Dr
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useIsMobile } from '@/components/ui/use-mobile'
-import { useCart } from '@/lib/cart-context'
+import { getCartItemKey, useCart } from '@/lib/cart-context'
+import { buildProductNameWithPieceOption, normalizeProductPieceOptions } from '@/lib/product-piece-options'
 import { Product, supabase, OrderAddition } from '@/lib/supabase'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
 import { toast } from 'sonner'
@@ -59,9 +60,12 @@ export function ProductCard({
   const [sauceRule, setSauceRule] = useState<SauceRule>(DEFAULT_SAUCE_RULE)
   const [selectedSauceIds, setSelectedSauceIds] = useState<Set<string>>(new Set())
   const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set())
+  const [selectedPieceOptionId, setSelectedPieceOptionId] = useState('')
   
-  const cartItem = items.find(item => item.product.id === product.id)
-  const inCartQuantity = cartItem?.quantity || 0
+  const pieceOptions = normalizeProductPieceOptions(product.piece_options)
+  const hasPieceOptions = pieceOptions.length > 0
+  const productCartItems = items.filter(item => item.product.id === product.id)
+  const inCartQuantity = productCartItems.reduce((sum, item) => sum + item.quantity, 0)
   const effectiveSauceRule: SauceRule = forceFreeSingleSauce ? DEFAULT_SAUCE_RULE : sauceRule
 
   const loadSauces = async () => {
@@ -115,13 +119,14 @@ export function ProductCard({
   }
 
   const handleOpenAdditions = async () => {
-    if (skipAdditions) {
+    if (skipAdditions && !hasPieceOptions) {
       addItem(product)
       if (onAddToCart) onAddToCart(product, 1)
       return
     }
     setSelectedSauceIds(new Set())
     setSelectedExtras(new Set())
+    setSelectedPieceOptionId(pieceOptions.length === 1 ? pieceOptions[0].id : '')
     setAdditionsOpen(true)
     await Promise.all([loadSauces(), loadSauceRule()])
   }
@@ -159,6 +164,12 @@ export function ProductCard({
   }
 
   const handleConfirmAddToCart = () => {
+    const selectedPieceOption = pieceOptions.find((option) => option.id === selectedPieceOptionId) || null
+    if (hasPieceOptions && !selectedPieceOption) {
+      toast.error('Scegli una quantità')
+      return
+    }
+
     const selectedSauceItems = sauceOptions.filter((item) => selectedSauceIds.has(item.id))
     const selectedExtraItems = saucesOnly ? [] : extraOptions.filter((item) => selectedExtras.has(item.id))
     const extrasList = selectedExtraItems.map((item) => item.name)
@@ -182,7 +193,20 @@ export function ProductCard({
       ...selectedExtraItems.map((item) => item.id),
     ]
 
-    addItem(product, { additions, additionsUnitPrice, additionsIds })
+    const configuredProduct = selectedPieceOption
+      ? {
+          ...product,
+          name: buildProductNameWithPieceOption(product.name, selectedPieceOption),
+          price: selectedPieceOption.price,
+        }
+      : product
+
+    addItem(configuredProduct, {
+      pieceOptionId: selectedPieceOption?.id,
+      additions,
+      additionsUnitPrice,
+      additionsIds,
+    })
     
     if (onAddToCart) {
       onAddToCart(product, 1)
@@ -190,6 +214,7 @@ export function ProductCard({
     
     setSelectedSauceIds(new Set())
     setSelectedExtras(new Set())
+    setSelectedPieceOptionId('')
     setAdditionsOpen(false)
   }
   const selectedSaucesPrice =
@@ -202,10 +227,45 @@ export function ProductCard({
   const additionsTotalLabel = (selectedSaucesPrice + selectedExtrasPrice).toFixed(2).replace('.', ',')
 
   const handleDecrementInCart = () => {
-    if (inCartQuantity <= 0) return
-    updateQuantity(product.id, inCartQuantity - 1)
+    const firstItem = productCartItems[0]
+    if (!firstItem) return
+    updateQuantity(getCartItemKey(firstItem), firstItem.quantity - 1)
   }
   const hasDetails = Boolean(details?.description || details?.ingredients || details?.allergens)
+
+  const renderPieceOptionsSection = () => {
+    if (!hasPieceOptions) return null
+
+    return (
+      <div className="space-y-3">
+        <p className="text-lg font-semibold">Scegli quantita</p>
+        <div className="flex flex-wrap gap-3">
+          {pieceOptions.map((option) => {
+            const selected = selectedPieceOptionId === option.id
+            return (
+              <button
+                key={option.id}
+                type="button"
+                onClick={() => setSelectedPieceOptionId(option.id)}
+                className={`flex min-w-[88px] flex-col items-center gap-2 rounded-2xl border px-3 py-3 transition-colors ${
+                  selected ? 'border-primary bg-primary/10' : 'border-border bg-background'
+                }`}
+                aria-pressed={selected}
+              >
+                <span className={`flex h-12 w-12 items-center justify-center rounded-full border text-lg font-bold ${
+                  selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
+                }`}>
+                  {option.pieces}
+                </span>
+                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">pezzi</span>
+                <span className="text-sm font-semibold">{option.price.toFixed(2)}€</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+    )
+  }
 
   const ensureDetails = async () => {
     if (details || detailsLoading) return
@@ -344,7 +404,7 @@ export function ProductCard({
             </Drawer>
           </div>
 
-          {product.available && (
+          {product.available && !hasPieceOptions && (
             <div className="flex items-center border rounded-md bg-background shrink-0" role="group" aria-label="Selettore quantità">
               <Button
                 variant="ghost"
@@ -369,6 +429,17 @@ export function ProductCard({
                 <Plus className="h-4 w-4" aria-hidden="true" />
               </Button>
             </div>
+          )}
+          {product.available && hasPieceOptions && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-8 w-8 sm:h-9 sm:w-9 shrink-0"
+              onClick={handleOpenAdditions}
+              aria-label={`Scegli porzione per ${product.name}`}
+            >
+              <Plus className="h-4 w-4" aria-hidden="true" />
+            </Button>
           )}
         </div>
         {details?.description && (
@@ -411,6 +482,8 @@ export function ProductCard({
 
             <div className="flex-1 overflow-y-auto px-6 pb-4">
               <div className="space-y-4">
+                {renderPieceOptionsSection()}
+
                 <div className="space-y-2">
                   <p className="text-lg font-semibold">
                     Salse
@@ -513,6 +586,8 @@ export function ProductCard({
 
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
               <div className="space-y-4">
+                {renderPieceOptionsSection()}
+
                 <div className="space-y-2">
                   <p className="text-lg font-semibold">
                     Salse
