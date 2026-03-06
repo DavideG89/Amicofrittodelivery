@@ -11,12 +11,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { Textarea } from '@/components/ui/textarea'
 import {
   deliveryPolygonToJson,
   getDeliveryPolygonFromOpeningHours,
   isDeliveryPolygonReady,
-  isPointInsideDeliveryPolygon,
   parseDeliveryPolygonInput,
   setDeliveryPolygonInOpeningHours,
   type DeliveryPoint,
@@ -53,9 +51,10 @@ const adminPages = [
 export default function DeliveryAreaPage() {
   const router = useRouter()
   const [polygonText, setPolygonText] = useState('')
-  const [testLat, setTestLat] = useState('')
-  const [testLng, setTestLng] = useState('')
-  const [testResult, setTestResult] = useState<boolean | null>(null)
+  const [testAddress, setTestAddress] = useState('')
+  const [testingAddress, setTestingAddress] = useState(false)
+  const [testMode, setTestMode] = useState<'inside' | 'outside' | 'unverifiable' | 'not_configured' | 'error' | null>(null)
+  const [testMessage, setTestMessage] = useState('')
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [saving, setSaving] = useState(false)
 
@@ -144,7 +143,8 @@ export default function DeliveryAreaPage() {
     if (!storeInfo) {
       localStorage.removeItem(STORAGE_KEY)
       setPolygonText('')
-      setTestResult(null)
+      setTestMode(null)
+      setTestMessage('')
       return
     }
 
@@ -160,7 +160,8 @@ export default function DeliveryAreaPage() {
 
       localStorage.removeItem(STORAGE_KEY)
       setPolygonText('')
-      setTestResult(null)
+      setTestMode(null)
+      setTestMessage('')
       setStoreInfo((prev) => (prev ? { ...prev, opening_hours: nextOpeningHours } : prev))
       toast.success('Area delivery rimossa')
     } catch (error) {
@@ -173,40 +174,69 @@ export default function DeliveryAreaPage() {
 
   const handleLoadExample = () => {
     setPolygonText(deliveryPolygonToJson(EXAMPLE_POLYGON))
-    setTestResult(null)
+    setTestMode(null)
+    setTestMessage('')
   }
 
   const handleAddMapPoint = (point: DeliveryPoint) => {
     const next = [...mapPoints, point]
     setPolygonText(deliveryPolygonToJson(next))
-    setTestResult(null)
+    setTestMode(null)
+    setTestMessage('')
   }
 
   const handleUndoLastPoint = () => {
     if (mapPoints.length === 0) return
     const next = mapPoints.slice(0, -1)
     setPolygonText(next.length === 0 ? '' : deliveryPolygonToJson(next))
-    setTestResult(null)
+    setTestMode(null)
+    setTestMessage('')
   }
 
-  const handleVerifyPoint = () => {
-    if (!parsed.points) {
-      toast.error(parsed.error || 'Inserisci un poligono valido prima del test.')
-      return
-    }
-    if (!isDeliveryPolygonReady(parsed.points)) {
-      toast.error('Servono almeno 3 punti per verificare il punto cliente.')
+  const handleVerifyAddress = async () => {
+    const address = testAddress.trim()
+    if (!address) {
+      toast.error('Inserisci un indirizzo da verificare.')
       return
     }
 
-    const lat = Number(testLat)
-    const lng = Number(testLng)
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-      toast.error('Inserisci latitudine e longitudine valide.')
-      return
-    }
+    setTestingAddress(true)
+    setTestMode(null)
+    setTestMessage('')
+    try {
+      const response = await fetch('/api/delivery/check', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ address }),
+      })
 
-    setTestResult(isPointInsideDeliveryPolygon([lat, lng], parsed.points))
+      const payload = (await response.json().catch(() => null)) as
+        | { mode?: string; message?: string; error?: string }
+        | null
+
+      if (!response.ok) {
+        const errorMessage = payload?.error || 'Errore durante il test indirizzo.'
+        setTestMode('error')
+        setTestMessage(errorMessage)
+        return
+      }
+
+      const mode = payload?.mode
+      if (mode === 'inside' || mode === 'outside' || mode === 'unverifiable' || mode === 'not_configured') {
+        setTestMode(mode)
+        setTestMessage(payload?.message || '')
+        return
+      }
+
+      setTestMode('error')
+      setTestMessage('Risposta non valida dal servizio di verifica.')
+    } catch (error) {
+      console.error('[delivery-area] Address test error:', error)
+      setTestMode('error')
+      setTestMessage('Errore di rete durante il test indirizzo.')
+    } finally {
+      setTestingAddress(false)
+    }
   }
 
   return (
@@ -244,37 +274,46 @@ export default function DeliveryAreaPage() {
         <CardContent className="space-y-4">
           <DeliveryAreaMap points={mapPoints} onAddPoint={handleAddMapPoint} />
 
-          <div className="flex flex-wrap items-center gap-2">
-            <Button variant="outline" onClick={handleUndoLastPoint} disabled={mapPoints.length === 0}>
-              <Undo2 className="mr-2 h-4 w-4" />
-              Annulla ultimo punto
-            </Button>
-            <span className="text-sm text-muted-foreground">Vertici attuali: {mapPoints.length}</span>
-          </div>
-
           <div className="space-y-2">
-            <Label htmlFor="delivery-polygon">Coordinate area</Label>
-            <Textarea
-              id="delivery-polygon"
-              rows={12}
-              value={polygonText}
-              onChange={(event) => setPolygonText(event.target.value)}
-              placeholder={'{\n  "polygon": [[38.03,13.45],[38.03,13.46],[38.02,13.45]]\n}'}
-            />
-          </div>
+            <div className="flex w-full gap-2">
+              <Button onClick={() => void handleSave()} disabled={saving} size="sm" className="flex-1 sm:flex-none">
+                <Save className="mr-2 h-4 w-4" />
+                <span className="sm:hidden">{saving ? 'Salvataggio...' : 'Salva area'}</span>
+                <span className="hidden sm:inline">{saving ? 'Salvataggio...' : 'Salva area delivery'}</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={handleUndoLastPoint}
+                disabled={mapPoints.length === 0}
+                size="sm"
+                className="flex-1 sm:flex-none"
+              >
+                <Undo2 className="mr-2 h-4 w-4" />
+                <span className="sm:hidden">Annulla punto</span>
+                <span className="hidden sm:inline">Annulla ultimo punto</span>
+              </Button>
+            </div>
 
-          <div className="flex flex-wrap gap-2">
-            <Button onClick={() => void handleSave()} disabled={saving}>
-              <Save className="mr-2 h-4 w-4" />
-              {saving ? 'Salvataggio...' : 'Salva area delivery'}
-            </Button>
-            <Button variant="outline" onClick={handleLoadExample} disabled={saving}>
-              Carica esempio
-            </Button>
-            <Button variant="outline" onClick={() => void handleClear()} disabled={saving}>
-              <Eraser className="mr-2 h-4 w-4" />
-              Rimuovi area
-            </Button>
+            <div className="flex items-center gap-2">
+              <Button variant="outline" onClick={handleLoadExample} disabled={saving} size="sm" className="flex-1 sm:flex-none">
+                <span className="sm:hidden">Esempio</span>
+                <span className="hidden sm:inline">Carica esempio</span>
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => void handleClear()}
+                disabled={saving}
+                size="icon"
+                aria-label="Rimuovi area"
+                className="h-9 w-9 sm:h-10 sm:w-auto sm:px-3"
+              >
+                <Eraser className="h-4 w-4" />
+                <span className="sr-only">Rimuovi area</span>
+                <span className="hidden sm:inline ml-2">Rimuovi area</span>
+              </Button>
+            </div>
+
+            <p className="text-xs text-muted-foreground sm:text-sm">Vertici attuali: {mapPoints.length}</p>
           </div>
 
           <div className="text-sm">
@@ -302,42 +341,38 @@ export default function DeliveryAreaPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Test punto cliente</CardTitle>
-          <CardDescription>Verifica rapidamente se un punto cade dentro il poligono.</CardDescription>
+          <CardTitle>Test indirizzo cliente</CardTitle>
+          <CardDescription>Verifica l indirizzo come nel checkout (via, civico, CAP, comune).</CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-3 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="test-lat">Latitudine</Label>
-              <Input
-                id="test-lat"
-                value={testLat}
-                onChange={(event) => setTestLat(event.target.value)}
-                placeholder="38.0340"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="test-lng">Longitudine</Label>
-              <Input
-                id="test-lng"
-                value={testLng}
-                onChange={(event) => setTestLng(event.target.value)}
-                placeholder="13.4510"
-              />
-            </div>
+          <div className="space-y-2">
+            <Label htmlFor="test-address">Indirizzo</Label>
+            <Input
+              id="test-address"
+              value={testAddress}
+              onChange={(event) => setTestAddress(event.target.value)}
+              placeholder="Corso Vittorio Emanuele 12, 90036 Misilmeri"
+            />
           </div>
 
-          <Button variant="secondary" onClick={handleVerifyPoint}>
-            Verifica punto
+          <Button variant="secondary" onClick={() => void handleVerifyAddress()} disabled={testingAddress}>
+            {testingAddress ? 'Verifica in corso...' : 'Verifica indirizzo'}
           </Button>
 
-          {testResult !== null && (
+          {testMode !== null && (
             <div>
-              {testResult ? (
+              {testMode === 'inside' ? (
                 <Badge className="bg-emerald-600 hover:bg-emerald-600">Dentro area delivery</Badge>
-              ) : (
+              ) : testMode === 'outside' ? (
                 <Badge variant="destructive">Fuori area delivery</Badge>
+              ) : testMode === 'unverifiable' ? (
+                <Badge variant="outline">Indirizzo non verificabile</Badge>
+              ) : testMode === 'not_configured' ? (
+                <Badge variant="secondary">Area non configurata</Badge>
+              ) : (
+                <Badge variant="destructive">Errore verifica</Badge>
               )}
+              {testMessage && <p className="mt-2 text-sm text-muted-foreground">{testMessage}</p>}
             </div>
           )}
         </CardContent>
