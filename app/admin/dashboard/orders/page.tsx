@@ -478,15 +478,60 @@ export default function OrdersManagementPage() {
     setDetailsOpen(true)
   }
 
+  const queueEscPosPrint = async (order: Order, triggerStatus = 'manual_native_fallback') => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) throw new Error('Sessione admin non valida')
+
+      const res = await fetch('/api/admin/print-jobs', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ orderId: order.id, triggerStatus }),
+      })
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data?.error || 'Errore coda stampa')
+      }
+
+      toast.success('Comanda accodata per stampa ESC/POS')
+      return true
+    } catch (error) {
+      console.error('[orders] Queue ESC/POS error:', error)
+      toast.error('Stampa non riuscita e coda ESC/POS non disponibile')
+      return false
+    }
+  }
+
   const handleDirectPrint = async (order: Order) => {
     const isNativeApp = Capacitor.isNativePlatform()
-    printReceipt(order, {
+    let fallbackQueued = false
+    const enqueueFallback = () => {
+      if (fallbackQueued) return
+      fallbackQueued = true
+      void queueEscPosPrint(order)
+    }
+
+    const started = printReceipt(order, {
       name: storeInfo?.name || 'AMICO FRITTO',
       phone: storeInfo?.phone ?? null,
       address: storeInfo?.address ?? null,
     }, {
-      preferPopup: isNativeApp,
+      // In Android WebView popup print can jump to external browser (Chrome).
+      preferPopup: false,
+      suppressAlert: isNativeApp,
+      onError: () => {
+        if (isNativeApp) enqueueFallback()
+      },
     })
+
+    if (!started && isNativeApp) {
+      enqueueFallback()
+    }
   }
 
   const filterOrdersByStatus = (status?: Order['status']) => {
@@ -685,7 +730,7 @@ export default function OrdersManagementPage() {
       {/* Order Details Dialog / Drawer */}
       {isMobile ? (
         <Drawer open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DrawerContent className="max-h-[92dvh] overflow-hidden rounded-t-2xl p-4 pt-0">
+          <DrawerContent className="h-[92dvh] max-h-[92dvh] overflow-hidden rounded-t-2xl p-4 pt-0">
             {selectedOrder && (
               <>
                 <div className="-mx-4 px-4 pt-4 pb-4 sticky top-0 z-10 bg-background/95 backdrop-blur border-b">
@@ -703,7 +748,7 @@ export default function OrdersManagementPage() {
                   </DrawerHeader>
                 </div>
 
-                <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pt-4 pb-24">
+                <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pt-4 pb-6">
                   <div>
                     <h3 className="font-semibold mb-3">Informazioni cliente</h3>
                     <div className="space-y-2 text-sm">
@@ -799,49 +844,49 @@ export default function OrdersManagementPage() {
                       </p>
                     </div>
                   )}
+                </div>
 
-                  <div className="sticky bottom-0 z-10 -mx-4 border-t bg-background/95 backdrop-blur px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        onClick={() => handleDirectPrint(selectedOrder)}
-                      >
-                        <Printer className="h-4 w-4 mr-2" />
-                        Stampa
-                      </Button>
-                      {selectedOrder.status !== 'completed' && selectedOrder.status !== 'cancelled' && (
-                        <div className="flex flex-1 gap-2">
-                          <Button
-                            className="flex-1"
-                            onClick={() => {
-                              const next = getNextStatus(selectedOrder.status)
-                              if (next) {
-                                handleStatusChange(selectedOrder.id, next)
-                              }
-                            }}
-                          >
-                            {getNextStatusLabel(selectedOrder.status)}
-                          </Button>
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button variant="outline" size="icon" aria-label="Cambia stato ordine">
-                                <ChevronUp className="h-4 w-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent side="top" align="end">
-                              {getStatusOptions(selectedOrder.status).map((key) => (
-                                <DropdownMenuItem
-                                  key={key}
-                                  onClick={() => handleStatusChange(selectedOrder.id, key)}
-                                >
-                                  {statusConfig[key].label}
-                                </DropdownMenuItem>
-                              ))}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
-                        </div>
-                      )}
-                    </div>
+                <div className="shrink-0 -mx-4 border-t bg-background/95 backdrop-blur px-4 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
+                  <div className="flex gap-2">
+                    <Button
+                      variant="outline"
+                      onClick={() => handleDirectPrint(selectedOrder)}
+                    >
+                      <Printer className="h-4 w-4 mr-2" />
+                      Stampa
+                    </Button>
+                    {selectedOrder.status !== 'completed' && selectedOrder.status !== 'cancelled' && (
+                      <div className="flex flex-1 gap-2">
+                        <Button
+                          className="flex-1"
+                          onClick={() => {
+                            const next = getNextStatus(selectedOrder.status)
+                            if (next) {
+                              handleStatusChange(selectedOrder.id, next)
+                            }
+                          }}
+                        >
+                          {getNextStatusLabel(selectedOrder.status)}
+                        </Button>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="outline" size="icon" aria-label="Cambia stato ordine">
+                              <ChevronUp className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent side="top" align="end">
+                            {getStatusOptions(selectedOrder.status).map((key) => (
+                              <DropdownMenuItem
+                                key={key}
+                                onClick={() => handleStatusChange(selectedOrder.id, key)}
+                              >
+                                {statusConfig[key].label}
+                              </DropdownMenuItem>
+                            ))}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    )}
                   </div>
                 </div>
               </>

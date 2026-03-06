@@ -277,11 +277,16 @@ function buildReceiptHtml(order: Order, storeInfo?: { name: string; phone?: stri
 
 type PrintReceiptOptions = {
   preferPopup?: boolean
+  suppressAlert?: boolean
+  onError?: (message: string) => void
 }
 
-function tryPopupPrint(html: string): boolean {
+function tryPopupPrint(html: string, onError?: (message: string) => void): boolean {
   const popup = window.open('', '_blank')
-  if (!popup) return false
+  if (!popup) {
+    onError?.("Impossibile aprire l'anteprima di stampa")
+    return false
+  }
 
   try {
     popup.document.open()
@@ -310,6 +315,7 @@ function tryPopupPrint(html: string): boolean {
 
     return true
   } catch {
+    onError?.("Errore durante l'apertura della stampa")
     try {
       popup.close()
     } catch {
@@ -324,11 +330,18 @@ export function printReceipt(
   storeInfo?: { name: string; phone?: string | null; address?: string | null },
   options?: PrintReceiptOptions
 ) {
+  const reportError = (message: string) => {
+    options?.onError?.(message)
+    if (!options?.suppressAlert) {
+      alert(message)
+    }
+  }
+
   const html = buildReceiptHtml(order, storeInfo)
 
   if (options?.preferPopup) {
-    const printedByPopup = tryPopupPrint(html)
-    if (printedByPopup) return
+    const printedByPopup = tryPopupPrint(html, reportError)
+    if (printedByPopup) return true
   }
 
   const iframe = document.createElement('iframe')
@@ -363,7 +376,7 @@ export function printReceipt(
   iframe.onload = () => {
     const frameWindow = iframe.contentWindow
     if (!frameWindow) {
-      alert('Impossibile avviare la stampa della comanda')
+      reportError('Impossibile avviare la stampa della comanda')
       cleanup()
       return
     }
@@ -382,7 +395,7 @@ export function printReceipt(
         // Fallback cleanup in case afterprint is not fired by the browser/printer driver.
         scheduleCleanup(60000)
       } catch {
-        alert('Errore durante la stampa della comanda')
+        reportError('Errore durante la stampa della comanda')
         cleanup()
       }
     }, 150)
@@ -391,12 +404,13 @@ export function printReceipt(
   document.body.appendChild(iframe)
   const frameDocument = iframe.contentDocument || iframe.contentWindow?.document
   if (!frameDocument) {
-    alert('Impossibile preparare la stampa della comanda')
+    reportError('Impossibile preparare la stampa della comanda')
     cleanup()
-    return
+    return false
   }
 
   frameDocument.open()
   frameDocument.write(html)
   frameDocument.close()
+  return true
 }
