@@ -8,6 +8,7 @@
     "start": "next start",
     "lint": "next lint",
     "print:emulator": "node scripts/print-agent-emulator.mjs",
+    "print:agent:escpos": "node scripts/print-agent-escpos-tcp.mjs",
     "cap:add:android": "cap add android",
     "cap:sync": "cap sync android",
     "cap:copy": "cap copy android",

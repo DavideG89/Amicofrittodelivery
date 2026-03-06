@@ -509,29 +509,16 @@ export default function OrdersManagementPage() {
 
   const handleDirectPrint = async (order: Order) => {
     const isNativeApp = Capacitor.isNativePlatform()
-    let fallbackQueued = false
-    const enqueueFallback = () => {
-      if (fallbackQueued) return
-      fallbackQueued = true
-      void queueEscPosPrint(order)
+    if (isNativeApp) {
+      await queueEscPosPrint(order, 'manual_native')
+      return
     }
 
-    const started = printReceipt(order, {
+    printReceipt(order, {
       name: storeInfo?.name || 'AMICO FRITTO',
       phone: storeInfo?.phone ?? null,
       address: storeInfo?.address ?? null,
-    }, {
-      // In Android WebView popup print can jump to external browser (Chrome).
-      preferPopup: false,
-      suppressAlert: isNativeApp,
-      onError: () => {
-        if (isNativeApp) enqueueFallback()
-      },
     })
-
-    if (!started && isNativeApp) {
-      enqueueFallback()
-    }
   }
 
   const filterOrdersByStatus = (status?: Order['status']) => {
