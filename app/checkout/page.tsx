@@ -510,6 +510,7 @@ function CheckoutForm() {
         order_type: isDelivery ? 'delivery' : 'takeaway',
         items: items.map(item => ({
           product_id: item.product.id,
+          item_source: item.item_source === 'upsell' ? 'upsell' : 'menu',
           name: item.product.name,
           price: item.product.price,
           quantity: item.quantity,

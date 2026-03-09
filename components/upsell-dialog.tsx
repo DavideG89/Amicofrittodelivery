@@ -70,7 +70,7 @@ export function UpsellDialog({
     selectedProducts.forEach(productId => {
       const product = suggestedProducts.find(p => p.id === productId)
       if (product) {
-        addItem(product)
+        addItem(product, { source: 'upsell' })
       }
     })
     onAddSelectedComplete?.()

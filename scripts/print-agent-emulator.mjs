@@ -50,6 +50,11 @@ function buildReceiptPreview(job) {
   }
 
   lines.push('------------------------------')
+  if (Number(order.discount_amount || 0) > 0) {
+    const discountCode = String(order.discount_code || '').trim()
+    if (discountCode) lines.push(`Sconto applicato: ${discountCode}`)
+    lines.push(`Sconto: -EUR ${Number(order.discount_amount || 0).toFixed(2)}`)
+  }
   lines.push(`TOTALE: EUR ${Number(order.total || 0).toFixed(2)}`)
   if (order.notes) lines.push(`Note: ${String(order.notes)}`)
   lines.push('==============================')

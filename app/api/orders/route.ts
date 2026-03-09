@@ -5,12 +5,14 @@ import { createRateLimiter } from '@/lib/rate-limit'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
 import { sendFcmMessages } from '@/lib/fcm'
 import { normalizeOrderNumber } from '@/lib/order-number'
-import { buildProductNameWithPieceOption, normalizeProductPieceOptions } from '@/lib/product-piece-options'
+import { buildProductNameWithPieceOption, normalizeProductPieceOptions, type ProductPieceOption } from '@/lib/product-piece-options'
+import { normalizeUpsellProductOverrides } from '@/lib/upsell-overrides'
 import type { OrderStatus } from '@/lib/supabase'
 import { getDeliveryPolygonFromOpeningHours, isDeliveryPolygonReady, isPointInsideDeliveryPolygon } from '@/lib/delivery-area'
 
 type OrderItem = {
   product_id: string
+  item_source?: 'menu' | 'upsell'
   name: string
   price: number
   quantity: number
@@ -190,6 +192,60 @@ function getClientIp(request: Request) {
 
 function isUuid(value: string) {
   return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value)
+}
+
+function isMissingProductOverridesColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+  const maybeError = error as { code?: string; message?: string; details?: string; hint?: string }
+  const text = `${maybeError.message || ''} ${maybeError.details || ''} ${maybeError.hint || ''}`.toLowerCase()
+  return maybeError.code === '42703' || (text.includes('product_overrides') && text.includes('column'))
+}
+
+function parsePiecesFromItemName(itemName: string | null) {
+  if (!itemName) return null
+  const match = itemName.match(/(\d+)\s*(?:x|×|pezzi?)/i)
+  if (!match) return null
+  const pieces = Number(match[1])
+  if (!Number.isFinite(pieces) || pieces <= 0) return null
+  return Math.floor(pieces)
+}
+
+function normalizePrice(value: unknown) {
+  const parsed = Number(value)
+  if (!Number.isFinite(parsed)) return null
+  return Math.round(parsed * 100) / 100
+}
+
+function resolvePieceOption(
+  pieceOptions: ProductPieceOption[],
+  selectedId: string | null,
+  itemName: string | null,
+  itemPrice: number | null
+) {
+  if (pieceOptions.length === 0) return null
+
+  if (selectedId) {
+    const selectedById = pieceOptions.find((option) => option.id === selectedId)
+    if (selectedById) return selectedById
+  }
+
+  const normalizedItemPrice = normalizePrice(itemPrice)
+  if (normalizedItemPrice !== null) {
+    const matchedByPrice = pieceOptions.filter((option) => normalizePrice(option.price) === normalizedItemPrice)
+    if (matchedByPrice.length === 1) return matchedByPrice[0]
+  }
+
+  const requestedPieces = parsePiecesFromItemName(itemName)
+  if (requestedPieces !== null) {
+    const matchedByPieces = pieceOptions.filter((option) => option.pieces === requestedPieces)
+    if (matchedByPieces.length === 1) return matchedByPieces[0]
+  }
+
+  if (pieceOptions.length === 1) {
+    return pieceOptions[0]
+  }
+
+  return null
 }
 
 async function fetchWithTimeout(input: string, init: RequestInit, timeoutMs = 8000) {
@@ -457,7 +513,10 @@ export async function POST(request: Request) {
 
     const items = order.items.map((item) => ({
       product_id: String(item.product_id || ''),
+      item_source: item.item_source === 'upsell' ? 'upsell' : 'menu',
       quantity: Number(item.quantity || 0),
+      name: typeof item.name === 'string' ? sanitizeString(item.name, 160) : null,
+      price: Number(item.price),
       piece_option_id: typeof item.piece_option_id === 'string' ? item.piece_option_id.trim().slice(0, 64) : null,
       additions: item.additions ? sanitizeString(String(item.additions), 160) : null,
       additions_ids: Array.isArray(item.additions_ids)
@@ -499,6 +558,66 @@ export async function POST(request: Request) {
     }
 
     const productMap = new Map(productsData?.map((product) => [product.id, product]) ?? [])
+    const hasUpsellItems = items.some((item) => item.item_source === 'upsell')
+    const upsellConfiguredMap = new Map<string, { name: string; price: number }>()
+
+    if (hasUpsellItems) {
+      let settingsData: { enabled?: boolean; product_ids?: string[]; product_overrides?: unknown } | null = null
+
+      const { data: settingsWithOverrides, error: settingsError } = await supabase
+        .from('upsell_settings')
+        .select('enabled, product_ids, product_overrides')
+        .eq('id', 'default')
+        .maybeSingle()
+
+      if (settingsError && isMissingProductOverridesColumnError(settingsError)) {
+        const { data: fallbackSettings } = await supabase
+          .from('upsell_settings')
+          .select('enabled, product_ids')
+          .eq('id', 'default')
+          .maybeSingle()
+        settingsData = (fallbackSettings as { enabled?: boolean; product_ids?: string[] } | null) || null
+      } else if (!settingsError) {
+        settingsData = (settingsWithOverrides as { enabled?: boolean; product_ids?: string[]; product_overrides?: unknown } | null) || null
+      }
+
+      const restrictedIds = Array.isArray(settingsData?.product_ids)
+        ? settingsData.product_ids.filter((id): id is string => typeof id === 'string' && id.length > 0)
+        : []
+      const hasRestrictedList = restrictedIds.length > 0
+      const restrictedSet = new Set(restrictedIds)
+      const overrides = normalizeUpsellProductOverrides(settingsData?.product_overrides)
+      const isUpsellEnabled = settingsData ? settingsData.enabled !== false : true
+
+      if (isUpsellEnabled) {
+        for (const [productId, product] of productMap) {
+          if (hasRestrictedList && !restrictedSet.has(productId)) continue
+          const override = overrides[productId]
+          const isAvailable = typeof override?.available === 'boolean' ? override.available : Boolean(product.available)
+          if (!isAvailable) continue
+
+          const normalizedOverrideName =
+            typeof override?.name === 'string' && override.name.trim()
+              ? sanitizeString(override.name.trim(), 160)
+              : ''
+          const overridePrice = Number(override?.price)
+          const normalizedOverridePrice =
+            Number.isFinite(overridePrice) && overridePrice >= 0
+              ? Math.round(overridePrice * 100) / 100
+              : null
+
+          const upsellName = normalizedOverrideName || String(product.name || '').trim()
+          const upsellPrice =
+            normalizedOverridePrice !== null
+              ? normalizedOverridePrice
+              : Math.round(Number(product.price || 0) * 100) / 100
+
+          if (!upsellName || !Number.isFinite(upsellPrice) || upsellPrice < 0) continue
+          upsellConfiguredMap.set(productId, { name: upsellName, price: upsellPrice })
+        }
+      }
+    }
+
     const additionIds = [...new Set(items.flatMap((item) => item.additions_ids))]
     const hasRequestedAdditions = additionIds.length > 0
     const categorySlugMap = new Map<string, string>()
@@ -571,14 +690,38 @@ export async function POST(request: Request) {
 
     let additionsValidationError: string | null = null
     let pieceOptionsValidationError: string | null = null
+    let upsellValidationError: string | null = null
     const normalizedItems = items.map((item) => {
       const product = productMap.get(item.product_id)
-      const pieceOptions = normalizeProductPieceOptions(product?.piece_options)
-      const selectedPieceOption =
-        pieceOptions.find((option) => option.id === item.piece_option_id) || null
+      const quantity = Math.min(Math.floor(item.quantity), 99)
 
-      if (pieceOptions.length > 0 && !selectedPieceOption) {
-        pieceOptionsValidationError = 'Seleziona una quantità valida per il prodotto'
+      if (item.item_source === 'upsell') {
+        const upsellConfigured = upsellConfiguredMap.get(item.product_id) || null
+        if (!upsellConfigured && !upsellValidationError) {
+          const fallbackName = product?.name || item.name || 'prodotto'
+          upsellValidationError = `Prodotto upsell non valido: ${fallbackName}`
+        }
+
+        return {
+          product_id: item.product_id,
+          item_source: 'upsell' as const,
+          name: upsellConfigured?.name || '',
+          price: upsellConfigured?.price ?? 0,
+          quantity,
+          piece_option_id: null,
+          additions: null,
+          additions_unit_price: 0,
+          additions_ids: [],
+          available: Boolean(upsellConfigured),
+        }
+      }
+
+      const pieceOptions = normalizeProductPieceOptions(product?.piece_options)
+      const selectedPieceOption = resolvePieceOption(pieceOptions, item.piece_option_id, item.name, item.price)
+
+      if (pieceOptions.length > 0 && !selectedPieceOption && !pieceOptionsValidationError) {
+        const productName = product?.name || 'prodotto'
+        pieceOptionsValidationError = `Seleziona una quantità valida per ${productName}`
       }
 
       const itemName =
@@ -590,9 +733,10 @@ export async function POST(request: Request) {
       if (!hasRequestedAdditions) {
         return {
           product_id: item.product_id,
+          item_source: 'menu' as const,
           name: itemName,
           price: itemPrice,
-          quantity: Math.min(Math.floor(item.quantity), 99),
+          quantity,
           piece_option_id: selectedPieceOption?.id || null,
           additions: null,
           additions_unit_price: 0,
@@ -630,9 +774,10 @@ export async function POST(request: Request) {
 
       return {
         product_id: item.product_id,
+        item_source: 'menu' as const,
         name: itemName,
         price: itemPrice,
-        quantity: Math.min(Math.floor(item.quantity), 99),
+        quantity,
         piece_option_id: selectedPieceOption?.id || null,
         additions: additionsLabelParts.join(' | ') || null,
         additions_unit_price: Math.round(additionsUnitPrice * 100) / 100,
@@ -647,6 +792,10 @@ export async function POST(request: Request) {
 
     if (pieceOptionsValidationError) {
       return NextResponse.json({ error: pieceOptionsValidationError }, { status: 400 })
+    }
+
+    if (upsellValidationError) {
+      return NextResponse.json({ error: upsellValidationError }, { status: 400 })
     }
 
     if (normalizedItems.some((item) => !item.name || !item.available)) {

@@ -122,6 +122,7 @@ export type OrderAddition = {
 
 export type OrderItem = {
   product_id: string
+  item_source?: 'menu' | 'upsell'
   name: string
   price: number
   quantity: number

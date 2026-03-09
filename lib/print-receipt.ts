@@ -210,6 +210,9 @@ export function buildReceiptLines(order: Order, storeInfo?: StoreInfo, lineWidth
   const discountAmount = toNumber(order.discount_amount)
   if (discountAmount > 0) {
     const discountCode = cleanText(order.discount_code)
+    if (discountCode) {
+      lines.push(...wrapText(`Sconto applicato: ${discountCode}`, lineWidth))
+    }
     const discountLabel = discountCode ? `Sconto (${discountCode})` : 'Sconto'
     lines.push(amountLine(discountLabel, `-EUR ${formatMoney(discountAmount)}`, lineWidth))
   }

@@ -121,7 +121,11 @@ function buildEscPosBuffer(job) {
   chunks.push(hr())
   chunks.push(line(`Subtotale: EUR ${toPrice(order.subtotal)}`))
   if (Number(order.delivery_fee || 0) > 0) chunks.push(line(`Consegna: EUR ${toPrice(order.delivery_fee)}`))
-  if (Number(order.discount_amount || 0) > 0) chunks.push(line(`Sconto: -EUR ${toPrice(order.discount_amount)}`))
+  if (Number(order.discount_amount || 0) > 0) {
+    const discountCode = String(order.discount_code || '').trim()
+    if (discountCode) chunks.push(line(`Sconto applicato: ${truncate(discountCode, 19)}`))
+    chunks.push(line(`Sconto: -EUR ${toPrice(order.discount_amount)}`))
+  }
   chunks.push(bold(true))
   chunks.push(line(`TOTALE: EUR ${toPrice(order.total)}`))
   chunks.push(bold(false))

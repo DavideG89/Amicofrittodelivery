@@ -6,6 +6,7 @@ import { Product } from './supabase'
 export type CartItem = {
   product: Product
   quantity: number
+  item_source?: 'menu' | 'upsell'
   piece_option_id?: string
   additions?: string
   additions_unit_price?: number
@@ -13,6 +14,7 @@ export type CartItem = {
 }
 
 type AddItemOptions = {
+  source?: 'menu' | 'upsell'
   pieceOptionId?: string
   additions?: string
   additionsUnitPrice?: number
@@ -40,6 +42,7 @@ type StoredCartItem = {
     image_url: string | null
   }
   quantity: number
+  item_source?: 'menu' | 'upsell'
   piece_option_id?: string
   additions?: string
   additions_unit_price?: number
@@ -74,10 +77,11 @@ const hydrateProduct = (stored: StoredCartItem['product']): Product => ({
   updated_at: '',
 })
 
-export const getCartItemKey = (item: Pick<CartItem, 'product' | 'piece_option_id' | 'additions' | 'additions_ids'>) => {
+export const getCartItemKey = (item: Pick<CartItem, 'product' | 'item_source' | 'piece_option_id' | 'additions' | 'additions_ids'>) => {
   const additionsIds = Array.isArray(item.additions_ids) ? [...item.additions_ids].sort().join(',') : ''
   return [
     item.product.id,
+    item.item_source || 'menu',
     item.piece_option_id || '',
     item.product.name || '',
     Number(item.product.price || 0).toFixed(2),
@@ -118,6 +122,7 @@ const normalizeStoredCart = (raw: unknown): CartItem[] => {
       return {
         product,
         quantity,
+        item_source: item.item_source === 'upsell' ? 'upsell' : 'menu',
         piece_option_id: typeof item.piece_option_id === 'string' ? item.piece_option_id : undefined,
         additions: typeof item.additions === 'string' ? item.additions : '',
         additions_unit_price: Number.isFinite(Number(item.additions_unit_price))
@@ -152,6 +157,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const compactItems: StoredCartItem[] = items.map((item) => ({
         product: toSafeProductForStorage(item.product),
         quantity: item.quantity,
+        item_source: item.item_source === 'upsell' ? 'upsell' : 'menu',
         piece_option_id: item.piece_option_id,
         additions: item.additions || '',
         additions_unit_price: Number(item.additions_unit_price) || 0,
@@ -173,6 +179,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
               image_url: null,
             },
             quantity: item.quantity,
+            item_source: item.item_source === 'upsell' ? 'upsell' : 'menu',
             piece_option_id: item.piece_option_id,
             additions: '',
             additions_unit_price: Number(item.additions_unit_price) || 0,
@@ -189,6 +196,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
   }, [items])
 
   const addItem = (product: Product, options?: string | AddItemOptions) => {
+    const source =
+      typeof options === 'string'
+        ? 'menu'
+        : (options?.source === 'upsell' ? 'upsell' : 'menu')
     const pieceOptionId =
       typeof options === 'string' ? undefined : (typeof options?.pieceOptionId === 'string' ? options.pieceOptionId : undefined)
     const additionsText =
@@ -211,6 +222,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
       const existingItem = prevItems.find(
         (item) =>
           item.product.id === product.id &&
+          (item.item_source || 'menu') === source &&
           (item.piece_option_id || '') === (pieceOptionId || '') &&
           (item.additions || '') === (normalizedAdditions || '') &&
           Number(item.additions_unit_price || 0) === normalizedAdditionsUnitPrice &&
@@ -240,6 +252,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         {
           product,
           quantity: 1,
+          item_source: source,
           piece_option_id: pieceOptionId,
           additions: normalizedAdditions,
           additions_unit_price: normalizedAdditionsUnitPrice,
