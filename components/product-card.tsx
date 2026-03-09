@@ -349,7 +349,7 @@ export function ProductCard({
       <CardHeader className="flex-grow space-y-1.5 p-3 sm:space-y-2 sm:p-4">
         <div className="flex items-start justify-between gap-2">
           <div className="flex min-w-0 items-start gap-1.5">
-            <CardTitle className="text-[20px] sm:text-xl leading-tight text-pretty">
+            <CardTitle className="min-w-0 line-clamp-2 break-words text-[20px] leading-tight text-pretty sm:text-xl">
               {product.name}
             </CardTitle>
             <Drawer
@@ -485,7 +485,7 @@ export function ProductCard({
                 {renderPieceOptionsSection()}
 
                 <div className="space-y-2">
-                  <p className="text-lg font-semibold">
+                  <p className="sticky top-0 z-10 bg-background/95 py-1 text-lg font-semibold backdrop-blur">
                     Salse
                     {effectiveSauceRule.sauce_mode === 'paid_multi' && ` (${selectedSauceIds.size}/${effectiveSauceRule.max_sauces})`}
                     {effectiveSauceRule.sauce_mode === 'free_single' && ' (max 1 gratuita)'}
@@ -531,7 +531,7 @@ export function ProductCard({
 
                 {!saucesOnly && (
                   <div className="space-y-2">
-                    <p className="text-lg font-semibold">Extra</p>
+                    <p className="sticky top-0 z-10 bg-background/95 py-1 text-lg font-semibold backdrop-blur">Extra</p>
                     <div className="grid gap-2">
                       {extraOptions.map((extra) => {
                         const checked = selectedExtras.has(extra.id)

@@ -3,22 +3,31 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { supabase, type Product, type UpsellSettings, type Category } from '@/lib/supabase'
+import { supabase, type Product, type UpsellSettings, type Category, type UpsellProductOverrides } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { Switch } from '@/components/ui/switch'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { applyUpsellOverrideToProduct, buildUpsellProductOverride, normalizeUpsellProductOverrides } from '@/lib/upsell-overrides'
 import { toast } from 'sonner'
-import { Save, Search, ListChecks, XCircle, ChevronDown } from 'lucide-react'
+import { Save, Search, ListChecks, XCircle, ChevronDown, Pencil } from 'lucide-react'
 
 const DEFAULT_UPSELL_ID = 'default'
 const DEFAULT_MAX_ITEMS = 6
 
 const compareProductName = (a: Product, b: Product) =>
   a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
+
+function isMissingProductOverridesColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+  const maybeError = error as { code?: string; message?: string; details?: string; hint?: string }
+  const text = `${maybeError.message || ''} ${maybeError.details || ''} ${maybeError.hint || ''}`.toLowerCase()
+  return maybeError.code === '42703' || (text.includes('product_overrides') && text.includes('column'))
+}
 
 export default function UpsellPage() {
   const router = useRouter()
@@ -28,7 +37,15 @@ export default function UpsellPage() {
   const [enabled, setEnabled] = useState(true)
   const [maxItems, setMaxItems] = useState(DEFAULT_MAX_ITEMS)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [productOverrides, setProductOverrides] = useState<UpsellProductOverrides>({})
   const [query, setQuery] = useState('')
+  const [productDialogOpen, setProductDialogOpen] = useState(false)
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null)
+  const [editingProductForm, setEditingProductForm] = useState({
+    name: '',
+    price: '',
+    available: true,
+  })
   const adminPages = [
     { href: '/admin/dashboard', label: 'Dashboard' },
     { href: '/admin/dashboard/orders', label: 'Ordini' },
@@ -44,14 +61,14 @@ export default function UpsellPage() {
       try {
         const [
           { data: productsData, error: productsError },
-          { data: settingsData },
+          { data: settingsData, error: settingsError },
           { data: categoriesData, error: categoriesError },
         ] =
           await Promise.all([
             supabase.from('products').select('id, category_id, name, price, image_url, available, label, display_order, created_at, updated_at'),
             supabase
               .from('upsell_settings')
-              .select('id, enabled, product_ids, max_items')
+              .select('id, enabled, product_ids, max_items, product_overrides')
               .eq('id', DEFAULT_UPSELL_ID)
               .maybeSingle(),
             supabase.from('categories').select('id, name, slug, display_order, created_at, updated_at'),
@@ -60,11 +77,31 @@ export default function UpsellPage() {
         if (productsError) throw productsError
         if (categoriesError) throw categoriesError
 
-        const normalizedSettings = settingsData as UpsellSettings | null
+        let normalizedSettings = (settingsData as UpsellSettings | null) || null
+        let overridesFromSettings = normalizeUpsellProductOverrides(normalizedSettings?.product_overrides)
+
+        if (settingsError) {
+          if (!isMissingProductOverridesColumnError(settingsError)) {
+            throw settingsError
+          }
+
+          const { data: fallbackSettingsData, error: fallbackSettingsError } = await supabase
+            .from('upsell_settings')
+            .select('id, enabled, product_ids, max_items')
+            .eq('id', DEFAULT_UPSELL_ID)
+            .maybeSingle()
+
+          if (fallbackSettingsError) throw fallbackSettingsError
+
+          normalizedSettings = (fallbackSettingsData as UpsellSettings | null) || null
+          overridesFromSettings = {}
+        }
+
         if (normalizedSettings) {
           setEnabled(Boolean(normalizedSettings.enabled))
           setMaxItems(normalizedSettings.max_items || DEFAULT_MAX_ITEMS)
           setSelectedIds(new Set(normalizedSettings.product_ids || []))
+          setProductOverrides(overridesFromSettings)
         }
 
         setProducts((productsData || []).sort(compareProductName))
@@ -97,12 +134,20 @@ export default function UpsellPage() {
     )
   }, [categories])
 
+  const productsById = useMemo(() => {
+    return new Map(products.map((product) => [product.id, product] as const))
+  }, [products])
+
+  const effectiveProducts = useMemo(() => {
+    return products.map((product) => applyUpsellOverrideToProduct(product, productOverrides))
+  }, [products, productOverrides])
+
   const filteredProducts = useMemo(() => {
     const term = query.trim().toLowerCase()
-    const base = products.filter((product) => allowedCategoryIds.has(product.category_id))
+    const base = effectiveProducts.filter((product) => allowedCategoryIds.has(product.category_id))
     if (!term) return base
     return base.filter((product) => product.name.toLowerCase().includes(term))
-  }, [products, query, allowedCategoryIds])
+  }, [effectiveProducts, query, allowedCategoryIds])
 
   const selectedCount = selectedIds.size
 
@@ -127,25 +172,105 @@ export default function UpsellPage() {
     try {
       const allowedIds = new Set(products.filter((p) => allowedCategoryIds.has(p.category_id)).map((p) => p.id))
       const filteredSelection = Array.from(selectedIds).filter((id) => allowedIds.has(id))
+      const filteredOverrides = Object.fromEntries(
+        Object.entries(productOverrides).filter(([productId]) => allowedIds.has(productId))
+      )
 
-      const payload: Pick<UpsellSettings, 'id' | 'enabled' | 'max_items' | 'product_ids'> = {
+      const payload: Pick<UpsellSettings, 'id' | 'enabled' | 'max_items' | 'product_ids' | 'product_overrides'> = {
         id: DEFAULT_UPSELL_ID,
         enabled,
         max_items: Math.max(1, Number(maxItems) || DEFAULT_MAX_ITEMS),
         product_ids: filteredSelection,
+        product_overrides: filteredOverrides,
       }
 
       const { error } = await supabase
         .from('upsell_settings')
         .upsert(payload, { onConflict: 'id' })
 
-      if (error) throw error
+      if (error) {
+        if (!isMissingProductOverridesColumnError(error)) throw error
+
+        const { error: fallbackError } = await supabase
+          .from('upsell_settings')
+          .upsert(
+            {
+              id: DEFAULT_UPSELL_ID,
+              enabled,
+              max_items: Math.max(1, Number(maxItems) || DEFAULT_MAX_ITEMS),
+              product_ids: filteredSelection,
+            },
+            { onConflict: 'id' }
+          )
+
+        if (fallbackError) throw fallbackError
+
+        if (Object.keys(filteredOverrides).length > 0) {
+          toast.error('Per salvare modifiche solo upsell esegui la migration: scripts/15-add-upsell-product-overrides.sql')
+        } else {
+          toast.success('Impostazioni upsell salvate')
+        }
+        return
+      }
 
       toast.success('Impostazioni upsell salvate')
     } catch (error) {
       console.error('[v0] Error saving upsell settings:', error)
-      toast.error('Errore nel salvataggio delle impostazioni')
+      const message = error instanceof Error ? error.message : ''
+      toast.error(message || 'Errore nel salvataggio delle impostazioni')
     }
+  }
+
+  const handleEditProduct = (product: Product) => {
+    const baseProduct = productsById.get(product.id)
+    if (!baseProduct) {
+      toast.error('Prodotto non trovato')
+      return
+    }
+
+    setEditingProduct(baseProduct)
+    setEditingProductForm({
+      name: product.name,
+      price: Number(product.price).toFixed(2),
+      available: Boolean(product.available),
+    })
+    setProductDialogOpen(true)
+  }
+
+  const handleSaveProduct = async () => {
+    if (!editingProduct) return
+
+    const name = editingProductForm.name.trim()
+    if (!name) {
+      toast.error('Inserisci il nome prodotto')
+      return
+    }
+
+    const price = Number(editingProductForm.price)
+    if (!Number.isFinite(price) || price < 0) {
+      toast.error('Prezzo non valido')
+      return
+    }
+
+    const override = buildUpsellProductOverride(editingProduct, {
+      name,
+      price,
+      available: editingProductForm.available,
+    })
+
+    setProductOverrides((prev) => {
+      const next = { ...prev }
+      if (override) {
+        next[editingProduct.id] = override
+      } else {
+        delete next[editingProduct.id]
+      }
+      return next
+    })
+
+    setProductDialogOpen(false)
+    setEditingProduct(null)
+    toast.success('Modifica upsell applicata. Premi Salva per confermare.')
   }
 
   if (loading) {
@@ -199,7 +324,7 @@ export default function UpsellPage() {
           </div>
           <h1 className="hidden md:block text-3xl font-bold">Upsell</h1>
           <p className="text-muted-foreground">
-            Scegli quali prodotti mostrare nel modale upsell
+            Scegli quali prodotti mostrare nel modale upsell e personalizzali senza toccare il menu
           </p>
         </div>
         <Button className="w-full sm:w-auto" onClick={handleSave}>
@@ -243,7 +368,7 @@ export default function UpsellPage() {
           <CardTitle>Prodotti ({selectedCount} selezionati)</CardTitle>
           <CardDescription>
             Seleziona i prodotti da mostrare nel modale upsell. Sono disponibili solo
-            le categorie Bevande e Fritti.
+            le categorie Bevande e Fritti. Le modifiche fatte qui valgono solo per upsell.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -276,7 +401,7 @@ export default function UpsellPage() {
               {filteredProducts.map((product) => {
                 const checked = selectedIds.has(product.id)
                 return (
-                  <label
+                  <div
                     key={product.id}
                     className="flex items-center gap-3 rounded-md border p-3 transition-colors hover:bg-muted/40"
                   >
@@ -304,13 +429,83 @@ export default function UpsellPage() {
                         {product.price.toFixed(2)}€ {product.available ? '• Disponibile' : '• Non disponibile'}
                       </div>
                     </div>
-                  </label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEditProduct(product)}
+                    >
+                      <Pencil className="mr-2 h-4 w-4" />
+                      Modifica
+                    </Button>
+                  </div>
                 )
               })}
             </div>
           )}
         </CardContent>
       </Card>
+
+      <Dialog open={productDialogOpen} onOpenChange={setProductDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Modifica prodotto</DialogTitle>
+            <DialogDescription>
+              Questa modifica vale solo nel modale upsell. Il prodotto nel menu resta invariato.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4">
+            <div>
+              <Label htmlFor="edit-name">Nome</Label>
+              <Input
+                id="edit-name"
+                value={editingProductForm.name}
+                onChange={(e) => setEditingProductForm((prev) => ({ ...prev, name: e.target.value }))}
+                placeholder="Nome prodotto"
+              />
+            </div>
+            <div>
+              <Label htmlFor="edit-price">Prezzo (€)</Label>
+              <Input
+                id="edit-price"
+                type="number"
+                min="0"
+                step="0.01"
+                value={editingProductForm.price}
+                onChange={(e) => setEditingProductForm((prev) => ({ ...prev, price: e.target.value }))}
+                placeholder="0.00"
+              />
+            </div>
+            <div className="flex items-center justify-between rounded-md border p-3">
+              <Label htmlFor="edit-available">Disponibile</Label>
+              <Switch
+                id="edit-available"
+                checked={editingProductForm.available}
+                onCheckedChange={(checked) =>
+                  setEditingProductForm((prev) => ({ ...prev, available: checked }))
+                }
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => {
+                setProductDialogOpen(false)
+                setEditingProduct(null)
+              }}
+            >
+              Annulla
+            </Button>
+            <Button type="button" onClick={handleSaveProduct}>
+              Salva prodotto
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

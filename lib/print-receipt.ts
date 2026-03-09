@@ -13,7 +13,7 @@ type PrintReceiptOptions = {
 }
 
 const RECEIPT_WIDTH_MM = 80
-const CONTENT_WIDTH_MM = 76
+const CONTENT_WIDTH_MM = 78
 const DEFAULT_LINE_WIDTH = 32
 
 function escapeHtml(value: string): string {

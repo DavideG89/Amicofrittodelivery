@@ -15,14 +15,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { parseProductPieceOptionsInput, serializeProductPieceOptions } from '@/lib/product-piece-options'
-import { supabase, Category, Product, OrderAddition, OrderAdditionType } from '@/lib/supabase'
+import { supabase, Category, Product, OrderAddition, OrderAdditionType, UpsellSettings } from '@/lib/supabase'
 import { toast } from 'sonner'
+
+const DEFAULT_UPSELL_ID = 'default'
+const DEFAULT_UPSELL_MAX_ITEMS = 6
 
 export default function MenuManagementPage() {
   const router = useRouter()
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [additions, setAdditions] = useState<OrderAddition[]>([])
+  const [upsellProductIds, setUpsellProductIds] = useState<Set<string>>(new Set())
+  const [upsellSettingsExists, setUpsellSettingsExists] = useState(false)
+  const [upsellSettingsDefaults, setUpsellSettingsDefaults] = useState({
+    enabled: true,
+    max_items: DEFAULT_UPSELL_MAX_ITEMS,
+  })
   const adminPages = [
     { href: '/admin/dashboard', label: 'Dashboard' },
     { href: '/admin/dashboard/orders', label: 'Ordini' },
@@ -50,6 +59,7 @@ export default function MenuManagementPage() {
     allergens: '',
     piece_options_text: '',
     available: true,
+    show_in_upsell: false,
     label: '' as '' | 'sconto' | 'novita'
   })
 
@@ -76,6 +86,54 @@ export default function MenuManagementPage() {
     return slug.includes('fritti') || name.includes('fritti')
   }
 
+  const isUpsellCategory = (categoryId: string) => {
+    const category = getCategoryById(categoryId)
+    if (!category) return false
+
+    const slug = category.slug.toLowerCase()
+    const name = category.name.toLowerCase()
+    return slug.includes('bevande') || slug.includes('fritti') || name.includes('bevand') || name.includes('fritt')
+  }
+
+  const syncUpsellSelection = async (productId: string, includeInUpsell: boolean) => {
+    const nextIds = new Set(upsellProductIds)
+    if (includeInUpsell) nextIds.add(productId)
+    else nextIds.delete(productId)
+
+    const nextProductIds = Array.from(nextIds)
+
+    if (upsellSettingsExists) {
+      const { error } = await supabase
+        .from('upsell_settings')
+        .update({ product_ids: nextProductIds })
+        .eq('id', DEFAULT_UPSELL_ID)
+
+      if (error) {
+        if (error.code === '42P01') return
+        throw error
+      }
+    } else {
+      const payload: Pick<UpsellSettings, 'id' | 'enabled' | 'max_items' | 'product_ids'> = {
+        id: DEFAULT_UPSELL_ID,
+        enabled: upsellSettingsDefaults.enabled,
+        max_items: upsellSettingsDefaults.max_items,
+        product_ids: nextProductIds,
+      }
+
+      const { error } = await supabase
+        .from('upsell_settings')
+        .upsert(payload, { onConflict: 'id' })
+
+      if (error) {
+        if (error.code === '42P01') return
+        throw error
+      }
+      setUpsellSettingsExists(true)
+    }
+
+    setUpsellProductIds(nextIds)
+  }
+
   useEffect(() => {
     fetchData()
   }, [])
@@ -97,13 +155,29 @@ export default function MenuManagementPage() {
         .select('id, type, name, price, active, display_order, created_at, updated_at')
         .order('display_order', { ascending: true })
 
+      const { data: upsellSettingsData, error: upsellSettingsError } = await supabase
+        .from('upsell_settings')
+        .select('id, enabled, max_items, product_ids')
+        .eq('id', DEFAULT_UPSELL_ID)
+        .maybeSingle()
+
       if (additionsError && additionsError.code !== '42P01') {
         throw additionsError
+      }
+      if (upsellSettingsError && upsellSettingsError.code !== '42P01') {
+        throw upsellSettingsError
       }
 
       setCategories(categoriesData || [])
       setProducts(productsData || [])
       setAdditions((additionsData || []) as OrderAddition[])
+      const normalizedUpsell = (upsellSettingsData as UpsellSettings | null) || null
+      setUpsellSettingsExists(Boolean(normalizedUpsell))
+      setUpsellSettingsDefaults({
+        enabled: normalizedUpsell ? Boolean(normalizedUpsell.enabled) : true,
+        max_items: normalizedUpsell?.max_items || DEFAULT_UPSELL_MAX_ITEMS,
+      })
+      setUpsellProductIds(new Set(normalizedUpsell?.product_ids || []))
     } catch (error) {
       console.error('[v0] Error fetching data:', error)
     } finally {
@@ -122,6 +196,7 @@ export default function MenuManagementPage() {
       allergens: '',
       piece_options_text: '',
       available: true,
+      show_in_upsell: false,
       label: ''
     })
     setEditingProduct(null)
@@ -157,6 +232,7 @@ export default function MenuManagementPage() {
       allergens: product.allergens || '',
       piece_options_text: serializeProductPieceOptions(product.piece_options),
       available: product.available,
+      show_in_upsell: upsellProductIds.has(product.id),
       label: product.label || ''
     })
     setDialogOpen(true)
@@ -191,6 +267,7 @@ export default function MenuManagementPage() {
         label: productForm.label || null
       }
 
+      let savedProductId = editingProduct?.id || ''
 
       if (editingProduct) {
         const { error } = await supabase
@@ -202,19 +279,31 @@ export default function MenuManagementPage() {
           console.error('[v0] Update error:', error)
           throw error
         }
-        toast.success('Prodotto aggiornato')
       } else {
-        const { error } = await supabase
+        const { data: insertedProduct, error } = await supabase
           .from('products')
           .insert(productData)
+          .select('id')
+          .single()
 
         if (error) {
           console.error('[v0] Insert error:', error)
           throw error
         }
-        toast.success('Prodotto creato')
+        savedProductId = insertedProduct?.id || ''
       }
 
+      if (savedProductId) {
+        const includeInUpsell = isUpsellCategory(productForm.category_id) && productForm.show_in_upsell
+        try {
+          await syncUpsellSelection(savedProductId, includeInUpsell)
+        } catch (upsellError) {
+          console.error('[v0] Error syncing upsell selection:', upsellError)
+          toast.error('Prodotto salvato ma non aggiornato in upsell')
+        }
+      }
+
+      toast.success(editingProduct ? 'Prodotto aggiornato' : 'Prodotto creato')
       setDialogOpen(false)
       resetProductForm()
       await fetchData()
@@ -234,6 +323,13 @@ export default function MenuManagementPage() {
         .eq('id', id)
 
       if (error) throw error
+      if (upsellProductIds.has(id)) {
+        try {
+          await syncUpsellSelection(id, false)
+        } catch (upsellError) {
+          console.error('[v0] Error removing deleted product from upsell:', upsellError)
+        }
+      }
       toast.success('Prodotto eliminato')
       fetchData()
     } catch (error) {
@@ -419,6 +515,7 @@ export default function MenuManagementPage() {
   const sauceAdditions = additions.filter((addition) => addition.type === 'sauce')
   const extraAdditions = additions.filter((addition) => addition.type === 'extra')
   const selectedCategorySupportsPieces = isFrittiCategory(productForm.category_id)
+  const selectedCategorySupportsUpsell = isUpsellCategory(productForm.category_id)
 
   if (loading) {
     return <div className="p-6">Caricamento...</div>
@@ -585,7 +682,13 @@ export default function MenuManagementPage() {
                   <Label htmlFor="category">Categoria *</Label>
                   <Select
                     value={productForm.category_id}
-                    onValueChange={(value) => setProductForm({ ...productForm, category_id: value })}
+                    onValueChange={(value) =>
+                      setProductForm((prev) => ({
+                        ...prev,
+                        category_id: value,
+                        show_in_upsell: isUpsellCategory(value) ? prev.show_in_upsell : false,
+                      }))
+                    }
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Seleziona categoria" />
@@ -713,6 +816,33 @@ export default function MenuManagementPage() {
                     checked={productForm.available}
                     onCheckedChange={(checked) => setProductForm({ ...productForm, available: checked })}
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between rounded-md border p-3">
+                    <div className="space-y-1">
+                      <Label htmlFor="show-in-upsell">Mostra in upsell</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Aggiunge o rimuove questo prodotto dalla selezione upsell.
+                      </p>
+                    </div>
+                    <Switch
+                      id="show-in-upsell"
+                      checked={selectedCategorySupportsUpsell ? productForm.show_in_upsell : false}
+                      disabled={!selectedCategorySupportsUpsell}
+                      onCheckedChange={(checked) =>
+                        setProductForm((prev) => ({
+                          ...prev,
+                          show_in_upsell: checked,
+                        }))
+                      }
+                    />
+                  </div>
+                  {!selectedCategorySupportsUpsell ? (
+                    <p className="text-xs text-muted-foreground">
+                      Upsell disponibile solo per categorie Bevande e Fritti.
+                    </p>
+                  ) : null}
                 </div>
 
                 <div className="space-y-2">

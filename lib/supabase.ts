@@ -83,8 +83,17 @@ export type UpsellSettings = {
   enabled: boolean
   product_ids: string[]
   max_items: number
+  product_overrides?: UpsellProductOverrides | null
   updated_at?: string
 }
+
+export type UpsellProductOverride = {
+  name?: string | null
+  price?: number | null
+  available?: boolean | null
+}
+
+export type UpsellProductOverrides = Record<string, UpsellProductOverride>
 
 export type DiscountCode = {
   id: string

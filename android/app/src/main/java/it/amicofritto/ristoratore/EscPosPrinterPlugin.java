@@ -213,9 +213,13 @@ public class EscPosPrinterPlugin extends Plugin {
     }
 
     private void writeStyledLine(ByteArrayOutputStream buffer, String line) throws IOException {
+        String trimmed = line != null ? line.trim() : "";
         if (isLargeLine(line)) {
             buffer.write(new byte[] { 0x1B, 0x45, 0x01 });
             buffer.write(new byte[] { 0x1D, 0x21, 0x11 });
+        } else if (trimmed.startsWith("+")) {
+            buffer.write(new byte[] { 0x1B, 0x45, 0x00 });
+            buffer.write(new byte[] { 0x1D, 0x21, 0x00 }); // piccolo (aggiunte)
         } else {
             buffer.write(new byte[] { 0x1B, 0x45, 0x00 });
             buffer.write(new byte[] { 0x1D, 0x21, 0x01 });

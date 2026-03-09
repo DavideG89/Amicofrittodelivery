@@ -63,6 +63,16 @@ CREATE TABLE IF NOT EXISTS order_additions (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- Create upsell settings table
+CREATE TABLE IF NOT EXISTS upsell_settings (
+  id TEXT PRIMARY KEY DEFAULT 'default',
+  enabled BOOLEAN NOT NULL DEFAULT true,
+  product_ids JSONB NOT NULL DEFAULT '[]'::jsonb,
+  max_items INTEGER NOT NULL DEFAULT 6,
+  product_overrides JSONB NOT NULL DEFAULT '{}'::jsonb,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Create orders table
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -111,6 +121,9 @@ CREATE TRIGGER update_store_info_updated_at BEFORE UPDATE ON store_info
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_order_additions_updated_at BEFORE UPDATE ON order_additions
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_upsell_settings_updated_at BEFORE UPDATE ON upsell_settings
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 CREATE TRIGGER update_orders_updated_at BEFORE UPDATE ON orders

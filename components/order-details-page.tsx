@@ -214,7 +214,7 @@ export function OrderDetailsPage() {
       : null
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background pb-24 md:pb-0">
       <Script
         src="https://unpkg.com/@lottiefiles/lottie-player@2.0.12/dist/lottie-player.js"
         strategy="afterInteractive"
@@ -222,7 +222,7 @@ export function OrderDetailsPage() {
       <Header />
       <main className="container py-4 sm:py-8 px-4 max-w-3xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-          <Button variant="ghost" asChild className="-ml-3 w-fit">
+          <Button variant="ghost" asChild className="-ml-3 hidden md:inline-flex w-fit">
             <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Torna in Home
@@ -365,6 +365,14 @@ export function OrderDetailsPage() {
         <p className="text-center text-xs sm:text-sm text-muted-foreground">Aggiornamento automatico ogni 10 secondi.</p>
       </main>
 
+      <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur md:hidden">
+        <Button asChild variant="ghost" className="w-full border-0 bg-white/50 text-black shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white/60 hover:text-black">
+          <Link href="/">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Torna in Home
+          </Link>
+        </Button>
+      </div>
     </div>
   )
 }

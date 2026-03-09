@@ -62,7 +62,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={`${oswald.variable} ${geistMono.variable} font-sans antialiased`} suppressHydrationWarning>
+      <body className={`${oswald.variable} ${geistMono.variable} font-sans antialiased overflow-x-hidden overscroll-x-none`} suppressHydrationWarning>
         <RootProviders>{children}</RootProviders>
       </body>
     </html>
