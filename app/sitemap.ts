@@ -23,23 +23,6 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: 'weekly',
       priority: 0.5,
     },
-    {
-      url: `${siteUrl}/checkout`,
-      lastModified: now,
-      changeFrequency: 'weekly',
-      priority: 0.5,
-    },
-    {
-      url: `${siteUrl}/order-confirmation`,
-      lastModified: now,
-      changeFrequency: 'weekly',
-      priority: 0.4,
-    },
-    {
-      url: `${siteUrl}/utente`,
-      lastModified: now,
-      changeFrequency: 'weekly',
-      priority: 0.5,
-    },
+
   ]
 }
