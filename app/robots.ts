@@ -1,10 +1,6 @@
 import type { MetadataRoute } from 'next'
 
-const rawSiteUrl =
-  process.env.NEXT_PUBLIC_SITE_URL ??
-  (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
-
-const siteUrl = rawSiteUrl.replace(/\/$/, '')
+const siteUrl = 'https://amicofritto.store'
 
 export default function robots(): MetadataRoute.Robots {
   return {
@@ -12,7 +8,7 @@ export default function robots(): MetadataRoute.Robots {
       {
         userAgent: '*',
         allow: '/',
-        disallow: ['/admin/', '/api/', '/cart', '/checkout', '/order/', '/order-confirmation', '/utente'],
+        disallow: ['/admin/', '/api/', '/order/'],
       },
     ],
     sitemap: `${siteUrl}/sitemap.xml`,
