@@ -6,8 +6,9 @@ export const metadata: Metadata = {
   description: 'Dashboard amministratore Amico Fritto',
   manifest: '/admin/manifest.webmanifest',
   icons: {
-    icon: '/icons/icon-star.svg',
-    apple: '/icons/icon-star.svg',
+    icon: [{ url: '/iconfritto.svg', type: 'image/svg+xml' }],
+    shortcut: '/iconfritto.svg',
+    apple: '/iconfritto.svg',
   },
   appleWebApp: {
     capable: true,
