@@ -912,114 +912,119 @@ export default function OrdersManagementPage() {
         </Drawer>
       ) : (
         <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
-          <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
+          <DialogContent className="max-w-2xl h-[90vh] max-h-[90vh] overflow-hidden p-0">
             {selectedOrder && (
-              <>
-                <DialogHeader>
-                  <DialogTitle>Ordine {selectedOrder.order_number}</DialogTitle>
-                  <DialogDescription>
-                    {formatOrderDate(selectedOrder.created_at, 'PPpp')}
-                  </DialogDescription>
-                </DialogHeader>
+              <div className="flex h-full min-h-0 flex-col">
+                <div className="shrink-0 border-b bg-background/95 backdrop-blur px-6 py-4 pr-12">
+                  <DialogHeader>
+                    <DialogTitle>Ordine {selectedOrder.order_number}</DialogTitle>
+                    <DialogDescription>
+                      {formatOrderDate(selectedOrder.created_at, 'PPpp')}
+                    </DialogDescription>
+                  </DialogHeader>
+                </div>
 
-                <div className="space-y-6">
-
-                  <div>
-                    <h3 className="font-semibold mb-3">Informazioni cliente</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Nome:</span>
-                        <span className="font-medium">{selectedOrder.customer_name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Telefono:</span>
-                        <span className="font-medium">{selectedOrder.customer_phone}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-muted-foreground">Tipo:</span>
-                        <span className="font-medium">
-                          {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
-                        </span>
-                      </div>
-                      {selectedOrder.payment_method && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Pagamento:</span>
-                          <span className="font-medium">
-                            {selectedOrder.payment_method === 'card' ? 'Carta (POS)' : 'Contanti'}
-                          </span>
-                        </div>
-                      )}
-                      {selectedOrder.customer_address && (
-                        <div className="flex justify-between">
-                          <span className="text-muted-foreground">Indirizzo:</span>
-                          <span className="font-medium text-right">{selectedOrder.customer_address}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold mb-3">Articoli ordinati</h3>
-                    <div className="space-y-2">
-                      {selectedOrder.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm py-2 border-b">
-                          <div>
-                            <span className="font-medium">{item.quantity}x</span> {item.name}
-                            <div className="text-xs text-muted-foreground">
-                              {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
-                            </div>
-                            {item.additions_unit_price && item.additions_unit_price > 0 && (
-                              <div className="text-xs text-muted-foreground">
-                                Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
-                              </div>
-                            )}
-                            {item.additions && (
-                              <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
-                            )}
-                          </div>
-                          <span className="font-medium">
-                            {((item.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div>
-                    <h3 className="font-semibold mb-3">Riepilogo</h3>
-                    <div className="space-y-2 text-sm">
-                      <div className="flex justify-between">
-                        <span>Subtotale:</span>
-                        <span>{selectedOrder.subtotal.toFixed(2)}€</span>
-                      </div>
-                      {selectedOrder.delivery_fee > 0 && (
-                        <div className="flex justify-between">
-                          <span>Consegna:</span>
-                          <span>{selectedOrder.delivery_fee.toFixed(2)}€</span>
-                        </div>
-                      )}
-                      {selectedOrder.discount_amount > 0 && (
-                        <div className="flex justify-between text-green-600">
-                          <span>Sconto ({selectedOrder.discount_code}):</span>
-                          <span>-{selectedOrder.discount_amount.toFixed(2)}€</span>
-                        </div>
-                      )}
-                      <div className="flex justify-between font-bold text-lg pt-2 border-t">
-                        <span>Totale:</span>
-                        <span>{selectedOrder.total.toFixed(2)}€</span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {selectedOrder.notes && (
+                <div className="min-h-0 flex-1 overflow-y-auto px-6 py-4">
+                  <div className="space-y-6">
                     <div>
-                      <h3 className="font-semibold mb-2">Note:</h3>
-                      <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
-                        {selectedOrder.notes}
-                      </p>
+                      <h3 className="font-semibold mb-3">Informazioni cliente</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Nome:</span>
+                          <span className="font-medium">{selectedOrder.customer_name}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Telefono:</span>
+                          <span className="font-medium">{selectedOrder.customer_phone}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span className="text-muted-foreground">Tipo:</span>
+                          <span className="font-medium">
+                            {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
+                          </span>
+                        </div>
+                        {selectedOrder.payment_method && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Pagamento:</span>
+                            <span className="font-medium">
+                              {selectedOrder.payment_method === 'card' ? 'Carta (POS)' : 'Contanti'}
+                            </span>
+                          </div>
+                        )}
+                        {selectedOrder.customer_address && (
+                          <div className="flex justify-between">
+                            <span className="text-muted-foreground">Indirizzo:</span>
+                            <span className="font-medium text-right">{selectedOrder.customer_address}</span>
+                          </div>
+                        )}
+                      </div>
                     </div>
-                  )}
 
+                    <div>
+                      <h3 className="font-semibold mb-3">Articoli ordinati</h3>
+                      <div className="space-y-2">
+                        {selectedOrder.items.map((item, index) => (
+                          <div key={index} className="flex justify-between text-sm py-2 border-b">
+                            <div>
+                              <span className="font-medium">{item.quantity}x</span> {item.name}
+                              <div className="text-xs text-muted-foreground">
+                                {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
+                              </div>
+                              {item.additions_unit_price && item.additions_unit_price > 0 && (
+                                <div className="text-xs text-muted-foreground">
+                                  Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
+                                </div>
+                              )}
+                              {item.additions && (
+                                <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
+                              )}
+                            </div>
+                            <span className="font-medium">
+                              {((item.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="font-semibold mb-3">Riepilogo</h3>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Subtotale:</span>
+                          <span>{selectedOrder.subtotal.toFixed(2)}€</span>
+                        </div>
+                        {selectedOrder.delivery_fee > 0 && (
+                          <div className="flex justify-between">
+                            <span>Consegna:</span>
+                            <span>{selectedOrder.delivery_fee.toFixed(2)}€</span>
+                          </div>
+                        )}
+                        {selectedOrder.discount_amount > 0 && (
+                          <div className="flex justify-between text-green-600">
+                            <span>Sconto ({selectedOrder.discount_code}):</span>
+                            <span>-{selectedOrder.discount_amount.toFixed(2)}€</span>
+                          </div>
+                        )}
+                        <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                          <span>Totale:</span>
+                          <span>{selectedOrder.total.toFixed(2)}€</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    {selectedOrder.notes && (
+                      <div>
+                        <h3 className="font-semibold mb-2">Note:</h3>
+                        <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                          {selectedOrder.notes}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="shrink-0 border-t bg-background/95 backdrop-blur px-6 py-4">
                   <div className="flex gap-2">
                     <Button
                       variant="outline"
@@ -1062,7 +1067,7 @@ export default function OrdersManagementPage() {
                     )}
                   </div>
                 </div>
-              </>
+              </div>
             )}
           </DialogContent>
         </Dialog>
