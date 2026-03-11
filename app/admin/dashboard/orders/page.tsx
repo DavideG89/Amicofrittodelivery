@@ -11,7 +11,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Dialog, DialogClose, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Drawer, DrawerClose, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Capacitor } from '@capacitor/core'
 import { supabase, Order } from '@/lib/supabase'
@@ -131,6 +130,46 @@ const getNextStatusLabel = (current: Order['status']) => {
         : `${statusConfig[next].label.toLowerCase()}`
 }
 
+type ServiceFilter = 'all' | 'dine_in' | 'delivery' | 'takeaway'
+
+const serviceFilterOptions: Array<{ value: ServiceFilter; label: string }> = [
+  { value: 'all', label: 'Tutti' },
+  { value: 'dine_in', label: 'Sala' },
+  { value: 'delivery', label: 'Delivery' },
+  { value: 'takeaway', label: 'Ritiro' },
+]
+
+const getOrderTableLabel = (order: Pick<Order, 'notes'>) => {
+  const text = order.notes || ''
+  const match = text.match(/\b(?:tavolo|table)\s*#?\s*([a-z0-9-]+)/i)
+  if (!match?.[1]) return null
+  return match[1].toUpperCase()
+}
+
+const getOrderServiceMode = (order: Order): Exclude<ServiceFilter, 'all'> => {
+  const rawOrderType = (order as { order_type?: unknown }).order_type
+  if (rawOrderType === 'dine_in') return 'dine_in'
+  if (getOrderTableLabel(order)) return 'dine_in'
+  return order.order_type === 'delivery' ? 'delivery' : 'takeaway'
+}
+
+const getOrderServiceBadgeLabel = (order: Order) => {
+  const serviceMode = getOrderServiceMode(order)
+  if (serviceMode !== 'dine_in') {
+    return serviceMode === 'delivery' ? 'Consegna' : 'Ritiro'
+  }
+  const tableLabel = getOrderTableLabel(order)
+  return tableLabel ? `SALA • Tavolo ${tableLabel}` : 'SALA'
+}
+
+const getOrderServiceDetailsLabel = (order: Order) => {
+  const serviceMode = getOrderServiceMode(order)
+  if (serviceMode === 'delivery') return 'Consegna a domicilio'
+  if (serviceMode === 'takeaway') return 'Ritiro in negozio'
+  const tableLabel = getOrderTableLabel(order)
+  return tableLabel ? `Sala • Tavolo ${tableLabel}` : 'Sala'
+}
+
 export default function OrdersManagementPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -163,6 +202,7 @@ export default function OrdersManagementPage() {
   const initialTab = normalizeTab(searchParams.get('tab'))
   const openOrderIdParam = searchParams.get('openOrderId')
   const [activeTab, setActiveTab] = useState<(typeof allowedTabs)[number]>(initialTab)
+  const [serviceFilter, setServiceFilter] = useState<ServiceFilter>('all')
   const pageSize = 20
   const lastFetchAtRef = useRef(0)
   const minFetchIntervalMs = 10000
@@ -551,15 +591,22 @@ export default function OrdersManagementPage() {
     )
   }
 
+  const applyServiceFilter = (source: Order[]) => {
+    if (serviceFilter === 'all') return source
+    return source.filter((order) => getOrderServiceMode(order) === serviceFilter)
+  }
+
   const filterOrdersByStatus = (status?: Order['status']) => {
-    if (!status) return orders
-    return orders.filter(order => order.status === status)
+    const byStatus = status ? orders.filter(order => order.status === status) : orders
+    return applyServiceFilter(byStatus)
   }
 
   const OrderCard = ({ order }: { order: Order }) => {
     const config = statusConfig[order.status]
     const Icon = config.icon
     const paymentLabel = order.payment_method === 'card' ? 'Carta (POS)' : order.payment_method === 'cash' ? 'Contanti' : null
+    const serviceMode = getOrderServiceMode(order)
+    const serviceBadgeLabel = getOrderServiceBadgeLabel(order)
 
     return (
       <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => handleViewDetails(order)}>
@@ -582,7 +629,9 @@ export default function OrdersManagementPage() {
             <p><span className="font-medium">Telefono:</span> {order.customer_phone}</p>
             <div>
               <span className="font-medium">Tipo:</span>{' '}
-              {order.order_type === 'delivery' ? (
+              {serviceMode === 'dine_in' ? (
+                <Badge variant="default">{serviceBadgeLabel}</Badge>
+              ) : serviceMode === 'delivery' ? (
                 <Badge variant="outline">Consegna</Badge>
               ) : (
                 <Badge variant="outline">Ritiro</Badge>
@@ -624,8 +673,9 @@ export default function OrdersManagementPage() {
   }
 
   const pendingOrders = filterOrdersByStatus('pending')
-  const activeOrders = orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status))
+  const activeOrders = applyServiceFilter(orders.filter(o => ['confirmed', 'preparing', 'ready'].includes(o.status)))
   const completedOrders = filterOrdersByStatus('completed')
+  const allOrders = applyServiceFilter(orders)
 
   return (
     <div className="p-6 h-full flex flex-col min-h-0">
@@ -672,9 +722,24 @@ export default function OrdersManagementPage() {
               Completati ({completedOrders.length})
             </TabsTrigger>
             <TabsTrigger value="all">
-              Tutti ({orders.length})
+              Tutti ({allOrders.length})
             </TabsTrigger>
             </TabsList>
+          </div>
+          <div className="mt-3 overflow-x-auto -mx-6 px-6">
+            <div className="inline-flex min-w-max gap-2">
+              {serviceFilterOptions.map((option) => (
+                <Button
+                  key={option.value}
+                  type="button"
+                  size="sm"
+                  variant={serviceFilter === option.value ? 'default' : 'outline'}
+                  onClick={() => setServiceFilter(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -729,7 +794,7 @@ export default function OrdersManagementPage() {
 
         <TabsContent value="all" className="mt-0">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {orders.map(order => (
+            {allOrders.map(order => (
               <OrderCard key={order.id} order={order} />
             ))}
           </div>
@@ -780,7 +845,7 @@ export default function OrdersManagementPage() {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Tipo:</span>
                         <span className="font-medium">
-                          {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
+                          {getOrderServiceDetailsLabel(selectedOrder)}
                         </span>
                       </div>
                       {selectedOrder.payment_method && (
@@ -938,7 +1003,7 @@ export default function OrdersManagementPage() {
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Tipo:</span>
                         <span className="font-medium">
-                          {selectedOrder.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}
+                          {getOrderServiceDetailsLabel(selectedOrder)}
                         </span>
                       </div>
                       {selectedOrder.payment_method && (
