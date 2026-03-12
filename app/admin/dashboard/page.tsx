@@ -48,11 +48,9 @@ export default function AdminDashboardPage() {
 
   const currentMonthPrefix = toLocalDayKey(new Date()).slice(0, 7)
   const currentMonthLabel = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' }).format(new Date())
-  const currentMonthDailyRevenue = dailyRevenue.filter((row) => row.key.startsWith(currentMonthPrefix))
-  const visibleDailyRevenue = showAllDailyRevenue ? dailyRevenue : currentMonthDailyRevenue
-  const hiddenDailyRevenueCount = Math.max(dailyRevenue.length - currentMonthDailyRevenue.length, 0)
+  const currentMonthStart = `${currentMonthPrefix}-01`
 
-  const fetchStats = useCallback(async () => {
+  const fetchLiveStats = useCallback(async () => {
     try {
       // Count products
       const { count: productsCount } = await supabase
@@ -70,53 +68,15 @@ export default function AdminDashboardPage() {
         .select('id', { count: 'exact', head: true })
         .eq('status', 'pending')
 
-      // Daily revenue table (historical base)
-      const { data: dailyRevenueData } = await supabase
-        .from('daily_revenue')
-        .select('day, total')
-        .order('day', { ascending: false })
-
-      // Always merge recent live orders so yesterday/today are visible even if rollup hasn't run yet.
-      const recentStart = new Date()
-      recentStart.setDate(recentStart.getDate() - 14)
-      recentStart.setHours(0, 0, 0, 0)
-      const { data: recentOrders } = await supabase
+      // "Incasso Oggi" remains live from orders.
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      const { data: todayOrders } = await supabase
         .from('orders')
-        .select('created_at, total')
-        .gte('created_at', recentStart.toISOString())
+        .select('total')
+        .gte('created_at', today.toISOString())
         .neq('status', 'cancelled')
-
-      const revenueByDay = new Map<string, number>()
-
-      for (const row of dailyRevenueData || []) {
-        const key = typeof row.day === 'string' ? row.day : toLocalDayKey(new Date(row.day))
-        revenueByDay.set(key, Number(row.total || 0))
-      }
-
-      const recentRevenueByDay = new Map<string, number>()
-      for (const order of recentOrders || []) {
-        if (!order.created_at) continue
-        const key = toLocalDayKey(new Date(order.created_at))
-        const currentTotal = recentRevenueByDay.get(key) || 0
-        recentRevenueByDay.set(key, currentTotal + Number(order.total || 0))
-      }
-
-      for (const [key, total] of recentRevenueByDay.entries()) {
-        revenueByDay.set(key, total)
-      }
-
-      const dailyRows = Array.from(revenueByDay.entries())
-        .map(([key, total]) => ({
-          key,
-          date: formatDayKey(key),
-          total,
-        }))
-        .sort((a, b) => b.key.localeCompare(a.key))
-
-      const todayKey = toLocalDayKey(new Date())
-      const revenue = revenueByDay.get(todayKey) || 0
-
-      setDailyRevenue(dailyRows)
+      const revenue = todayOrders?.reduce((sum, order) => sum + Number(order.total || 0), 0) || 0
 
       setStats({
         totalProducts: productsCount || 0,
@@ -129,18 +89,51 @@ export default function AdminDashboardPage() {
     }
   }, [])
 
+  const fetchDailyRevenue = useCallback(async () => {
+    try {
+      let query = supabase
+        .from('daily_revenue')
+        .select('day, total')
+        .order('day', { ascending: false })
+
+      if (!showAllDailyRevenue) {
+        query = query.gte('day', currentMonthStart)
+      }
+
+      const { data: dailyRevenueData } = await query
+
+      const dailyRows = (dailyRevenueData || [])
+        .map((row) => {
+          const key = typeof row.day === 'string' ? row.day : toLocalDayKey(new Date(row.day))
+          return {
+            key,
+            date: formatDayKey(key),
+            total: Number(row.total || 0),
+          }
+        })
+        .sort((a, b) => b.key.localeCompare(a.key))
+
+      setDailyRevenue(dailyRows)
+    } catch (error) {
+      console.error('[v0] Error fetching daily revenue:', error)
+    }
+  }, [currentMonthStart, showAllDailyRevenue])
+
   useEffect(() => {
-    void fetchStats()
-  }, [fetchStats, orderIdParam, pushTsParam])
+    void fetchLiveStats()
+    void fetchDailyRevenue()
+  }, [fetchDailyRevenue, fetchLiveStats, orderIdParam, pushTsParam])
 
   useEffect(() => {
     const handleVisibility = () => {
       if (document.visibilityState === 'visible') {
-        void fetchStats()
+        void fetchLiveStats()
+        void fetchDailyRevenue()
       }
     }
     const handleFocus = () => {
-      void fetchStats()
+      void fetchLiveStats()
+      void fetchDailyRevenue()
     }
 
     document.addEventListener('visibilitychange', handleVisibility)
@@ -150,7 +143,7 @@ export default function AdminDashboardPage() {
       document.removeEventListener('visibilitychange', handleVisibility)
       window.removeEventListener('focus', handleFocus)
     }
-  }, [fetchStats])
+  }, [fetchDailyRevenue, fetchLiveStats])
 
   useEffect(() => {
     const canUseRealtime =
@@ -164,7 +157,7 @@ export default function AdminDashboardPage() {
     const startPolling = () => {
       if (pollingId !== null) return
       pollingId = window.setInterval(() => {
-        void fetchStats()
+        void fetchLiveStats()
       }, 20000)
     }
 
@@ -173,7 +166,7 @@ export default function AdminDashboardPage() {
         channel = supabase
           .channel('dashboard_orders_changes')
           .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
-            void fetchStats()
+            void fetchLiveStats()
           })
           .subscribe((status) => {
             if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT' || status === 'CLOSED') {
@@ -191,7 +184,7 @@ export default function AdminDashboardPage() {
       if (channel) supabase.removeChannel(channel)
       if (pollingId !== null) window.clearInterval(pollingId)
     }
-  }, [fetchStats])
+  }, [fetchLiveStats])
 
   const statCards = [
     {
@@ -359,11 +352,8 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             {dailyRevenue.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nessun incasso disponibile.</p>
-            ) : visibleDailyRevenue.length === 0 ? (
               <p className="text-sm text-muted-foreground">
-                Nessun incasso nel mese corrente.
-                {hiddenDailyRevenueCount > 0 ? ' Usa "Mostra storico" per visualizzare i giorni precedenti.' : ''}
+                {showAllDailyRevenue ? 'Nessun incasso disponibile.' : 'Nessun incasso nel mese corrente.'}
               </p>
             ) : (
               <Table>
@@ -374,7 +364,7 @@ export default function AdminDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {visibleDailyRevenue.map((row) => (
+                  {dailyRevenue.map((row) => (
                     <TableRow key={row.key}>
                       <TableCell>{row.date}</TableCell>
                       <TableCell className="text-right">{row.total.toFixed(2)}€</TableCell>
