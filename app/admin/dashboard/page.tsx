@@ -4,10 +4,24 @@ import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { Package, ShoppingCart, Euro, TrendingUp, ChevronDown } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { supabase } from '@/lib/supabase'
+
+function toLocalDayKey(date: Date) {
+  const year = date.getFullYear()
+  const month = String(date.getMonth() + 1).padStart(2, '0')
+  const day = String(date.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
+
+function formatDayKey(dayKey: string) {
+  const [year, month, day] = dayKey.split('-')
+  if (!year || !month || !day) return dayKey
+  return `${day}/${month}/${year}`
+}
 
 export default function AdminDashboardPage() {
   const router = useRouter()
@@ -29,7 +43,14 @@ export default function AdminDashboardPage() {
     pendingOrders: 0,
     todayRevenue: 0
   })
-  const [dailyRevenue, setDailyRevenue] = useState<{ date: string; total: number }[]>([])
+  const [dailyRevenue, setDailyRevenue] = useState<{ key: string; date: string; total: number }[]>([])
+  const [showAllDailyRevenue, setShowAllDailyRevenue] = useState(false)
+
+  const currentMonthPrefix = toLocalDayKey(new Date()).slice(0, 7)
+  const currentMonthLabel = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' }).format(new Date())
+  const currentMonthDailyRevenue = dailyRevenue.filter((row) => row.key.startsWith(currentMonthPrefix))
+  const visibleDailyRevenue = showAllDailyRevenue ? dailyRevenue : currentMonthDailyRevenue
+  const hiddenDailyRevenueCount = Math.max(dailyRevenue.length - currentMonthDailyRevenue.length, 0)
 
   const fetchStats = useCallback(async () => {
     try {
@@ -49,33 +70,51 @@ export default function AdminDashboardPage() {
         .select('id', { count: 'exact', head: true })
         .eq('status', 'pending')
 
-      // Daily revenue table (preferred)
+      // Daily revenue table (historical base)
       const { data: dailyRevenueData } = await supabase
         .from('daily_revenue')
         .select('day, total')
         .order('day', { ascending: false })
 
-      const dailyRows = (dailyRevenueData || []).map((row) => ({
-        date: new Date(row.day).toLocaleDateString('it-IT'),
-        total: Number(row.total || 0),
-      }))
+      // Always merge recent live orders so yesterday/today are visible even if rollup hasn't run yet.
+      const recentStart = new Date()
+      recentStart.setDate(recentStart.getDate() - 14)
+      recentStart.setHours(0, 0, 0, 0)
+      const { data: recentOrders } = await supabase
+        .from('orders')
+        .select('created_at, total')
+        .gte('created_at', recentStart.toISOString())
+        .neq('status', 'cancelled')
 
-      // Calculate today's revenue (fallback to orders if daily table has no entry for today)
-      let revenue = 0
-      const todayKey = new Date().toLocaleDateString('it-IT')
-      const todayRow = dailyRows.find((row) => row.date === todayKey)
-      if (todayRow) {
-        revenue = todayRow.total || 0
-      } else {
-        const today = new Date()
-        today.setHours(0, 0, 0, 0)
-        const { data: todayOrders } = await supabase
-          .from('orders')
-          .select('total')
-          .gte('created_at', today.toISOString())
-          .neq('status', 'cancelled')
-        revenue = todayOrders?.reduce((sum, order) => sum + (order.total || 0), 0) || 0
+      const revenueByDay = new Map<string, number>()
+
+      for (const row of dailyRevenueData || []) {
+        const key = typeof row.day === 'string' ? row.day : toLocalDayKey(new Date(row.day))
+        revenueByDay.set(key, Number(row.total || 0))
       }
+
+      const recentRevenueByDay = new Map<string, number>()
+      for (const order of recentOrders || []) {
+        if (!order.created_at) continue
+        const key = toLocalDayKey(new Date(order.created_at))
+        const currentTotal = recentRevenueByDay.get(key) || 0
+        recentRevenueByDay.set(key, currentTotal + Number(order.total || 0))
+      }
+
+      for (const [key, total] of recentRevenueByDay.entries()) {
+        revenueByDay.set(key, total)
+      }
+
+      const dailyRows = Array.from(revenueByDay.entries())
+        .map(([key, total]) => ({
+          key,
+          date: formatDayKey(key),
+          total,
+        }))
+        .sort((a, b) => b.key.localeCompare(a.key))
+
+      const todayKey = toLocalDayKey(new Date())
+      const revenue = revenueByDay.get(todayKey) || 0
 
       setDailyRevenue(dailyRows)
 
@@ -300,13 +339,32 @@ export default function AdminDashboardPage() {
 
       <div className="mt-8">
         <Card>
-          <CardHeader>
-            <CardTitle>Incassi Giornalieri</CardTitle>
-            <CardDescription>Riepilogo incassi per giorno</CardDescription>
+          <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <div>
+              <CardTitle>Incassi Giornalieri</CardTitle>
+              <CardDescription>
+                {showAllDailyRevenue ? 'Riepilogo incassi per giorno' : `Riepilogo mese corrente (${currentMonthLabel})`}
+              </CardDescription>
+            </div>
+            {dailyRevenue.length > 0 && (
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAllDailyRevenue((prev) => !prev)}
+              >
+                {showAllDailyRevenue ? 'Mostra solo mese corrente' : 'Mostra storico'}
+              </Button>
+            )}
           </CardHeader>
           <CardContent>
             {dailyRevenue.length === 0 ? (
               <p className="text-sm text-muted-foreground">Nessun incasso disponibile.</p>
+            ) : visibleDailyRevenue.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                Nessun incasso nel mese corrente.
+                {hiddenDailyRevenueCount > 0 ? ' Usa "Mostra storico" per visualizzare i giorni precedenti.' : ''}
+              </p>
             ) : (
               <Table>
                 <TableHeader>
@@ -316,8 +374,8 @@ export default function AdminDashboardPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {dailyRevenue.map((row) => (
-                    <TableRow key={row.date}>
+                  {visibleDailyRevenue.map((row) => (
+                    <TableRow key={row.key}>
                       <TableCell>{row.date}</TableCell>
                       <TableCell className="text-right">{row.total.toFixed(2)}€</TableCell>
                     </TableRow>
