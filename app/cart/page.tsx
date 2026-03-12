@@ -4,10 +4,11 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Minus, Trash2, ShoppingBag } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, Trash2, ShoppingBag, Loader2 } from 'lucide-react'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
@@ -16,6 +17,8 @@ import { normalizeOrderNumber } from '@/lib/order-number'
 import { supabase, StoreInfo, OrderStatus } from '@/lib/supabase'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 import { fetchPublicOrderLight } from '@/lib/public-order-client'
+
+const DISCOUNT_MIN_ORDER = 6
 
 export default function CartPage() {
   const router = useRouter()
@@ -26,6 +29,11 @@ export default function CartPage() {
   const [lastOrderActive, setLastOrderActive] = useState(false)
   const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
+  const [discountCode, setDiscountCode] = useState('')
+  const [discountAmount, setDiscountAmount] = useState(0)
+  const [verifyingDiscount, setVerifyingDiscount] = useState(false)
+  const [discountError, setDiscountError] = useState('')
+  const [discountAppliedSubtotal, setDiscountAppliedSubtotal] = useState<number | null>(null)
 
   useEffect(() => {
     async function fetchStoreInfo() {
@@ -88,8 +96,32 @@ export default function CartPage() {
     }
   }, [lastOrderNumber])
 
+  useEffect(() => {
+    if (items.length > 0) return
+    setDiscountCode('')
+    setDiscountAmount(0)
+    setDiscountError('')
+    setDiscountAppliedSubtotal(null)
+  }, [items.length])
+
+  useEffect(() => {
+    if (!discountCode.trim()) return
+    if (subtotal >= DISCOUNT_MIN_ORDER) return
+    setDiscountAmount(0)
+    setDiscountAppliedSubtotal(null)
+    setDiscountError(`Ordine minimo per applicare un codice sconto: ${DISCOUNT_MIN_ORDER.toFixed(2)}€`)
+  }, [discountCode, subtotal])
+
+  useEffect(() => {
+    if (discountAppliedSubtotal === null || discountAmount <= 0) return
+    if (Math.abs(discountAppliedSubtotal - subtotal) < 0.01) return
+    setDiscountAmount(0)
+    setDiscountAppliedSubtotal(null)
+    setDiscountError('Carrello aggiornato: riapplica il codice sconto.')
+  }, [discountAmount, discountAppliedSubtotal, subtotal])
+
   const deliveryFee = isDelivery ? (storeInfo?.delivery_fee || 0) : 0
-  const total = subtotal + deliveryFee
+  const total = subtotal + deliveryFee - discountAmount
 
   const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
   const orderStatus = getOrderStatus(schedule)
@@ -111,7 +143,13 @@ export default function CartPage() {
 
   const handleCheckout = () => {
     if (!canProceed) return
-    router.push(`/checkout?delivery=${isDelivery}`)
+    const checkoutParams = new URLSearchParams()
+    checkoutParams.set('delivery', String(isDelivery))
+    if (discountAmount > 0 && discountCode.trim()) {
+      checkoutParams.set('discountCode', discountCode.trim().toUpperCase())
+      checkoutParams.set('discountAmount', discountAmount.toFixed(2))
+    }
+    router.push(`/checkout?${checkoutParams.toString()}`)
   }
 
   const handleClearCart = () => {
@@ -119,6 +157,64 @@ export default function CartPage() {
     const confirmed = window.confirm('Vuoi svuotare completamente il carrello?')
     if (!confirmed) return
     clearCart()
+  }
+
+  const handleVerifyDiscount = async () => {
+    const normalizedCode = discountCode.trim().toUpperCase()
+    if (!normalizedCode) {
+      setDiscountAmount(0)
+      setDiscountAppliedSubtotal(null)
+      setDiscountError('')
+      return
+    }
+
+    if (subtotal < DISCOUNT_MIN_ORDER) {
+      setDiscountAmount(0)
+      setDiscountAppliedSubtotal(null)
+      setDiscountError(`Ordine minimo per applicare un codice sconto: ${DISCOUNT_MIN_ORDER.toFixed(2)}€`)
+      return
+    }
+
+    setVerifyingDiscount(true)
+    try {
+      const res = await fetch('/api/discounts/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ code: normalizedCode, subtotal }),
+      })
+      const data = await res.json().catch(() => ({}))
+
+      if (!res.ok) {
+        setDiscountAmount(0)
+        setDiscountAppliedSubtotal(null)
+        if (data?.minOrder) {
+          setDiscountError(`Ordine minimo per questo sconto: ${Number(data.minOrder).toFixed(2)}€`)
+        } else {
+          setDiscountError(data?.error || 'Codice sconto non valido')
+        }
+        return
+      }
+
+      const nextAmount = Math.min(Number(data?.discountAmount || 0), subtotal)
+      if (nextAmount <= 0) {
+        setDiscountAmount(0)
+        setDiscountAppliedSubtotal(null)
+        setDiscountError('Codice sconto non valido')
+        return
+      }
+
+      setDiscountCode(String(data?.discountCode || normalizedCode).toUpperCase())
+      setDiscountAmount(nextAmount)
+      setDiscountAppliedSubtotal(subtotal)
+      setDiscountError('')
+    } catch (err) {
+      console.error('[v0] Error verifying discount from cart:', err)
+      setDiscountAmount(0)
+      setDiscountAppliedSubtotal(null)
+      setDiscountError('Errore durante la verifica del codice sconto')
+    } finally {
+      setVerifyingDiscount(false)
+    }
   }
 
   return (
@@ -311,6 +407,52 @@ export default function CartPage() {
                     </div>
                   )}
 
+                  <div className="space-y-2">
+                    <Label htmlFor="cart-discount-code" className="text-sm">
+                      Codice sconto
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="cart-discount-code"
+                        placeholder="SCONTO10"
+                        value={discountCode}
+                        onChange={(e) => {
+                          const nextCode = e.target.value.toUpperCase()
+                          setDiscountCode(nextCode)
+                          setDiscountAmount(0)
+                          setDiscountAppliedSubtotal(null)
+                          if (!nextCode.trim()) {
+                            setDiscountError('')
+                            return
+                          }
+                          if (subtotal < DISCOUNT_MIN_ORDER) {
+                            setDiscountError(`Ordine minimo per applicare un codice sconto: ${DISCOUNT_MIN_ORDER.toFixed(2)}€`)
+                            return
+                          }
+                          setDiscountError('')
+                        }}
+                        onBlur={() => {
+                          if (!discountCode.trim()) return
+                          void handleVerifyDiscount()
+                        }}
+                      />
+                      <Button
+                        type="button"
+                        variant="outline"
+                        onClick={() => void handleVerifyDiscount()}
+                        disabled={verifyingDiscount}
+                      >
+                        {verifyingDiscount ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Applica'}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Ordine minimo per usare lo sconto: {DISCOUNT_MIN_ORDER.toFixed(2)}€
+                    </p>
+                    {discountError && (
+                      <p className="text-xs sm:text-sm text-red-600 font-medium">{discountError}</p>
+                    )}
+                  </div>
+
                   <Separator />
 
                   <div className="space-y-3">
@@ -323,6 +465,13 @@ export default function CartPage() {
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">Costo consegna</span>
                         <span className="font-medium">{deliveryFee.toFixed(2)}€</span>
+                      </div>
+                    )}
+
+                    {discountAmount > 0 && (
+                      <div className="flex justify-between text-sm text-green-600 font-medium">
+                        <span>Sconto ({discountCode.trim().toUpperCase()})</span>
+                        <span>-{discountAmount.toFixed(2)}€</span>
                       </div>
                     )}
 

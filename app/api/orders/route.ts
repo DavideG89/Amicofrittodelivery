@@ -45,6 +45,7 @@ const geocodeCacheTtlMs = 6 * 60 * 60 * 1000
 const PUBLIC_ORDER_SELECT =
   'order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at'
 const PUBLIC_ORDER_LIGHT_SELECT = 'order_number, status, updated_at'
+const GLOBAL_DISCOUNT_MIN_ORDER = 6
 
 function normalizePublicStatus(value: unknown): OrderStatus {
   if (
@@ -861,7 +862,8 @@ export async function POST(request: Request) {
         .maybeSingle()
 
       if (!discountError && discount) {
-        if (subtotal >= Number(discount.min_order_amount || 0)) {
+        const minOrderAmount = Math.max(GLOBAL_DISCOUNT_MIN_ORDER, Number(discount.min_order_amount || 0))
+        if (subtotal >= minOrderAmount) {
           if (discount.discount_type === 'percentage') {
             discountAmount = (subtotal * Number(discount.discount_value || 0)) / 100
           } else {

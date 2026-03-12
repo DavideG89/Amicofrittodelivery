@@ -115,7 +115,6 @@ function CheckoutForm() {
   })
 
   const [discountAmount, setDiscountAmount] = useState(0)
-  const [verifyingDiscount, setVerifyingDiscount] = useState(false)
   const [deliveryCheckState, setDeliveryCheckState] = useState<DeliveryCheckState>('idle')
   const [deliveryCheckMessage, setDeliveryCheckMessage] = useState('')
   const deliveryCheckRequestIdRef = useRef(0)
@@ -213,6 +212,22 @@ function CheckoutForm() {
   useEffect(() => {
     setIsDelivery(searchParams.get('delivery') === 'true')
   }, [searchParams])
+
+  useEffect(() => {
+    const queryDiscountCode = (searchParams.get('discountCode') || '').trim().toUpperCase()
+    const queryDiscountAmountRaw = Number(searchParams.get('discountAmount') || 0)
+    const queryDiscountAmount =
+      Number.isFinite(queryDiscountAmountRaw) && queryDiscountAmountRaw > 0
+        ? Math.min(queryDiscountAmountRaw, subtotal)
+        : 0
+
+    setDiscountAmount(queryDiscountAmount)
+    setFormData((prev) =>
+      prev.discountCode === queryDiscountCode
+        ? prev
+        : { ...prev, discountCode: queryDiscountCode }
+    )
+  }, [searchParams, subtotal])
 
   useEffect(() => {
     if (orderTiming !== 'scheduled') return
@@ -356,42 +371,6 @@ function CheckoutForm() {
       : deliveryCheckState === 'checking' || deliveryCheckState === 'idle'
         ? 'text-muted-foreground'
         : 'text-destructive'
-
-  const handleVerifyDiscount = async () => {
-    if (!formData.discountCode.trim()) {
-      setDiscountAmount(0)
-      return
-    }
-
-    setVerifyingDiscount(true)
-    try {
-      const res = await fetch('/api/discounts/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: formData.discountCode, subtotal }),
-      })
-      const data = await res.json().catch(() => ({}))
-
-      if (!res.ok) {
-        if (data?.minOrder) {
-          toast.error(`Ordine minimo per questo sconto: ${Number(data.minOrder).toFixed(2)}€`)
-        } else {
-          toast.error(data?.error || 'Codice sconto non valido')
-        }
-        setDiscountAmount(0)
-        return
-      }
-
-      setDiscountAmount(Math.min(Number(data.discountAmount || 0), subtotal))
-      toast.success(`Sconto applicato: ${Number(data.discountAmount || 0).toFixed(2)}€`)
-    } catch (err) {
-      console.error('[v0] Error verifying discount:', err)
-      toast.error('Errore durante la verifica del codice sconto')
-      setDiscountAmount(0)
-    } finally {
-      setVerifyingDiscount(false)
-    }
-  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -854,31 +833,6 @@ function CheckoutForm() {
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Codice sconto</CardTitle>
-                <CardDescription>Hai un codice sconto? Inseriscilo qui</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="SCONTO10"
-                    value={formData.discountCode}
-                    onChange={(e) => setFormData({ ...formData, discountCode: e.target.value.toUpperCase() })}
-                    onBlur={handleVerifyDiscount}
-                  />
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={handleVerifyDiscount}
-                    disabled={verifyingDiscount}
-                  >
-                    {verifyingDiscount ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Applica'}
-                  </Button>
                 </div>
               </CardContent>
             </Card>

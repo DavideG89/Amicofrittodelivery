@@ -3,6 +3,7 @@ import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { createRateLimiter } from '@/lib/rate-limit'
 
 const limiter = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 30 })
+const GLOBAL_DISCOUNT_MIN_ORDER = 6
 
 function getClientIp(request: Request) {
   const header = request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip')
@@ -48,9 +49,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Codice sconto non valido' }, { status: 404, headers: rate.headers })
     }
 
-    if (subtotal < Number(discount.min_order_amount || 0)) {
+    const minOrderAmount = Math.max(GLOBAL_DISCOUNT_MIN_ORDER, Number(discount.min_order_amount || 0))
+    if (subtotal < minOrderAmount) {
       return NextResponse.json(
-        { error: 'Ordine minimo non raggiunto', minOrder: Number(discount.min_order_amount || 0) },
+        { error: 'Ordine minimo non raggiunto', minOrder: minOrderAmount },
         { status: 400, headers: rate.headers }
       )
     }

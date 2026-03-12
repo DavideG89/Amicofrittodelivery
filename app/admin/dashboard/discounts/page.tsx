@@ -29,6 +29,8 @@ import {
 } from '@/components/ui/table'
 import { Badge } from '@/components/ui/badge'
 
+const DEFAULT_DISCOUNT_MIN_ORDER = 6
+
 interface DiscountCode {
   id: string
   code: string
@@ -48,6 +50,7 @@ export default function DiscountsPage() {
   const [dialogOpen, setDialogOpen] = useState(false)
   const [newCode, setNewCode] = useState('')
   const [newPercent, setNewPercent] = useState('')
+  const [newMinOrder, setNewMinOrder] = useState(String(DEFAULT_DISCOUNT_MIN_ORDER))
   const adminPages = [
     { href: '/admin/dashboard', label: 'Dashboard' },
     { href: '/admin/dashboard/orders', label: 'Ordini' },
@@ -91,6 +94,14 @@ export default function DiscountsPage() {
       return
     }
 
+    const minOrder = parseFloat(newMinOrder)
+    if (isNaN(minOrder) || minOrder < DEFAULT_DISCOUNT_MIN_ORDER) {
+      toast.error(`Inserisci un ordine minimo valido (almeno ${DEFAULT_DISCOUNT_MIN_ORDER.toFixed(2)}€)`)
+      return
+    }
+
+    const normalizedMinOrder = Math.round(minOrder * 100) / 100
+
     try {
       
       const { error } = await supabase
@@ -99,7 +110,7 @@ export default function DiscountsPage() {
           code: newCode.toUpperCase().trim(),
           discount_type: 'percentage',
           discount_value: percent,
-          min_order_amount: 0,
+          min_order_amount: normalizedMinOrder,
           active: true,
         })
 
@@ -111,6 +122,7 @@ export default function DiscountsPage() {
       toast.success('Codice sconto creato con successo')
       setNewCode('')
       setNewPercent('')
+      setNewMinOrder(String(DEFAULT_DISCOUNT_MIN_ORDER))
       setDialogOpen(false)
       await fetchDiscounts()
     } catch (error: any) {
@@ -227,7 +239,7 @@ export default function DiscountsPage() {
             <DialogHeader>
               <DialogTitle>Crea Codice Sconto</DialogTitle>
               <DialogDescription>
-                Crea un nuovo codice sconto che i clienti potranno usare
+                Crea un nuovo codice sconto e imposta tu l&apos;ordine minimo (almeno 6,00€).
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 py-4">
@@ -251,6 +263,18 @@ export default function DiscountsPage() {
                   max="100"
                   value={newPercent}
                   onChange={(e) => setNewPercent(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="min-order">Ordine minimo (€)</Label>
+                <Input
+                  id="min-order"
+                  type="number"
+                  placeholder="es. 6"
+                  min={String(DEFAULT_DISCOUNT_MIN_ORDER)}
+                  step="0.5"
+                  value={newMinOrder}
+                  onChange={(e) => setNewMinOrder(e.target.value)}
                 />
               </div>
             </div>
@@ -288,6 +312,7 @@ export default function DiscountsPage() {
                 <TableRow>
                   <TableHead>Codice</TableHead>
                   <TableHead>Sconto</TableHead>
+                  <TableHead>Ordine Minimo</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Data Creazione</TableHead>
                   <TableHead className="text-right">Azioni</TableHead>
@@ -304,6 +329,9 @@ export default function DiscountsPage() {
                         ? `${discount.discount_value}%` 
                         : `${discount.discount_value.toFixed(2)}€`
                       }
+                    </TableCell>
+                    <TableCell>
+                      {Math.max(DEFAULT_DISCOUNT_MIN_ORDER, Number(discount.min_order_amount || 0)).toFixed(2)}€
                     </TableCell>
                     <TableCell>
                       <Badge
