@@ -501,7 +501,11 @@ export default function CartPage() {
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur md:hidden">
-        <Button asChild variant="ghost" className="w-full border-0 bg-white/50 text-black shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white/60 hover:text-black">
+        <Button
+          asChild
+          variant="ghost"
+          className="w-full h-11 rounded-xl bg-background text-base font-semibold text-foreground hover:bg-accent hover:text-foreground"
+        >
           <Link href="/">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Torna al menu

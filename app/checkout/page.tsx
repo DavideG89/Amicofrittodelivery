@@ -214,6 +214,11 @@ function CheckoutForm() {
   }, [searchParams])
 
   useEffect(() => {
+    if (!isDelivery) return
+    setFormData((prev) => (prev.paymentMethod === 'cash' ? prev : { ...prev, paymentMethod: 'cash' }))
+  }, [isDelivery])
+
+  useEffect(() => {
     const queryDiscountCode = (searchParams.get('discountCode') || '').trim().toUpperCase()
     const queryDiscountAmountRaw = Number(searchParams.get('discountAmount') || 0)
     const queryDiscountAmount =
@@ -508,7 +513,7 @@ function CheckoutForm() {
         total,
         status: 'pending',
         notes: sanitizedData.notes,
-        payment_method: formData.paymentMethod,
+        payment_method: isDelivery ? 'cash' : formData.paymentMethod,
       }
 
       const res = await fetch('/api/orders', {
@@ -753,8 +758,11 @@ function CheckoutForm() {
                   <Label>Metodo di pagamento</Label>
                   <RadioGroup
                     value={formData.paymentMethod}
-                    onValueChange={(value) => setFormData({ ...formData, paymentMethod: value as 'cash' | 'card' })}
-                    className="grid grid-cols-2 gap-2"
+                    onValueChange={(value) => {
+                      if (isDelivery && value === 'card') return
+                      setFormData((prev) => ({ ...prev, paymentMethod: value as 'cash' | 'card' }))
+                    }}
+                    className={`grid gap-2 ${isDelivery ? 'grid-cols-1' : 'grid-cols-2'}`}
                   >
                     <label
                       htmlFor="payment-cash"
@@ -789,39 +797,41 @@ function CheckoutForm() {
                       </span>
                       <span>Contanti</span>
                     </label>
-                    <label
-                      htmlFor="payment-card"
-                      className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-sm font-medium cursor-pointer transition-colors ${
-                        formData.paymentMethod === 'card'
-                          ? 'border-primary bg-primary/15 text-foreground'
-                          : 'hover:border-primary'
-                      }`}
-                    >
-                      <RadioGroupItem id="payment-card" value="card" className="sr-only" />
-                      <span className="relative inline-flex h-14 w-14 shrink-0 items-center justify-center">
-                        {formData.paymentMethod === 'card' && (
+                    {!isDelivery && (
+                      <label
+                        htmlFor="payment-card"
+                        className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-sm font-medium cursor-pointer transition-colors ${
+                          formData.paymentMethod === 'card'
+                            ? 'border-primary bg-primary/15 text-foreground'
+                            : 'hover:border-primary'
+                        }`}
+                      >
+                        <RadioGroupItem id="payment-card" value="card" className="sr-only" />
+                        <span className="relative inline-flex h-14 w-14 shrink-0 items-center justify-center">
+                          {formData.paymentMethod === 'card' && (
+                            <Image
+                              src="/Star.svg"
+                              alt=""
+                              aria-hidden="true"
+                              width={56}
+                              height={56}
+                              className="pointer-events-none absolute h-14 w-14 -rotate-[15deg] opacity-90"
+                            />
+                          )}
                           <Image
-                            src="/Star.svg"
+                            src="/payment.png"
                             alt=""
                             aria-hidden="true"
-                            width={56}
-                            height={56}
-                            className="pointer-events-none absolute h-14 w-14 -rotate-[15deg] opacity-90"
+                            width={40}
+                            height={40}
+                            className={`relative z-10 h-12 w-12 transition-transform duration-200 ${
+                              formData.paymentMethod === 'card' ? 'rotate-[20deg]' : 'rotate-0'
+                            }`}
                           />
-                        )}
-                        <Image
-                          src="/payment.png"
-                          alt=""
-                          aria-hidden="true"
-                          width={40}
-                          height={40}
-                          className={`relative z-10 h-12 w-12 transition-transform duration-200 ${
-                            formData.paymentMethod === 'card' ? 'rotate-[20deg]' : 'rotate-0'
-                          }`}
-                        />
-                      </span>
-                      <span>Carta (POS)</span>
-                    </label>
+                        </span>
+                        <span>Carta (POS)</span>
+                      </label>
+                    )}
                   </RadioGroup>
                 </div>
 
@@ -881,7 +891,7 @@ function CheckoutForm() {
 
                 <div className="text-xs sm:text-sm text-muted-foreground bg-muted p-3 rounded-md leading-relaxed">
                   {isDelivery
-                    ? 'Pagamento alla consegna: contanti o carta (POS)'
+                    ? 'Pagamento alla consegna: solo contanti'
                     : 'Pagamento al ritiro: contanti o carta (POS)'}
                 </div>
               </CardContent>
@@ -939,7 +949,11 @@ function CheckoutForm() {
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur md:hidden">
-        <Button asChild variant="ghost" className="w-full border-0 bg-white/50 text-black shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white/60 hover:text-black">
+        <Button
+          asChild
+          variant="ghost"
+          className="w-full h-11 rounded-xl bg-background text-base font-semibold text-foreground hover:bg-accent hover:text-foreground"
+        >
           <Link href="/cart">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Torna al carrello
