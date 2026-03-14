@@ -27,7 +27,7 @@ export const metadata: Metadata = {
   icons: {
     icon: [{ url: '/iconfritto.svg', type: 'image/svg+xml' }],
     shortcut: '/iconfritto.svg',
-    apple: '/iconfritto.svg',
+    apple: [{ url: '/180log.svg', sizes: '180x180', type: 'image/svg+xml' }],
   },
   appleWebApp: {
     capable: true,

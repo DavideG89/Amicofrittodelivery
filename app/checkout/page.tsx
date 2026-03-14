@@ -21,7 +21,7 @@ import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
-import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
+import { extractOpeningHours, formatNextOpen, getCurrentOrderScheduleClock, getOrderStatus } from '@/lib/order-schedule'
 
 declare global {
   interface Window {
@@ -115,20 +115,17 @@ function CheckoutForm() {
   })
 
   const [discountAmount, setDiscountAmount] = useState(0)
-  const [verifyingDiscount, setVerifyingDiscount] = useState(false)
   const [deliveryCheckState, setDeliveryCheckState] = useState<DeliveryCheckState>('idle')
   const [deliveryCheckMessage, setDeliveryCheckMessage] = useState('')
   const deliveryCheckRequestIdRef = useRef(0)
 
   const pad = (value: number) => String(value).padStart(2, '0')
-  const roundToNextQuarterHour = (date: Date) => {
-    const next = new Date(date)
-    next.setSeconds(0, 0)
-    const remainder = next.getMinutes() % 15
+  const roundToNextQuarterHour = (minutes: number) => {
+    const remainder = minutes % 15
     if (remainder !== 0) {
-      next.setMinutes(next.getMinutes() + (15 - remainder))
+      return minutes + (15 - remainder)
     }
-    return next
+    return minutes
   }
   const timeToMinutes = (value: string) => {
     const [hoursRaw, minutesRaw] = value.split(':')
@@ -137,21 +134,22 @@ function CheckoutForm() {
     if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
     return hours * 60 + minutes
   }
+  const maxScheduledMinutes = 23 * 60 + 45
   const minutesToTime = (value: number) => `${pad(Math.floor(value / 60))}:${pad(value % 60)}`
   const minScheduledMinutes = (() => {
-    const minDate = roundToNextQuarterHour(new Date(Date.now() + 10 * 60 * 1000))
-    return minDate.getHours() * 60 + minDate.getMinutes()
+    const { minutes } = getCurrentOrderScheduleClock()
+    return roundToNextQuarterHour(minutes + 10)
   })()
   const minScheduledTime = (() => {
-    return minutesToTime(minScheduledMinutes)
+    return minutesToTime(Math.min(minScheduledMinutes, maxScheduledMinutes))
   })()
   const scheduledTimeOptions = useMemo(() => {
     const options: string[] = []
-    for (let minutes = minScheduledMinutes; minutes <= 23 * 60 + 45; minutes += 15) {
+    for (let minutes = minScheduledMinutes; minutes <= maxScheduledMinutes; minutes += 15) {
       options.push(minutesToTime(minutes))
     }
     return options
-  }, [minScheduledMinutes])
+  }, [maxScheduledMinutes, minScheduledMinutes])
   const timingSummaryLabel =
     orderTiming === 'asap'
       ? 'Prima possibile'
@@ -213,6 +211,27 @@ function CheckoutForm() {
   useEffect(() => {
     setIsDelivery(searchParams.get('delivery') === 'true')
   }, [searchParams])
+
+  useEffect(() => {
+    if (!isDelivery) return
+    setFormData((prev) => (prev.paymentMethod === 'cash' ? prev : { ...prev, paymentMethod: 'cash' }))
+  }, [isDelivery])
+
+  useEffect(() => {
+    const queryDiscountCode = (searchParams.get('discountCode') || '').trim().toUpperCase()
+    const queryDiscountAmountRaw = Number(searchParams.get('discountAmount') || 0)
+    const queryDiscountAmount =
+      Number.isFinite(queryDiscountAmountRaw) && queryDiscountAmountRaw > 0
+        ? Math.min(queryDiscountAmountRaw, subtotal)
+        : 0
+
+    setDiscountAmount(queryDiscountAmount)
+    setFormData((prev) =>
+      prev.discountCode === queryDiscountCode
+        ? prev
+        : { ...prev, discountCode: queryDiscountCode }
+    )
+  }, [searchParams, subtotal])
 
   useEffect(() => {
     if (orderTiming !== 'scheduled') return
@@ -357,42 +376,6 @@ function CheckoutForm() {
         ? 'text-muted-foreground'
         : 'text-destructive'
 
-  const handleVerifyDiscount = async () => {
-    if (!formData.discountCode.trim()) {
-      setDiscountAmount(0)
-      return
-    }
-
-    setVerifyingDiscount(true)
-    try {
-      const res = await fetch('/api/discounts/verify', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: formData.discountCode, subtotal }),
-      })
-      const data = await res.json().catch(() => ({}))
-
-      if (!res.ok) {
-        if (data?.minOrder) {
-          toast.error(`Ordine minimo per questo sconto: ${Number(data.minOrder).toFixed(2)}€`)
-        } else {
-          toast.error(data?.error || 'Codice sconto non valido')
-        }
-        setDiscountAmount(0)
-        return
-      }
-
-      setDiscountAmount(Math.min(Number(data.discountAmount || 0), subtotal))
-      toast.success(`Sconto applicato: ${Number(data.discountAmount || 0).toFixed(2)}€`)
-    } catch (err) {
-      console.error('[v0] Error verifying discount:', err)
-      toast.error('Errore durante la verifica del codice sconto')
-      setDiscountAmount(0)
-    } finally {
-      setVerifyingDiscount(false)
-    }
-  }
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     
@@ -529,7 +512,7 @@ function CheckoutForm() {
         total,
         status: 'pending',
         notes: sanitizedData.notes,
-        payment_method: formData.paymentMethod,
+        payment_method: isDelivery ? 'cash' : formData.paymentMethod,
       }
 
       const res = await fetch('/api/orders', {
@@ -774,8 +757,11 @@ function CheckoutForm() {
                   <Label>Metodo di pagamento</Label>
                   <RadioGroup
                     value={formData.paymentMethod}
-                    onValueChange={(value) => setFormData({ ...formData, paymentMethod: value as 'cash' | 'card' })}
-                    className="grid grid-cols-2 gap-2"
+                    onValueChange={(value) => {
+                      if (isDelivery && value === 'card') return
+                      setFormData((prev) => ({ ...prev, paymentMethod: value as 'cash' | 'card' }))
+                    }}
+                    className={`grid gap-2 ${isDelivery ? 'grid-cols-1' : 'grid-cols-2'}`}
                   >
                     <label
                       htmlFor="payment-cash"
@@ -810,39 +796,41 @@ function CheckoutForm() {
                       </span>
                       <span>Contanti</span>
                     </label>
-                    <label
-                      htmlFor="payment-card"
-                      className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-sm font-medium cursor-pointer transition-colors ${
-                        formData.paymentMethod === 'card'
-                          ? 'border-primary bg-primary/15 text-foreground'
-                          : 'hover:border-primary'
-                      }`}
-                    >
-                      <RadioGroupItem id="payment-card" value="card" className="sr-only" />
-                      <span className="relative inline-flex h-14 w-14 shrink-0 items-center justify-center">
-                        {formData.paymentMethod === 'card' && (
+                    {!isDelivery && (
+                      <label
+                        htmlFor="payment-card"
+                        className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-sm font-medium cursor-pointer transition-colors ${
+                          formData.paymentMethod === 'card'
+                            ? 'border-primary bg-primary/15 text-foreground'
+                            : 'hover:border-primary'
+                        }`}
+                      >
+                        <RadioGroupItem id="payment-card" value="card" className="sr-only" />
+                        <span className="relative inline-flex h-14 w-14 shrink-0 items-center justify-center">
+                          {formData.paymentMethod === 'card' && (
+                            <Image
+                              src="/Star.svg"
+                              alt=""
+                              aria-hidden="true"
+                              width={56}
+                              height={56}
+                              className="pointer-events-none absolute h-14 w-14 -rotate-[15deg] opacity-90"
+                            />
+                          )}
                           <Image
-                            src="/Star.svg"
+                            src="/payment.png"
                             alt=""
                             aria-hidden="true"
-                            width={56}
-                            height={56}
-                            className="pointer-events-none absolute h-14 w-14 -rotate-[15deg] opacity-90"
+                            width={40}
+                            height={40}
+                            className={`relative z-10 h-12 w-12 transition-transform duration-200 ${
+                              formData.paymentMethod === 'card' ? 'rotate-[20deg]' : 'rotate-0'
+                            }`}
                           />
-                        )}
-                        <Image
-                          src="/payment.png"
-                          alt=""
-                          aria-hidden="true"
-                          width={40}
-                          height={40}
-                          className={`relative z-10 h-12 w-12 transition-transform duration-200 ${
-                            formData.paymentMethod === 'card' ? 'rotate-[20deg]' : 'rotate-0'
-                          }`}
-                        />
-                      </span>
-                      <span>Carta (POS)</span>
-                    </label>
+                        </span>
+                        <span>Carta (POS)</span>
+                      </label>
+                    )}
                   </RadioGroup>
                 </div>
 
@@ -854,31 +842,6 @@ function CheckoutForm() {
                     value={formData.notes}
                     onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
                   />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>Codice sconto</CardTitle>
-                <CardDescription>Hai un codice sconto? Inseriscilo qui</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="SCONTO10"
-                    value={formData.discountCode}
-                    onChange={(e) => setFormData({ ...formData, discountCode: e.target.value.toUpperCase() })}
-                    onBlur={handleVerifyDiscount}
-                  />
-                  <Button 
-                    type="button" 
-                    variant="outline"
-                    onClick={handleVerifyDiscount}
-                    disabled={verifyingDiscount}
-                  >
-                    {verifyingDiscount ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Applica'}
-                  </Button>
                 </div>
               </CardContent>
             </Card>
@@ -927,7 +890,7 @@ function CheckoutForm() {
 
                 <div className="text-xs sm:text-sm text-muted-foreground bg-muted p-3 rounded-md leading-relaxed">
                   {isDelivery
-                    ? 'Pagamento alla consegna: contanti o carta (POS)'
+                    ? 'Pagamento alla consegna: solo contanti'
                     : 'Pagamento al ritiro: contanti o carta (POS)'}
                 </div>
               </CardContent>
@@ -985,7 +948,11 @@ function CheckoutForm() {
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur md:hidden">
-        <Button asChild variant="ghost" className="w-full border-0 bg-white/50 text-black shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white/60 hover:text-black">
+        <Button
+          asChild
+          variant="ghost"
+          className="w-full h-11 rounded-xl bg-background text-base font-semibold text-foreground hover:bg-accent hover:text-foreground"
+        >
           <Link href="/cart">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Torna al carrello

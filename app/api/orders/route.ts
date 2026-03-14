@@ -9,6 +9,7 @@ import { buildProductNameWithPieceOption, normalizeProductPieceOptions, type Pro
 import { normalizeUpsellProductOverrides } from '@/lib/upsell-overrides'
 import type { OrderStatus } from '@/lib/supabase'
 import { getDeliveryPolygonFromOpeningHours, isDeliveryPolygonReady, isPointInsideDeliveryPolygon } from '@/lib/delivery-area'
+import { extractOpeningHours, getOrderStatus } from '@/lib/order-schedule'
 
 type OrderItem = {
   product_id: string
@@ -45,6 +46,7 @@ const geocodeCacheTtlMs = 6 * 60 * 60 * 1000
 const PUBLIC_ORDER_SELECT =
   'order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at'
 const PUBLIC_ORDER_LIGHT_SELECT = 'order_number, status, updated_at'
+const GLOBAL_DISCOUNT_MIN_ORDER = 6
 
 function normalizePublicStatus(value: unknown): OrderStatus {
   if (
@@ -810,14 +812,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Totale non valido' }, { status: 400 })
     }
 
+    const { data: storeInfo } = await supabase
+      .from('store_info')
+      .select('delivery_fee, min_order_delivery, opening_hours')
+      .limit(1)
+      .maybeSingle()
+
+    const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
+    const orderStatus = getOrderStatus(schedule)
+    if (!orderStatus.isOpen) {
+      return NextResponse.json({ error: 'Ordinazioni chiuse al momento' }, { status: 400 })
+    }
+
     let deliveryFee = 0
     if (order.order_type === 'delivery') {
-      const { data: storeInfo } = await supabase
-        .from('store_info')
-        .select('delivery_fee, min_order_delivery, opening_hours')
-        .limit(1)
-        .maybeSingle()
-
       deliveryFee = Number(storeInfo?.delivery_fee || 0)
       const minOrderDelivery = Number(storeInfo?.min_order_delivery || 0)
       if (minOrderDelivery > 0 && subtotal < minOrderDelivery) {
@@ -861,7 +869,8 @@ export async function POST(request: Request) {
         .maybeSingle()
 
       if (!discountError && discount) {
-        if (subtotal >= Number(discount.min_order_amount || 0)) {
+        const minOrderAmount = Math.max(GLOBAL_DISCOUNT_MIN_ORDER, Number(discount.min_order_amount || 0))
+        if (subtotal >= minOrderAmount) {
           if (discount.discount_type === 'percentage') {
             discountAmount = (subtotal * Number(discount.discount_value || 0)) / 100
           } else {
