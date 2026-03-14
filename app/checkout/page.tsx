@@ -21,7 +21,7 @@ import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
-import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
+import { extractOpeningHours, formatNextOpen, getCurrentOrderScheduleClock, getOrderStatus } from '@/lib/order-schedule'
 
 declare global {
   interface Window {
@@ -120,14 +120,12 @@ function CheckoutForm() {
   const deliveryCheckRequestIdRef = useRef(0)
 
   const pad = (value: number) => String(value).padStart(2, '0')
-  const roundToNextQuarterHour = (date: Date) => {
-    const next = new Date(date)
-    next.setSeconds(0, 0)
-    const remainder = next.getMinutes() % 15
+  const roundToNextQuarterHour = (minutes: number) => {
+    const remainder = minutes % 15
     if (remainder !== 0) {
-      next.setMinutes(next.getMinutes() + (15 - remainder))
+      return minutes + (15 - remainder)
     }
-    return next
+    return minutes
   }
   const timeToMinutes = (value: string) => {
     const [hoursRaw, minutesRaw] = value.split(':')
@@ -136,21 +134,22 @@ function CheckoutForm() {
     if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
     return hours * 60 + minutes
   }
+  const maxScheduledMinutes = 23 * 60 + 45
   const minutesToTime = (value: number) => `${pad(Math.floor(value / 60))}:${pad(value % 60)}`
   const minScheduledMinutes = (() => {
-    const minDate = roundToNextQuarterHour(new Date(Date.now() + 10 * 60 * 1000))
-    return minDate.getHours() * 60 + minDate.getMinutes()
+    const { minutes } = getCurrentOrderScheduleClock()
+    return roundToNextQuarterHour(minutes + 10)
   })()
   const minScheduledTime = (() => {
-    return minutesToTime(minScheduledMinutes)
+    return minutesToTime(Math.min(minScheduledMinutes, maxScheduledMinutes))
   })()
   const scheduledTimeOptions = useMemo(() => {
     const options: string[] = []
-    for (let minutes = minScheduledMinutes; minutes <= 23 * 60 + 45; minutes += 15) {
+    for (let minutes = minScheduledMinutes; minutes <= maxScheduledMinutes; minutes += 15) {
       options.push(minutesToTime(minutes))
     }
     return options
-  }, [minScheduledMinutes])
+  }, [maxScheduledMinutes, minScheduledMinutes])
   const timingSummaryLabel =
     orderTiming === 'asap'
       ? 'Prima possibile'
