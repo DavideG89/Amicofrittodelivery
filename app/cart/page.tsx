@@ -8,6 +8,14 @@ import { ArrowLeft, Plus, Minus, Trash2, ShoppingBag, Loader2 } from 'lucide-rea
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerFooter,
+  DrawerHeader,
+  DrawerTitle,
+} from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
@@ -34,6 +42,8 @@ export default function CartPage() {
   const [verifyingDiscount, setVerifyingDiscount] = useState(false)
   const [discountError, setDiscountError] = useState('')
   const [discountAppliedSubtotal, setDiscountAppliedSubtotal] = useState<number | null>(null)
+  const [clearCartDrawerOpen, setClearCartDrawerOpen] = useState(false)
+  const [redirectingHome, setRedirectingHome] = useState(false)
 
   useEffect(() => {
     async function fetchStoreInfo() {
@@ -141,6 +151,12 @@ export default function CartPage() {
     !hasActiveOrder &&
     (!isDelivery || (storeInfo && subtotal >= storeInfo.min_order_delivery))
 
+  const clearCartAndGoHome = () => {
+    setRedirectingHome(true)
+    clearCart()
+    router.replace('/')
+  }
+
   const handleCheckout = () => {
     if (!canProceed) return
     const checkoutParams = new URLSearchParams()
@@ -154,9 +170,19 @@ export default function CartPage() {
 
   const handleClearCart = () => {
     if (items.length === 0) return
-    const confirmed = window.confirm('Vuoi svuotare completamente il carrello?')
-    if (!confirmed) return
-    clearCart()
+    const isDesktop = typeof window !== 'undefined' && window.matchMedia('(min-width: 768px)').matches
+    if (isDesktop) {
+      const confirmed = window.confirm('Vuoi svuotare completamente il carrello?')
+      if (!confirmed) return
+      clearCartAndGoHome()
+      return
+    }
+    setClearCartDrawerOpen(true)
+  }
+
+  const handleConfirmClearCart = () => {
+    setClearCartDrawerOpen(false)
+    clearCartAndGoHome()
   }
 
   const handleVerifyDiscount = async () => {
@@ -218,11 +244,18 @@ export default function CartPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-6">
+    <div className="min-h-screen bg-background pb-6">
       <Header />
       
       <main className="container px-4 sm:px-6 lg:px-8 py-6 max-w-5xl mx-auto">
         <div className="mb-6 space-y-3">
+          <Link
+            href="/"
+            className="inline-flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:hidden"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Torna al menu
+          </Link>
           <Button variant="ghost" asChild className="-ml-3 hidden md:inline-flex">
             <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -289,7 +322,7 @@ export default function CartPage() {
           </div>
         )}
 
-        {items.length === 0 ? (
+        {items.length === 0 && !redirectingHome ? (
           <Card>
             <CardContent className="flex flex-col items-center justify-center py-12">
               <ShoppingBag className="h-16 w-16 text-muted-foreground mb-4" />
@@ -300,7 +333,7 @@ export default function CartPage() {
               </Button>
             </CardContent>
           </Card>
-        ) : (
+        ) : !redirectingHome ? (
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-3 sm:space-y-4">
               {items.map((item) => (
@@ -497,21 +530,35 @@ export default function CartPage() {
               </Card>
             </div>
           </div>
-        )}
+        ) : null}
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur md:hidden">
-        <Button
-          asChild
-          variant="ghost"
-          className="w-full h-11 rounded-xl bg-background text-base font-semibold text-foreground hover:bg-accent hover:text-foreground"
-        >
-          <Link href="/">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Torna al menu
-          </Link>
-        </Button>
-      </div>
+      <Drawer open={clearCartDrawerOpen} onOpenChange={setClearCartDrawerOpen}>
+        <DrawerContent className="md:hidden">
+          <DrawerHeader>
+            <DrawerTitle>Sei sicuro di eliminare?</DrawerTitle>
+            <DrawerDescription>
+              Questa azione rimuoverà tutti i prodotti dal carrello.
+            </DrawerDescription>
+          </DrawerHeader>
+          <DrawerFooter className="pb-[calc(env(safe-area-inset-bottom)+1rem)]">
+            <Button
+              type="button"
+              variant="destructive"
+              onClick={handleConfirmClearCart}
+            >
+              Sono sicuro
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setClearCartDrawerOpen(false)}
+            >
+              Annulla
+            </Button>
+          </DrawerFooter>
+        </DrawerContent>
+      </Drawer>
     </div>
   )
 }

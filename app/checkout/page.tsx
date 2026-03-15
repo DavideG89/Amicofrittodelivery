@@ -564,7 +564,7 @@ function CheckoutForm() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-24 md:pb-6">
+    <div className="min-h-screen bg-background pb-6">
       <Header />
       {recaptchaSiteKey && !disableRecaptcha && (
         <Script
@@ -581,6 +581,13 @@ function CheckoutForm() {
       
       <main className="container px-4 sm:px-6 lg:px-8 py-6 max-w-5xl mx-auto">
         <div className="mb-6 space-y-3">
+          <Link
+            href="/cart"
+            className="inline-flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:hidden"
+          >
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Torna al carrello
+          </Link>
           <Button variant="ghost" asChild className="-ml-3 hidden md:inline-flex">
             <Link href="/cart">
               <ArrowLeft className="mr-2 h-4 w-4" />
@@ -947,18 +954,6 @@ function CheckoutForm() {
         </form>
       </main>
 
-      <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur md:hidden">
-        <Button
-          asChild
-          variant="ghost"
-          className="w-full h-11 rounded-xl bg-background text-base font-semibold text-foreground hover:bg-accent hover:text-foreground"
-        >
-          <Link href="/cart">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Torna al carrello
-          </Link>
-        </Button>
-      </div>
     </div>
   )
 }

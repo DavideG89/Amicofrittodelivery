@@ -147,6 +147,22 @@ function timeToMinutes(value: string) {
   return h * 60 + m
 }
 
+function isRangeOpenAtMinutes(nowMinutes: number, start: number, end: number) {
+  // Same start/end means 24h for that day.
+  if (start === end) return true
+  if (end > start) {
+    return nowMinutes >= start && nowMinutes < end
+  }
+  // Overnight range (e.g. 22:00 -> 02:00 or 16:15 -> 00:00)
+  return nowMinutes >= start || nowMinutes < end
+}
+
+function getPreviousDayKey(day: DayKey): DayKey {
+  const index = dayOrder.indexOf(day)
+  if (index <= 0) return dayOrder[dayOrder.length - 1]
+  return dayOrder[index - 1]
+}
+
 function getDayKeyFromLocalDate(date: Date): DayKey {
   const jsDay = date.getDay() // 0=Sun..6=Sat
   const index = (jsDay + 6) % 7 // 0=Mon..6=Sun
@@ -217,7 +233,19 @@ export function getOrderStatus(schedule: OrderSchedule | null, now = new Date())
     const start = timeToMinutes(range.start)
     const end = timeToMinutes(range.end)
     if (start === null || end === null) continue
-    if (nowMinutes >= start && nowMinutes < end) {
+    if (isRangeOpenAtMinutes(nowMinutes, start, end)) {
+      return { isOpen: true, nextOpen: null as OrderScheduleNextOpen | null }
+    }
+  }
+
+  // Keep open after midnight for previous-day overnight slots (e.g. Fri 22:00-02:00 on Sat 01:00).
+  const previousDayKey = getPreviousDayKey(todayKey)
+  const previousDayRanges = schedule.days[previousDayKey] || []
+  for (const range of previousDayRanges) {
+    const start = timeToMinutes(range.start)
+    const end = timeToMinutes(range.end)
+    if (start === null || end === null) continue
+    if (end < start && nowMinutes < end) {
       return { isOpen: true, nextOpen: null as OrderScheduleNextOpen | null }
     }
   }
