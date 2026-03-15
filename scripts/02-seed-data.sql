@@ -108,8 +108,8 @@ VALUES
 ON CONFLICT (type, name) DO NOTHING;
 
 -- Insert some sample discount codes
-INSERT INTO discount_codes (code, discount_type, discount_value, min_order_amount, active)
+INSERT INTO discount_codes (code, discount_type, discount_value, min_order_amount, order_type_scope, active)
 VALUES
-  ('BENVENUTO10', 'percentage', 10, 20, true),
-  ('SCONTO5', 'fixed', 5, 15, true)
+  ('BENVENUTO10', 'percentage', 10, 20, 'all', true),
+  ('SCONTO5', 'fixed', 5, 15, 'all', true)
 ON CONFLICT (code) DO NOTHING;

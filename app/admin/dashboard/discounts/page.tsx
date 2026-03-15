@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { toast } from 'sonner'
 import { Trash2, Plus, Percent, ChevronDown } from 'lucide-react'
 import {
@@ -30,6 +31,7 @@ import {
 import { Badge } from '@/components/ui/badge'
 
 const DEFAULT_DISCOUNT_MIN_ORDER = 6
+type DiscountOrderTypeScope = 'all' | 'delivery' | 'takeaway'
 
 interface DiscountCode {
   id: string
@@ -37,10 +39,29 @@ interface DiscountCode {
   discount_type: 'percentage' | 'fixed'
   discount_value: number
   min_order_amount: number
+  order_type_scope: DiscountOrderTypeScope
   active: boolean
   valid_from: string
   valid_until: string | null
   created_at: string
+}
+
+function normalizeDiscountOrderTypeScope(value: unknown): DiscountOrderTypeScope {
+  if (value === 'delivery' || value === 'takeaway' || value === 'all') return value
+  return 'all'
+}
+
+function isMissingDiscountScopeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+  const maybeError = error as { code?: string; message?: string; details?: string; hint?: string }
+  const text = `${maybeError.message || ''} ${maybeError.details || ''} ${maybeError.hint || ''}`.toLowerCase()
+  return maybeError.code === '42703' || (text.includes('order_type_scope') && text.includes('column'))
+}
+
+function getScopeLabel(scope: DiscountOrderTypeScope) {
+  if (scope === 'delivery') return 'Solo delivery'
+  if (scope === 'takeaway') return 'Solo ritiro'
+  return 'Delivery + Ritiro'
 }
 
 export default function DiscountsPage() {
@@ -51,6 +72,7 @@ export default function DiscountsPage() {
   const [newCode, setNewCode] = useState('')
   const [newPercent, setNewPercent] = useState('')
   const [newMinOrder, setNewMinOrder] = useState(String(DEFAULT_DISCOUNT_MIN_ORDER))
+  const [newOrderTypeScope, setNewOrderTypeScope] = useState<DiscountOrderTypeScope>('all')
   const adminPages = [
     { href: '/admin/dashboard', label: 'Dashboard' },
     { href: '/admin/dashboard/orders', label: 'Ordini' },
@@ -67,13 +89,42 @@ export default function DiscountsPage() {
 
   async function fetchDiscounts() {
     try {
-      const { data, error } = await supabase
+      const primaryResponse = await supabase
         .from('discount_codes')
-        .select('id, code, discount_type, discount_value, min_order_amount, active, valid_from, valid_until, created_at')
+        .select('id, code, discount_type, discount_value, min_order_amount, order_type_scope, active, valid_from, valid_until, created_at')
         .order('created_at', { ascending: false })
 
+      let data = primaryResponse.data as Array<Partial<DiscountCode> & { order_type_scope?: unknown }> | null
+      let error = primaryResponse.error
+
+      if (isMissingDiscountScopeColumnError(error)) {
+        const fallbackResponse = await supabase
+          .from('discount_codes')
+          .select('id, code, discount_type, discount_value, min_order_amount, active, valid_from, valid_until, created_at')
+          .order('created_at', { ascending: false })
+
+        data = (fallbackResponse.data || []).map((discount) => ({
+          ...discount,
+          order_type_scope: 'all',
+        }))
+        error = fallbackResponse.error
+      }
+
       if (error) throw error
-      setDiscounts(data || [])
+      setDiscounts(
+        (data || []).map((discount) => ({
+          id: String(discount.id || ''),
+          code: String(discount.code || ''),
+          discount_type: discount.discount_type === 'fixed' ? 'fixed' : 'percentage',
+          discount_value: Number(discount.discount_value || 0),
+          min_order_amount: Number(discount.min_order_amount || 0),
+          order_type_scope: normalizeDiscountOrderTypeScope(discount.order_type_scope),
+          active: Boolean(discount.active),
+          valid_from: String(discount.valid_from || ''),
+          valid_until: discount.valid_until ? String(discount.valid_until) : null,
+          created_at: String(discount.created_at || ''),
+        }))
+      )
     } catch (error) {
       console.error('[v0] Error fetching discounts:', error)
       toast.error('Errore nel caricamento dei codici sconto')
@@ -103,16 +154,33 @@ export default function DiscountsPage() {
     const normalizedMinOrder = Math.round(minOrder * 100) / 100
 
     try {
-      
-      const { error } = await supabase
+      const primaryInsert = await supabase
         .from('discount_codes')
         .insert({
           code: newCode.toUpperCase().trim(),
           discount_type: 'percentage',
           discount_value: percent,
           min_order_amount: normalizedMinOrder,
+          order_type_scope: newOrderTypeScope,
           active: true,
         })
+
+      let error = primaryInsert.error
+      if (isMissingDiscountScopeColumnError(error)) {
+        if (newOrderTypeScope !== 'all') {
+          throw new Error('DISCOUNT_SCOPE_MIGRATION_REQUIRED')
+        }
+        const fallbackInsert = await supabase
+          .from('discount_codes')
+          .insert({
+            code: newCode.toUpperCase().trim(),
+            discount_type: 'percentage',
+            discount_value: percent,
+            min_order_amount: normalizedMinOrder,
+            active: true,
+          })
+        error = fallbackInsert.error
+      }
 
       if (error) {
         console.error('[v0] Discount creation error:', error)
@@ -123,11 +191,14 @@ export default function DiscountsPage() {
       setNewCode('')
       setNewPercent('')
       setNewMinOrder(String(DEFAULT_DISCOUNT_MIN_ORDER))
+      setNewOrderTypeScope('all')
       setDialogOpen(false)
       await fetchDiscounts()
     } catch (error: any) {
       console.error('[v0] Error creating discount:', error)
-      if (error.code === '23505') {
+      if (error?.message === 'DISCOUNT_SCOPE_MIGRATION_REQUIRED') {
+        toast.error('Aggiorna il database: esegui lo script SQL 18 per usare sconti solo delivery/ritiro.')
+      } else if (error.code === '23505') {
         toast.error('Questo codice sconto esiste già')
       } else {
         toast.error('Errore nella creazione del codice sconto')
@@ -277,6 +348,22 @@ export default function DiscountsPage() {
                   onChange={(e) => setNewMinOrder(e.target.value)}
                 />
               </div>
+              <div className="space-y-2">
+                <Label htmlFor="order-type-scope">Valido per</Label>
+                <Select
+                  value={newOrderTypeScope}
+                  onValueChange={(value) => setNewOrderTypeScope(value as DiscountOrderTypeScope)}
+                >
+                  <SelectTrigger id="order-type-scope">
+                    <SelectValue placeholder="Seleziona ambito" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Delivery + Ritiro</SelectItem>
+                    <SelectItem value="delivery">Solo delivery</SelectItem>
+                    <SelectItem value="takeaway">Solo ritiro</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setDialogOpen(false)}>
@@ -313,6 +400,7 @@ export default function DiscountsPage() {
                   <TableHead>Codice</TableHead>
                   <TableHead>Sconto</TableHead>
                   <TableHead>Ordine Minimo</TableHead>
+                  <TableHead>Valido per</TableHead>
                   <TableHead>Stato</TableHead>
                   <TableHead>Data Creazione</TableHead>
                   <TableHead className="text-right">Azioni</TableHead>
@@ -332,6 +420,9 @@ export default function DiscountsPage() {
                     </TableCell>
                     <TableCell>
                       {Math.max(DEFAULT_DISCOUNT_MIN_ORDER, Number(discount.min_order_amount || 0)).toFixed(2)}€
+                    </TableCell>
+                    <TableCell>
+                      <Badge variant="outline">{getScopeLabel(discount.order_type_scope)}</Badge>
                     </TableCell>
                     <TableCell>
                       <Badge
