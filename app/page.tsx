@@ -24,6 +24,7 @@ const CATEGORY_ICONS = {
   salse: '/icons/Products_Salse.png',
   bevande: '/icons/Products_Bevande.png',
 } as const
+const CHICKEN_BURGER_NAME_OVERRIDES = ['deluxe']
 
 function getCategoryIconPath(category: Category): string | null {
   const text = `${category.slug || ''} ${category.name || ''}`.toLowerCase()
@@ -47,7 +48,7 @@ export default function Home() {
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
   const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
-  const cacheKey = 'af:home-cache:v3'
+  const cacheKey = 'af:home-cache:v4'
   const cacheTtlMs = 10 * 60 * 1000
   const sortCategories = (list: Category[]) => {
     const desiredOrder = ['hamburger', 'mini' ,'panini', 'kebab', 'fritti', 'salse', 'bevande']
@@ -103,7 +104,7 @@ export default function Home() {
     if (productsByCategory[categoryId]) return
     const { data, error } = await supabase
       .from('products')
-      .select('id, category_id, name, price, image_url, piece_options, available, label, display_order, created_at, updated_at')
+      .select('id, category_id, name, ingredients, price, image_url, piece_options, available, label, display_order, created_at, updated_at')
       .eq('category_id', categoryId)
       .order('display_order', { ascending: true })
     if (error) {
@@ -304,6 +305,20 @@ export default function Home() {
   const compareProductName = (a: Product, b: Product) =>
     a.name.localeCompare(b.name, 'it', { sensitivity: 'base', numeric: true })
 
+  const isHamburgerCategory = (category: Category) => {
+    const text = `${category.slug || ''} ${category.name || ''}`.toLowerCase()
+    return text.includes('hamburger') || text.includes('burger')
+  }
+
+  const isChickenBurger = (product: Product) => {
+    const productName = `${product.name || ''}`.toLowerCase()
+    if (CHICKEN_BURGER_NAME_OVERRIDES.some((name) => productName.includes(name))) {
+      return true
+    }
+    const text = `${product.name || ''} ${product.ingredients || ''}`.toLowerCase()
+    return text.includes('pollo') || text.includes('chicken')
+  }
+
   const getProductsByCategory = (categoryId: string) => {
     return (productsByCategory[categoryId] || []).sort(compareProductName)
   }
@@ -418,10 +433,47 @@ export default function Home() {
               const isActiveCategory =
                 (activeCategory ?? categories[0]?.id) === category.id
               const isCategoryLoading = isActiveCategory && !productsByCategory[category.id]
+              const slug = (category.slug || '').toLowerCase()
+              const categoryName = (category.name || '').toLowerCase()
+              const isSaucesCategory =
+                slug === 'salse' ||
+                categoryName.includes('salse') ||
+                categoryName.includes('salsa')
+              const isDrinksCategory =
+                slug === 'bevande' ||
+                categoryName.includes('bevande') ||
+                categoryName.includes('bevanda')
+              const isFriedCategory =
+                slug === 'fritti' ||
+                categoryName.includes('fritti') ||
+                categoryName.includes('fritto')
+              const isBurgerCategory = isHamburgerCategory(category)
+              const chickenBurgers = isBurgerCategory
+                ? categoryProducts.filter((product) => isChickenBurger(product))
+                : []
+              const meatBurgers = isBurgerCategory
+                ? categoryProducts.filter((product) => !isChickenBurger(product))
+                : []
+
+              const renderProductsGrid = (products: Product[]) => (
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
+                  {products.map((product) => (
+                    <ProductCard
+                      key={product.id}
+                      product={product}
+                      categorySlug={category.slug}
+                      imageFit={isSaucesCategory ? 'contain' : 'cover'}
+                      skipAdditions={isSaucesCategory || isDrinksCategory}
+                      saucesOnly={isFriedCategory}
+                      forceFreeSingleSauce={isFriedCategory}
+                    />
+                  ))}
+                </div>
+              )
               
               return (
-                <TabsContent key={category.id} value={category.id} className="mt-0 space-y-6">
-                  <div className="sticky top-[11.5rem] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-4 sm:static sm:top-auto sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0">
+                <TabsContent key={category.id} value={category.id} className="mt-0 space-y-0">
+                  <div className="sticky top-[11.5rem] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-2  sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0 lg:static lg:top-auto">
                     <div className="flex items-baseline justify-between">
                     <h2 className="font-bold text-2xl sm:text-xl">{category.name}</h2>
                     <span className="text-sm text-muted-foreground">
@@ -440,36 +492,23 @@ export default function Home() {
                     <p className="text-muted-foreground text-center py-12 text-sm sm:text-base">
                       Nessun prodotto disponibile in questa categoria.
                     </p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
-                      {categoryProducts.map((product) => {
-                        const slug = (category.slug || '').toLowerCase()
-                        const categoryName = (category.name || '').toLowerCase()
-                        const isSaucesCategory =
-                          slug === 'salse' ||
-                          categoryName.includes('salse') ||
-                          categoryName.includes('salsa')
-                        const isDrinksCategory =
-                          slug === 'bevande' ||
-                          categoryName.includes('bevande') ||
-                          categoryName.includes('bevanda')
-                        const isFriedCategory =
-                          slug === 'fritti' ||
-                          categoryName.includes('fritti') ||
-                          categoryName.includes('fritto')
-                        return (
-                          <ProductCard
-                            key={product.id}
-                            product={product}
-                            categorySlug={category.slug}
-                            imageFit={isSaucesCategory ? 'contain' : 'cover'}
-                            skipAdditions={isSaucesCategory || isDrinksCategory}
-                            saucesOnly={isFriedCategory}
-                            forceFreeSingleSauce={isFriedCategory}
-                          />
-                        )
-                      })}
+                  ) : isBurgerCategory ? (
+                    <div className="space-y-8">
+                      {meatBurgers.length > 0 && (
+                        <section className="space-y-3">
+                          <h3 className=" sticky top-[14.5rem] z-10 bg-background/95 backdrop-blur sm:bg-transparent sm:backdrop-blur-0 text-xl sm:text-3xl font-semibold px-2 py-2 md:top-[4rem] md:z-10 md:bg-background/95 md:backdrop-blur">Carne</h3>
+                          {renderProductsGrid(meatBurgers)}
+                        </section>
+                      )}
+                      {chickenBurgers.length > 0 && (
+                        <section className="space-y-3">
+                          <h3 className="sticky top-[14.5rem] z-10 bg-background/95 backdrop-blur sm:bg-transparent sm:backdrop-blur-0 text-xl sm:text-3xl font-semibold px-2 py-2 md:top-[4rem] md:z-10 md:bg-background/95 md:backdrop-blur">Pollo</h3>
+                          {renderProductsGrid(chickenBurgers)}
+                        </section>
+                      )}
                     </div>
+                  ) : (
+                    renderProductsGrid(categoryProducts)
                   )}
                 </TabsContent>
               )
