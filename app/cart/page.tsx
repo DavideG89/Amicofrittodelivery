@@ -44,6 +44,7 @@ export default function CartPage() {
   const [discountAppliedSubtotal, setDiscountAppliedSubtotal] = useState<number | null>(null)
   const [clearCartDrawerOpen, setClearCartDrawerOpen] = useState(false)
   const [redirectingHome, setRedirectingHome] = useState(false)
+  const selectedOrderType = isDelivery ? 'delivery' : 'takeaway'
 
   useEffect(() => {
     async function fetchStoreInfo() {
@@ -130,6 +131,13 @@ export default function CartPage() {
     setDiscountError('Carrello aggiornato: riapplica il codice sconto.')
   }, [discountAmount, discountAppliedSubtotal, subtotal])
 
+  useEffect(() => {
+    if (!discountCode.trim()) return
+    setDiscountAmount(0)
+    setDiscountAppliedSubtotal(null)
+    setDiscountError('Modalita ordine cambiata: riapplica il codice sconto.')
+  }, [selectedOrderType])
+
   const deliveryFee = isDelivery ? (storeInfo?.delivery_fee || 0) : 0
   const total = subtotal + deliveryFee - discountAmount
 
@@ -206,7 +214,7 @@ export default function CartPage() {
       const res = await fetch('/api/discounts/verify', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ code: normalizedCode, subtotal }),
+        body: JSON.stringify({ code: normalizedCode, subtotal, orderType: selectedOrderType }),
       })
       const data = await res.json().catch(() => ({}))
 

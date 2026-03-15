@@ -11,6 +11,9 @@ ADD COLUMN IF NOT EXISTS discount_value NUMERIC(10, 2);
 ALTER TABLE discount_codes 
 ADD COLUMN IF NOT EXISTS min_order_amount NUMERIC(10, 2) DEFAULT 0;
 
+ALTER TABLE discount_codes
+ADD COLUMN IF NOT EXISTS order_type_scope TEXT DEFAULT 'all' CHECK (order_type_scope IN ('all', 'delivery', 'takeaway'));
+
 ALTER TABLE discount_codes 
 ADD COLUMN IF NOT EXISTS active BOOLEAN;
 
@@ -39,3 +42,13 @@ ALTER COLUMN discount_value SET NOT NULL;
 
 ALTER TABLE discount_codes 
 ALTER COLUMN discount_type SET NOT NULL;
+
+UPDATE discount_codes
+SET order_type_scope = 'all'
+WHERE order_type_scope IS NULL;
+
+ALTER TABLE discount_codes
+ALTER COLUMN order_type_scope SET DEFAULT 'all';
+
+ALTER TABLE discount_codes
+ALTER COLUMN order_type_scope SET NOT NULL;

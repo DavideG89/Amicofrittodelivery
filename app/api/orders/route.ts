@@ -38,6 +38,7 @@ type OrderPayload = {
   notes: string | null
   payment_method: 'cash' | 'card' | null
 }
+type DiscountOrderTypeScope = 'all' | 'delivery' | 'takeaway'
 
 const limiter = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 20 })
 const readLimiter = createRateLimiter({ windowMs: 5 * 60 * 1000, max: 120 })
@@ -47,6 +48,15 @@ const PUBLIC_ORDER_SELECT =
   'order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at'
 const PUBLIC_ORDER_LIGHT_SELECT = 'order_number, status, updated_at'
 const GLOBAL_DISCOUNT_MIN_ORDER = 6
+
+function normalizeDiscountOrderTypeScope(value: unknown): DiscountOrderTypeScope {
+  if (value === 'delivery' || value === 'takeaway' || value === 'all') return value
+  return 'all'
+}
+
+function isDiscountAllowedForOrderType(scope: DiscountOrderTypeScope, orderType: 'delivery' | 'takeaway') {
+  return scope === 'all' || scope === orderType
+}
 
 function normalizePublicStatus(value: unknown): OrderStatus {
   if (
@@ -201,6 +211,13 @@ function isMissingProductOverridesColumnError(error: unknown) {
   const maybeError = error as { code?: string; message?: string; details?: string; hint?: string }
   const text = `${maybeError.message || ''} ${maybeError.details || ''} ${maybeError.hint || ''}`.toLowerCase()
   return maybeError.code === '42703' || (text.includes('product_overrides') && text.includes('column'))
+}
+
+function isMissingDiscountScopeColumnError(error: unknown) {
+  if (!error || typeof error !== 'object') return false
+  const maybeError = error as { code?: string; message?: string; details?: string; hint?: string }
+  const text = `${maybeError.message || ''} ${maybeError.details || ''} ${maybeError.hint || ''}`.toLowerCase()
+  return maybeError.code === '42703' || (text.includes('order_type_scope') && text.includes('column'))
 }
 
 function parsePiecesFromItemName(itemName: string | null) {
@@ -858,9 +875,9 @@ export async function POST(request: Request) {
 
     if (discountCode) {
       const now = new Date().toISOString()
-      const { data: discount, error: discountError } = await supabase
+      const primaryDiscountResponse = await supabase
         .from('discount_codes')
-        .select('discount_type, discount_value, min_order_amount')
+        .select('discount_type, discount_value, min_order_amount, order_type_scope')
         .eq('code', discountCode)
         .eq('active', true)
         .lte('valid_from', now)
@@ -868,15 +885,45 @@ export async function POST(request: Request) {
         .limit(1)
         .maybeSingle()
 
+      let discount = primaryDiscountResponse.data as
+        | { discount_type: 'percentage' | 'fixed'; discount_value: number; min_order_amount: number; order_type_scope: string | null }
+        | null
+      let discountError = primaryDiscountResponse.error
+
+      if (isMissingDiscountScopeColumnError(discountError)) {
+        const fallbackDiscountResponse = await supabase
+          .from('discount_codes')
+          .select('discount_type, discount_value, min_order_amount')
+          .eq('code', discountCode)
+          .eq('active', true)
+          .lte('valid_from', now)
+          .or(`valid_until.is.null,valid_until.gte.${now}`)
+          .limit(1)
+          .maybeSingle()
+
+        discount = fallbackDiscountResponse.data
+          ? {
+              ...fallbackDiscountResponse.data,
+              order_type_scope: 'all',
+            }
+          : null
+        discountError = fallbackDiscountResponse.error
+      }
+
       if (!discountError && discount) {
-        const minOrderAmount = Math.max(GLOBAL_DISCOUNT_MIN_ORDER, Number(discount.min_order_amount || 0))
-        if (subtotal >= minOrderAmount) {
-          if (discount.discount_type === 'percentage') {
-            discountAmount = (subtotal * Number(discount.discount_value || 0)) / 100
+        const orderTypeScope = normalizeDiscountOrderTypeScope(discount.order_type_scope)
+        if (isDiscountAllowedForOrderType(orderTypeScope, order.order_type)) {
+          const minOrderAmount = Math.max(GLOBAL_DISCOUNT_MIN_ORDER, Number(discount.min_order_amount || 0))
+          if (subtotal >= minOrderAmount) {
+            if (discount.discount_type === 'percentage') {
+              discountAmount = (subtotal * Number(discount.discount_value || 0)) / 100
+            } else {
+              discountAmount = Number(discount.discount_value || 0)
+            }
+            discountAmount = Math.min(discountAmount, subtotal)
           } else {
-            discountAmount = Number(discount.discount_value || 0)
+            discountCode = null
           }
-          discountAmount = Math.min(discountAmount, subtotal)
         } else {
           discountCode = null
         }

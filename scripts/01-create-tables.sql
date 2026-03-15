@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS discount_codes (
   discount_type TEXT NOT NULL CHECK (discount_type IN ('percentage', 'fixed')),
   discount_value NUMERIC(10, 2) NOT NULL,
   min_order_amount NUMERIC(10, 2) DEFAULT 0,
+  order_type_scope TEXT NOT NULL DEFAULT 'all' CHECK (order_type_scope IN ('all', 'delivery', 'takeaway')),
   active BOOLEAN DEFAULT true,
   valid_from TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   valid_until TIMESTAMP WITH TIME ZONE,

@@ -101,6 +101,7 @@ export type DiscountCode = {
   discount_type: 'percentage' | 'fixed'
   discount_value: number
   min_order_amount: number
+  order_type_scope: 'all' | 'delivery' | 'takeaway'
   active: boolean
   valid_from: string
   valid_until: string | null
