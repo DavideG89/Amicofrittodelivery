@@ -12,6 +12,7 @@ import { supabase, Category, Product, StoreInfo, OrderStatus } from '@/lib/supab
 import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 import { fetchPublicOrderLight } from '@/lib/public-order-client'
+import { subscribeToStoreInfo } from '@/lib/store-info-sync'
 
 const ORDER_TERMINAL_STATUS_EVENT = 'af:order-terminal-status'
 const HOME_PRODUCTS_READY_EVENT = 'af:home-products-ready'
@@ -208,6 +209,21 @@ export default function Home() {
     }
 
     fetchData()
+  }, [])
+
+  useEffect(() => {
+    const unsubscribe = subscribeToStoreInfo({
+      onUpdate: (nextStoreInfo) => {
+        setStoreInfo(nextStoreInfo)
+      },
+      onError: (error) => {
+        console.error('[home] Store info sync error:', error)
+      },
+    })
+
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   useEffect(() => {

@@ -22,9 +22,10 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { getCartItemKey, useCart } from '@/lib/cart-context'
 import { normalizeOrderNumber } from '@/lib/order-number'
-import { supabase, StoreInfo, OrderStatus } from '@/lib/supabase'
+import { StoreInfo, OrderStatus } from '@/lib/supabase'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 import { fetchPublicOrderLight } from '@/lib/public-order-client'
+import { subscribeToStoreInfo } from '@/lib/store-info-sync'
 
 const DISCOUNT_MIN_ORDER = 6
 
@@ -47,18 +48,18 @@ export default function CartPage() {
   const selectedOrderType = isDelivery ? 'delivery' : 'takeaway'
 
   useEffect(() => {
-    async function fetchStoreInfo() {
-      const { data, error } = await supabase
-        .from('store_info')
-        .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery, updated_at')
-        .limit(1)
-        .maybeSingle()
-      
-      if (data && !error) {
-        setStoreInfo(data)
-      }
+    const unsubscribe = subscribeToStoreInfo({
+      onUpdate: (nextStoreInfo) => {
+        setStoreInfo(nextStoreInfo)
+      },
+      onError: (error) => {
+        console.error('[cart] Store info sync error:', error)
+      },
+    })
+
+    return () => {
+      unsubscribe()
     }
-    fetchStoreInfo()
   }, [])
 
   useEffect(() => {
