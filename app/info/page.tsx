@@ -1,43 +1,33 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { supabase } from '@/lib/supabase'
+import { StoreInfo } from '@/lib/supabase'
 import { extractOpeningHours } from '@/lib/order-schedule'
 import { Header } from '@/components/header'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { MapPin, Phone, Clock } from 'lucide-react'
 import Image from 'next/image'
-
-interface StoreInfo {
-  name: string
-  address: string
-  phone: string
-  opening_hours: import('@/lib/order-schedule').OpeningHoursValue
-}
+import { subscribeToStoreInfo } from '@/lib/store-info-sync'
 
 export default function InfoPage() {
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    async function fetchStoreInfo() {
-      try {
-        const { data, error } = await supabase
-          .from('store_info')
-          .select('name, address, phone, opening_hours')
-          .limit(1)
-          .maybeSingle()
-
-        if (error) throw error
-        setStoreInfo(data)
-      } catch (error) {
-        console.error('[v0] Error fetching store info:', error)
-      } finally {
+    const unsubscribe = subscribeToStoreInfo({
+      onUpdate: (nextStoreInfo) => {
+        setStoreInfo(nextStoreInfo)
         setLoading(false)
-      }
-    }
+      },
+      onError: (error) => {
+        console.error('[info] Store info sync error:', error)
+        setLoading(false)
+      },
+    })
 
-    fetchStoreInfo()
+    return () => {
+      unsubscribe()
+    }
   }, [])
 
   return (

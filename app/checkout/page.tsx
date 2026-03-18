@@ -16,12 +16,13 @@ import { Textarea } from '@/components/ui/textarea'
 import { Separator } from '@/components/ui/separator'
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group'
 import { useCart } from '@/lib/cart-context'
-import { supabase, StoreInfo } from '@/lib/supabase'
+import { StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
 import { extractOpeningHours, formatNextOpen, getCurrentOrderScheduleClock, getOrderStatus } from '@/lib/order-schedule'
+import { subscribeToStoreInfo } from '@/lib/store-info-sync'
 
 declare global {
   interface Window {
@@ -160,18 +161,18 @@ function CheckoutForm() {
   const hasRequiredDeliveryAddress = hasMinimumDeliveryFields(formData)
 
   useEffect(() => {
-    async function fetchStoreInfo() {
-      const { data, error } = await supabase
-        .from('store_info')
-        .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery, updated_at')
-        .limit(1)
-        .maybeSingle()
-      
-      if (data && !error) {
-        setStoreInfo(data)
-      }
+    const unsubscribe = subscribeToStoreInfo({
+      onUpdate: (nextStoreInfo) => {
+        setStoreInfo(nextStoreInfo)
+      },
+      onError: (error) => {
+        console.error('[checkout] Store info sync error:', error)
+      },
+    })
+
+    return () => {
+      unsubscribe()
     }
-    fetchStoreInfo()
   }, [])
 
   useEffect(() => {
