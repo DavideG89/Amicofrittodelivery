@@ -49,6 +49,7 @@ export default function AdminDashboardPage() {
   const currentMonthPrefix = toLocalDayKey(new Date()).slice(0, 7)
   const currentMonthLabel = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' }).format(new Date())
   const currentMonthStart = `${currentMonthPrefix}-01`
+  const businessStartDay = '2026-03-11'
 
   const fetchLiveStats = useCallback(async () => {
     try {
@@ -94,6 +95,7 @@ export default function AdminDashboardPage() {
       let query = supabase
         .from('daily_revenue')
         .select('day, total')
+        .gte('day', businessStartDay)
         .order('day', { ascending: false })
 
       if (!showAllDailyRevenue) {
@@ -117,7 +119,9 @@ export default function AdminDashboardPage() {
     } catch (error) {
       console.error('[v0] Error fetching daily revenue:', error)
     }
-  }, [currentMonthStart, showAllDailyRevenue])
+  }, [businessStartDay, currentMonthStart, showAllDailyRevenue])
+
+  const dailyRevenueTotal = dailyRevenue.reduce((sum, row) => sum + row.total, 0)
 
   useEffect(() => {
     void fetchLiveStats()
@@ -335,6 +339,7 @@ export default function AdminDashboardPage() {
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle>Incassi Giornalieri</CardTitle>
+              <p className="mt-1 text-sm font-semibold">Totale: {dailyRevenueTotal.toFixed(2)}€</p>
               <CardDescription>
                 {showAllDailyRevenue ? 'Riepilogo incassi per giorno' : `Riepilogo mese corrente (${currentMonthLabel})`}
               </CardDescription>

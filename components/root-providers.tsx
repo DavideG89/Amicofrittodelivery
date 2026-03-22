@@ -1,5 +1,6 @@
 'use client'
 
+import Link from 'next/link'
 import type { ReactNode } from 'react'
 import { useEffect, useRef, useState } from 'react'
 import { usePathname } from 'next/navigation'
@@ -10,6 +11,8 @@ import { AppVersionChecker } from '@/components/app-version-checker'
 import { InstallBanner } from '@/components/install-banner'
 import { SplashScreen } from '@/components/splash-screen'
 import { GlobalOrderTerminalDialog } from '@/components/global-order-terminal-dialog'
+
+const creatorSiteUrl = process.env.NEXT_PUBLIC_CREATOR_SITE_URL?.trim() || ''
 
 export function RootProviders({ children }: { children: ReactNode }) {
   const pathname = usePathname()
@@ -104,6 +107,23 @@ export function RootProviders({ children }: { children: ReactNode }) {
           >
             {children}
           </div>
+          <footer className="border-t border-border/60 bg-background">
+            <div className="container mx-auto max-w-7xl px-4 py-4 text-center text-xs text-muted-foreground sm:px-6 lg:px-8">
+              <span>Created by </span>
+              {creatorSiteUrl ? (
+                <Link
+                  href={creatorSiteUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-foreground underline-offset-4 hover:underline"
+                >
+                  DG Designer
+                </Link>
+              ) : (
+                <span className="font-medium text-foreground">DG Designer</span>
+              )}
+            </div>
+          </footer>
           <FloatingCartButton />
           <GlobalOrderTerminalDialog />
         </CartProvider>

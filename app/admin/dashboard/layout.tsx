@@ -301,8 +301,6 @@ export default function AdminDashboardLayout({
     }
   }, [])
 
-  // Version checking handled globally in AppVersionChecker
-
   useEffect(() => {
     if (!isNativeAndroidPushSupported()) return
     void bindNativePushListeners({
