@@ -344,9 +344,10 @@ function sleep(ms: number) {
 }
 
 function generateFallbackOrderNumber() {
-  const epochSeconds = Math.floor(Date.now() / 1000) % 1_000_000
+  const epochSeconds = Math.floor(Date.now() / 1000) % 100_000
   const randomSuffix = Math.floor(Math.random() * 1000)
-  return `AF${String(epochSeconds).padStart(6, '0')}${String(randomSuffix).padStart(3, '0')}`
+  // Keep fallback format outside AF+digits so it never affects sequential numbering.
+  return `AFR${String(epochSeconds).padStart(5, '0')}${String(randomSuffix).padStart(3, '0')}`
 }
 
 async function verifyRecaptcha(token: string) {
@@ -373,18 +374,24 @@ async function getNextOrderNumber(supabase: ReturnType<typeof getSupabaseServerC
     .from('orders')
     .select('order_number')
     .like('order_number', 'AF%')
-    .order('order_number', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+    .order('created_at', { ascending: false })
+    .limit(200)
 
   if (error) throw error
 
-  const lastNumber = data?.order_number ?? null
-  const match = typeof lastNumber === 'string' ? lastNumber.match(/^AF(\d+)$/) : null
-  const lastNumeric = match ? parseInt(match[1], 10) : 0
-  const nextNumeric = Number.isFinite(lastNumeric) && lastNumeric > 0 ? lastNumeric + 1 : 1
+  const lastNumeric =
+    (data || []).reduce((max, row) => {
+      const value = typeof row.order_number === 'string' ? row.order_number : ''
+      const match = value.match(/^AF(\d+)$/)
+      if (!match) return max
+      const parsed = parseInt(match[1], 10)
+      if (!Number.isFinite(parsed) || parsed <= 0) return max
+      return Math.max(max, parsed)
+    }, 0) || 0
 
-  return `AF${String(nextNumeric).padStart(6, '0')}`
+  const nextNumeric = lastNumeric + 1
+
+  return `AF${String(nextNumeric).padStart(5, '0')}`
 }
 
 export async function GET(request: Request) {
