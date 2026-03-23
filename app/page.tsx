@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
-import Script from 'next/script'
 import { useRouter } from 'next/navigation'
 import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
@@ -343,12 +342,6 @@ export default function Home() {
   if (loading) {
     return (
       <div className="min-h-screen bg-background">
-        <Script
-          id="adsense-homepage"
-          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3933984807301661"
-          strategy="afterInteractive"
-          crossOrigin="anonymous"
-        />
         <Header />
         <main className="container py-6">
           <div className="grid gap-4">
@@ -372,12 +365,6 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-6">
-      <Script
-        id="adsense-homepage"
-        src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-3933984807301661"
-        strategy="afterInteractive"
-        crossOrigin="anonymous"
-      />
       <Header />
       
       <main className="container px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
