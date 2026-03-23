@@ -22,7 +22,7 @@ const siteUrl =
 export const metadata: Metadata = {
   metadataBase: new URL(siteUrl),
   title: 'Amico Fritto - Food Delivery',
-  description: 'Ordina i migliori fritti della città',
+  description: 'Gusta i migliori fritti e hamburger della zona! Ordina online o prenota il ritiro in negozio per saltare la fila. Qualità e croccantezza a portata di click.',
   manifest: '/manifest.webmanifest',
   icons: {
     icon: [{ url: '/iconfritto.svg', type: 'image/svg+xml' }],
@@ -36,7 +36,7 @@ export const metadata: Metadata = {
   },
   openGraph: {
     title: 'Amico Fritto - Food Delivery',
-    description: 'Ordina i migliori fritti della città',
+    description: 'Gusta i migliori fritti e hamburger della zona! Ordina online o prenota il ritiro in negozio per saltare la fila. Qualità e croccantezza a portata di click.',
     url: '/',
     type: 'website',
     images: [
@@ -51,7 +51,7 @@ export const metadata: Metadata = {
   twitter: {
     card: 'summary_large_image',
     title: 'Amico Fritto - Food Delivery',
-    description: 'Ordina i migliori fritti della città',
+    description: 'Gusta i migliori fritti e hamburger della zona! Ordina online o prenota il ritiro in negozio per saltare la fila. Qualità e croccantezza a portata di click.',
     images: ['/logo.png'],
   },
 }

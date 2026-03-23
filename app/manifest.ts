@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: 'AF Delivery',
     short_name: 'AF Delivery',
-    description: 'Ordina i migliori fritti della città',
+    description: 'Ordina i migliori fritti a Misilmeri',
     start_url: '/',
     display: 'standalone',
     background_color: '#ffffff',
