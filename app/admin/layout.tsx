@@ -4,6 +4,14 @@ import 'leaflet/dist/leaflet.css'
 export const metadata: Metadata = {
   title: 'AF Dashboard',
   description: 'Dashboard amministratore Amico Fritto',
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+    },
+  },
   manifest: '/admin/manifest.webmanifest',
   icons: {
     icon: [{ url: '/iconfritto.svg', type: 'image/svg+xml' }],
