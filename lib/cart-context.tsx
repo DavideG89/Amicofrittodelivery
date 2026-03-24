@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
 import { Product } from './supabase'
+import { normalizeIngredientSelection } from './ingredient-removals'
 
 export type CartItem = {
   product: Product
@@ -11,6 +12,7 @@ export type CartItem = {
   additions?: string
   additions_unit_price?: number
   additions_ids?: string[]
+  removed_ingredients?: string[]
 }
 
 type AddItemOptions = {
@@ -19,6 +21,7 @@ type AddItemOptions = {
   additions?: string
   additionsUnitPrice?: number
   additionsIds?: string[]
+  removedIngredients?: string[]
 }
 
 type CartContextType = {
@@ -47,6 +50,7 @@ type StoredCartItem = {
   additions?: string
   additions_unit_price?: number
   additions_ids?: string[]
+  removed_ingredients?: string[]
 }
 
 const toSafeProductForStorage = (product: Product): StoredCartItem['product'] => ({
@@ -77,7 +81,15 @@ const hydrateProduct = (stored: StoredCartItem['product']): Product => ({
   updated_at: '',
 })
 
-export const getCartItemKey = (item: Pick<CartItem, 'product' | 'item_source' | 'piece_option_id' | 'additions' | 'additions_ids'>) => {
+const serializeIngredientSelection = (values?: string[] | null) =>
+  normalizeIngredientSelection(values)
+    .slice()
+    .sort((a, b) => a.localeCompare(b, 'it', { sensitivity: 'base' }))
+    .join(',')
+
+export const getCartItemKey = (
+  item: Pick<CartItem, 'product' | 'item_source' | 'piece_option_id' | 'additions' | 'additions_ids' | 'removed_ingredients'>
+) => {
   const additionsIds = Array.isArray(item.additions_ids) ? [...item.additions_ids].sort().join(',') : ''
   return [
     item.product.id,
@@ -87,6 +99,7 @@ export const getCartItemKey = (item: Pick<CartItem, 'product' | 'item_source' | 
     Number(item.product.price || 0).toFixed(2),
     item.additions || '',
     additionsIds,
+    serializeIngredientSelection(item.removed_ingredients),
   ].join('::')
 }
 
@@ -131,6 +144,7 @@ const normalizeStoredCart = (raw: unknown): CartItem[] => {
         additions_ids: Array.isArray(item.additions_ids)
           ? item.additions_ids.filter((id): id is string => typeof id === 'string')
           : [],
+        removed_ingredients: normalizeIngredientSelection(item.removed_ingredients),
       }
     })
   return normalized.filter((item): item is CartItem => item !== null)
@@ -162,6 +176,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         additions: item.additions || '',
         additions_unit_price: Number(item.additions_unit_price) || 0,
         additions_ids: Array.isArray(item.additions_ids) ? item.additions_ids : [],
+        removed_ingredients: normalizeIngredientSelection(item.removed_ingredients),
       }))
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(compactItems))
     } catch (error) {
@@ -184,6 +199,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
             additions: '',
             additions_unit_price: Number(item.additions_unit_price) || 0,
             additions_ids: Array.isArray(item.additions_ids) ? item.additions_ids : [],
+            removed_ingredients: normalizeIngredientSelection(item.removed_ingredients),
           }))
           localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(fallbackItems))
         } catch {
@@ -217,6 +233,11 @@ export function CartProvider({ children }: { children: ReactNode }) {
         : Array.isArray(options?.additionsIds)
           ? options.additionsIds.filter((id): id is string => typeof id === 'string')
           : []
+    const normalizedRemovedIngredients =
+      typeof options === 'string'
+        ? []
+        : normalizeIngredientSelection(options?.removedIngredients)
+    const normalizedRemovedIngredientsKey = serializeIngredientSelection(normalizedRemovedIngredients)
 
     setItems((prevItems) => {
       const existingItem = prevItems.find(
@@ -226,7 +247,8 @@ export function CartProvider({ children }: { children: ReactNode }) {
           (item.piece_option_id || '') === (pieceOptionId || '') &&
           (item.additions || '') === (normalizedAdditions || '') &&
           Number(item.additions_unit_price || 0) === normalizedAdditionsUnitPrice &&
-          JSON.stringify(item.additions_ids || []) === JSON.stringify(normalizedAdditionsIds)
+          JSON.stringify(item.additions_ids || []) === JSON.stringify(normalizedAdditionsIds) &&
+          serializeIngredientSelection(item.removed_ingredients) === normalizedRemovedIngredientsKey
       )
       if (existingItem) {
         return prevItems.map((item) =>
@@ -243,6 +265,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   normalizedAdditionsIds.length > 0
                     ? normalizedAdditionsIds
                     : item.additions_ids || [],
+                removed_ingredients:
+                  normalizedRemovedIngredients.length > 0
+                    ? normalizedRemovedIngredients
+                    : item.removed_ingredients || [],
               }
             : item
         )
@@ -257,6 +283,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           additions: normalizedAdditions,
           additions_unit_price: normalizedAdditionsUnitPrice,
           additions_ids: normalizedAdditionsIds,
+          removed_ingredients: normalizedRemovedIngredients,
         },
       ]
     })

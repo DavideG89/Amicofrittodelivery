@@ -131,6 +131,7 @@ export type OrderItem = {
   additions?: string | null
   additions_unit_price?: number | null
   additions_ids?: string[] | null
+  removed_ingredients?: string[] | null
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled'

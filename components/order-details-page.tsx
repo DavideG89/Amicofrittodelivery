@@ -10,6 +10,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { PublicOrder } from '@/lib/supabase'
+import { formatRemovedIngredientsLabel } from '@/lib/ingredient-removals'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import type { OrderStatus } from '@/lib/supabase'
@@ -318,22 +319,33 @@ export function OrderDetailsPage() {
             <div className="border-t pt-4">
               <h4 className="font-semibold mb-3">Articoli</h4>
               <div className="space-y-2">
-                {order.items.map((item: any, index: number) => (
-                  <div key={index} className="flex justify-between gap-3 text-sm">
-                    <span>
-                      {item.quantity}x {item.name}
-                      {Number(item.additions_unit_price || 0) > 0 && (
-                        <span className="block text-xs text-muted-foreground">
-                          Extra: +{Number(item.additions_unit_price).toFixed(2)} euro cad.
-                        </span>
-                      )}
-                      {item.additions && <span className="block text-xs text-muted-foreground">Aggiunte: {item.additions}</span>}
-                    </span>
-                    <span className="font-medium">
-                      {((Number(item.price || 0) + Number(item.additions_unit_price || 0)) * Number(item.quantity || 0)).toFixed(2)} euro
-                    </span>
-                  </div>
-                ))}
+                {order.items.map((item: any, index: number) => {
+                  const removedIngredientsLabel = formatRemovedIngredientsLabel(
+                    Array.isArray(item.removed_ingredients) ? item.removed_ingredients : []
+                  )
+
+                  return (
+                    <div key={index} className="flex justify-between gap-3 text-sm">
+                      <span>
+                        {item.quantity}x {item.name}
+                        {removedIngredientsLabel && (
+                          <span className="block text-xs text-muted-foreground">
+                            {removedIngredientsLabel}
+                          </span>
+                        )}
+                        {Number(item.additions_unit_price || 0) > 0 && (
+                          <span className="block text-xs text-muted-foreground">
+                            Extra: +{Number(item.additions_unit_price).toFixed(2)} euro cad.
+                          </span>
+                        )}
+                        {item.additions && <span className="block text-xs text-muted-foreground">Aggiunte: {item.additions}</span>}
+                      </span>
+                      <span className="font-medium">
+                        {((Number(item.price || 0) + Number(item.additions_unit_price || 0)) * Number(item.quantity || 0)).toFixed(2)} euro
+                      </span>
+                    </div>
+                  )
+                })}
               </div>
             </div>
 

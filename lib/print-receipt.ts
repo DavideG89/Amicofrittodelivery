@@ -1,4 +1,5 @@
 import { Order } from './supabase'
+import { formatRemovedIngredientsLabel, normalizeIngredientSelection } from './ingredient-removals'
 
 export type StoreInfo = {
   name: string
@@ -185,6 +186,13 @@ export function buildReceiptLines(order: Order, storeInfo?: StoreInfo, lineWidth
     lines.push(amountLine(itemTitleLines[0] || `${quantity}x ${itemName}`, amount, lineWidth))
     for (const extraLine of itemTitleLines.slice(1)) {
       lines.push(extraLine)
+    }
+
+    const removedIngredientsLabel = formatRemovedIngredientsLabel(normalizeIngredientSelection(item.removed_ingredients))
+    if (removedIngredientsLabel) {
+      for (const removedLine of wrapText(removedIngredientsLabel, lineWidth - 2)) {
+        lines.push(`  ${removedLine}`)
+      }
     }
 
     const additions = cleanText(item.additions)

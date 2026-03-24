@@ -478,6 +478,7 @@ export default function Home() {
                       key={product.id}
                       product={product}
                       categorySlug={category.slug}
+                      categoryName={category.name}
                       imageFit={isSaucesCategory ? 'contain' : 'cover'}
                       skipAdditions={isSaucesCategory || isDrinksCategory}
                       saucesOnly={isFriedCategory}

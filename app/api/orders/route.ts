@@ -7,6 +7,7 @@ import { sendFcmMessages } from '@/lib/fcm'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import { buildProductNameWithPieceOption, normalizeProductPieceOptions, type ProductPieceOption } from '@/lib/product-piece-options'
 import { normalizeUpsellProductOverrides } from '@/lib/upsell-overrides'
+import { isIngredientRemovalEnabledForCategory, parseIngredientList, resolveRemovedIngredients } from '@/lib/ingredient-removals'
 import type { OrderStatus } from '@/lib/supabase'
 import { getDeliveryPolygonFromOpeningHours, isDeliveryPolygonReady, isPointInsideDeliveryPolygon } from '@/lib/delivery-area'
 import { extractOpeningHours, getOrderStatus } from '@/lib/order-schedule'
@@ -21,6 +22,7 @@ type OrderItem = {
   additions?: string | null
   additions_unit_price?: number | null
   additions_ids?: string[] | null
+  removed_ingredients?: string[] | null
 }
 
 type OrderPayload = {
@@ -548,6 +550,9 @@ export async function POST(request: Request) {
       additions_ids: Array.isArray(item.additions_ids)
         ? item.additions_ids.filter((id): id is string => typeof id === 'string')
         : [],
+      removed_ingredients: Array.isArray(item.removed_ingredients)
+        ? item.removed_ingredients.filter((id): id is string => typeof id === 'string')
+        : [],
     }))
 
     if (items.some((item) => !item.product_id || !Number.isFinite(item.quantity) || item.quantity <= 0)) {
@@ -561,7 +566,7 @@ export async function POST(request: Request) {
 
     const { data: productsData, error: productsError } = await supabase
       .from('products')
-      .select('id, category_id, name, price, available, piece_options')
+      .select('id, category_id, name, ingredients, price, available, piece_options')
       .in('id', productIds)
 
     if (productsError) {
@@ -584,6 +589,9 @@ export async function POST(request: Request) {
     }
 
     const productMap = new Map(productsData?.map((product) => [product.id, product]) ?? [])
+    const productIngredientsMap = new Map(
+      (productsData ?? []).map((product) => [product.id, parseIngredientList(product.ingredients)] as const)
+    )
     const hasUpsellItems = items.some((item) => item.item_source === 'upsell')
     const upsellConfiguredMap = new Map<string, { name: string; price: number }>()
 
@@ -646,11 +654,15 @@ export async function POST(request: Request) {
 
     const additionIds = [...new Set(items.flatMap((item) => item.additions_ids))]
     const hasRequestedAdditions = additionIds.length > 0
+    const hasRequestedIngredientRemovals = items.some(
+      (item) => Array.isArray(item.removed_ingredients) && item.removed_ingredients.length > 0
+    )
     const categorySlugMap = new Map<string, string>()
+    const categoryNameMap = new Map<string, string>()
     const sauceRulesMap = new Map<string, SauceRule>()
     const additionsMap = new Map<string, { type: 'sauce' | 'extra'; name: string; price: number }>()
 
-    if (hasRequestedAdditions) {
+    if (hasRequestedAdditions || hasRequestedIngredientRemovals) {
       const categoryIds = [
         ...new Set(
           (productsData ?? [])
@@ -661,60 +673,66 @@ export async function POST(request: Request) {
 
       const categoriesPromise =
         categoryIds.length > 0
-          ? supabase.from('categories').select('id, slug').in('id', categoryIds)
+          ? supabase.from('categories').select('id, slug, name').in('id', categoryIds)
           : Promise.resolve({ data: null, error: null })
 
-      const additionsPromise = supabase
-        .from('order_additions')
-        .select('id, type, name, price, active')
-        .in('id', additionIds)
-        .eq('active', true)
+      const additionsPromise = hasRequestedAdditions
+        ? supabase
+            .from('order_additions')
+            .select('id, type, name, price, active')
+            .in('id', additionIds)
+            .eq('active', true)
+        : Promise.resolve({ data: null, error: null })
 
       const [{ data: categoriesData }, { data: additionsData, error: additionsError }] = await Promise.all([
         categoriesPromise,
         additionsPromise,
       ])
 
-      if (additionsError) {
-        return NextResponse.json({ error: 'Errore verifica aggiunte' }, { status: 500 })
-      }
-
       for (const category of categoriesData || []) {
         categorySlugMap.set(category.id, String(category.slug || '').toLowerCase())
+        categoryNameMap.set(category.id, String(category.name || '').toLowerCase())
       }
 
-      for (const addition of additionsData || []) {
-        additionsMap.set(addition.id, {
-          type: addition.type as 'sauce' | 'extra',
-          name: addition.name,
-          price: Number(addition.price || 0),
-        })
-      }
+      if (hasRequestedAdditions) {
+        if (additionsError) {
+          return NextResponse.json({ error: 'Errore verifica aggiunte' }, { status: 500 })
+        }
 
-      const categorySlugs = [...new Set(Array.from(categorySlugMap.values()).filter(Boolean))]
-      if (categorySlugs.length > 0) {
-        const { data: rulesData } = await supabase
-          .from('order_addition_category_rules')
-          .select('category_slug, sauce_mode, max_sauces, sauce_price, active')
-          .in('category_slug', categorySlugs)
-          .eq('active', true)
+        for (const addition of additionsData || []) {
+          additionsMap.set(addition.id, {
+            type: addition.type as 'sauce' | 'extra',
+            name: addition.name,
+            price: Number(addition.price || 0),
+          })
+        }
 
-        for (const row of rulesData || []) {
-          const key = String(row.category_slug || '').toLowerCase()
-          if (!key) continue
-          sauceRulesMap.set(
-            key,
-            normalizeSauceRule({
-              sauce_mode: row.sauce_mode as SauceRule['sauce_mode'],
-              max_sauces: Number(row.max_sauces || 0),
-              sauce_price: Number(row.sauce_price || 0),
-            })
-          )
+        const categorySlugs = [...new Set(Array.from(categorySlugMap.values()).filter(Boolean))]
+        if (categorySlugs.length > 0) {
+          const { data: rulesData } = await supabase
+            .from('order_addition_category_rules')
+            .select('category_slug, sauce_mode, max_sauces, sauce_price, active')
+            .in('category_slug', categorySlugs)
+            .eq('active', true)
+
+          for (const row of rulesData || []) {
+            const key = String(row.category_slug || '').toLowerCase()
+            if (!key) continue
+            sauceRulesMap.set(
+              key,
+              normalizeSauceRule({
+                sauce_mode: row.sauce_mode as SauceRule['sauce_mode'],
+                max_sauces: Number(row.max_sauces || 0),
+                sauce_price: Number(row.sauce_price || 0),
+              })
+            )
+          }
         }
       }
     }
 
     let additionsValidationError: string | null = null
+    let removedIngredientsValidationError: string | null = null
     let pieceOptionsValidationError: string | null = null
     let upsellValidationError: string | null = null
     const normalizedItems = items.map((item) => {
@@ -738,6 +756,7 @@ export async function POST(request: Request) {
           additions: null,
           additions_unit_price: 0,
           additions_ids: [],
+          removed_ingredients: [],
           available: Boolean(upsellConfigured),
         }
       }
@@ -755,6 +774,35 @@ export async function POST(request: Request) {
           ? buildProductNameWithPieceOption(product.name, selectedPieceOption)
           : product?.name ?? ''
       const itemPrice = selectedPieceOption ? selectedPieceOption.price : product?.price ?? 0
+      const categorySlug = product?.category_id ? categorySlugMap.get(product.category_id) || '' : ''
+      const categoryName = product?.category_id ? categoryNameMap.get(product.category_id) || '' : ''
+      const availableIngredients = product?.id ? productIngredientsMap.get(product.id) || [] : []
+      const requestedRemovedIngredients = Array.isArray(item.removed_ingredients)
+        ? item.removed_ingredients.filter((ingredient): ingredient is string => typeof ingredient === 'string')
+        : []
+      let removedIngredients: string[] = []
+
+      if (requestedRemovedIngredients.length > 0) {
+        const productName = product?.name || 'prodotto'
+        if (!isIngredientRemovalEnabledForCategory(categorySlug, categoryName)) {
+          if (!removedIngredientsValidationError) {
+            removedIngredientsValidationError = `Ingredienti rimossi non consentiti per ${productName}`
+          }
+        } else if (availableIngredients.length === 0) {
+          if (!removedIngredientsValidationError) {
+            removedIngredientsValidationError = `Nessun ingrediente rimovibile per ${productName}`
+          }
+        } else {
+          const resolvedRemovedIngredients = resolveRemovedIngredients(requestedRemovedIngredients, availableIngredients)
+          if (resolvedRemovedIngredients.invalidIngredients.length > 0) {
+            if (!removedIngredientsValidationError) {
+              removedIngredientsValidationError = `Ingredienti rimossi non validi per ${productName}`
+            }
+          } else {
+            removedIngredients = resolvedRemovedIngredients.removedIngredients
+          }
+        }
+      }
 
       if (!hasRequestedAdditions) {
         return {
@@ -767,11 +815,11 @@ export async function POST(request: Request) {
           additions: null,
           additions_unit_price: 0,
           additions_ids: [],
+          removed_ingredients: removedIngredients,
           available: product?.available ?? false,
         }
       }
 
-      const categorySlug = product?.category_id ? categorySlugMap.get(product.category_id) || '' : ''
       const sauceRule =
         sauceRulesMap.get(categorySlug) ||
         getFallbackSauceRuleByCategorySlug(categorySlug) ||
@@ -808,12 +856,17 @@ export async function POST(request: Request) {
         additions: additionsLabelParts.join(' | ') || null,
         additions_unit_price: Math.round(additionsUnitPrice * 100) / 100,
         additions_ids: normalizedAdditionIds,
+        removed_ingredients: removedIngredients,
         available: product?.available ?? false,
       }
     })
 
     if (additionsValidationError) {
       return NextResponse.json({ error: additionsValidationError }, { status: 400 })
+    }
+
+    if (removedIngredientsValidationError) {
+      return NextResponse.json({ error: removedIngredientsValidationError }, { status: 400 })
     }
 
     if (pieceOptionsValidationError) {

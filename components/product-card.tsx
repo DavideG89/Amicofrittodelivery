@@ -12,6 +12,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { getCartItemKey, useCart } from '@/lib/cart-context'
 import { buildProductNameWithPieceOption, normalizeProductPieceOptions } from '@/lib/product-piece-options'
+import { isIngredientRemovalEnabledForCategory, parseIngredientList } from '@/lib/ingredient-removals'
 import { Product, supabase, OrderAddition } from '@/lib/supabase'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
 import { toast } from 'sonner'
@@ -22,6 +23,7 @@ type ProductCardProps = {
   imageFit?: 'cover' | 'contain'
   skipAdditions?: boolean
   categorySlug?: string | null
+  categoryName?: string | null
   saucesOnly?: boolean
   forceFreeSingleSauce?: boolean
 }
@@ -32,6 +34,7 @@ export function ProductCard({
   imageFit = 'cover',
   skipAdditions = false,
   categorySlug,
+  categoryName,
   saucesOnly = false,
   forceFreeSingleSauce = false,
 }: ProductCardProps) {
@@ -60,10 +63,13 @@ export function ProductCard({
   const [sauceRule, setSauceRule] = useState<SauceRule>(DEFAULT_SAUCE_RULE)
   const [selectedSauceIds, setSelectedSauceIds] = useState<Set<string>>(new Set())
   const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set())
+  const [selectedRemovedIngredients, setSelectedRemovedIngredients] = useState<Set<string>>(new Set())
   const [selectedPieceOptionId, setSelectedPieceOptionId] = useState('')
   
   const pieceOptions = normalizeProductPieceOptions(product.piece_options)
   const hasPieceOptions = pieceOptions.length > 0
+  const removableIngredientOptions = parseIngredientList(details?.ingredients ?? product.ingredients ?? null)
+  const canRemoveIngredients = isIngredientRemovalEnabledForCategory(categorySlug, categoryName)
   const productCartItems = items.filter(item => item.product.id === product.id)
   const inCartQuantity = productCartItems.reduce((sum, item) => sum + item.quantity, 0)
   const effectiveSauceRule: SauceRule = forceFreeSingleSauce ? DEFAULT_SAUCE_RULE : sauceRule
@@ -126,6 +132,7 @@ export function ProductCard({
     }
     setSelectedSauceIds(new Set())
     setSelectedExtras(new Set())
+    setSelectedRemovedIngredients(new Set())
     setSelectedPieceOptionId(pieceOptions.length === 1 ? pieceOptions[0].id : '')
     setAdditionsOpen(true)
     await Promise.all([loadSauces(), loadSauceRule()])
@@ -163,6 +170,15 @@ export function ProductCard({
     })
   }
 
+  const toggleRemovedIngredient = (ingredient: string, checked: boolean) => {
+    setSelectedRemovedIngredients((prev) => {
+      const next = new Set(prev)
+      if (checked) next.add(ingredient)
+      else next.delete(ingredient)
+      return next
+    })
+  }
+
   const handleConfirmAddToCart = () => {
     const selectedPieceOption = pieceOptions.find((option) => option.id === selectedPieceOptionId) || null
     if (hasPieceOptions && !selectedPieceOption) {
@@ -181,6 +197,7 @@ export function ProductCard({
       additionsParts.push(`Extra: ${extrasList.join(', ')}`)
     }
     const additions = additionsParts.join(' | ')
+    const removedIngredients = removableIngredientOptions.filter((ingredient) => selectedRemovedIngredients.has(ingredient))
     const saucesUnitPrice =
       effectiveSauceRule.sauce_mode === 'paid_multi'
         ? selectedSauceItems.length * Number(effectiveSauceRule.sauce_price || 0)
@@ -206,6 +223,7 @@ export function ProductCard({
       additions,
       additionsUnitPrice,
       additionsIds,
+      removedIngredients,
     })
     
     if (onAddToCart) {
@@ -214,6 +232,7 @@ export function ProductCard({
     
     setSelectedSauceIds(new Set())
     setSelectedExtras(new Set())
+    setSelectedRemovedIngredients(new Set())
     setSelectedPieceOptionId('')
     setAdditionsOpen(false)
   }
@@ -232,6 +251,13 @@ export function ProductCard({
     updateQuantity(getCartItemKey(firstItem), firstItem.quantity - 1)
   }
   const hasDetails = Boolean(details?.description || details?.ingredients || details?.allergens)
+  const additionsDescription = canRemoveIngredients && removableIngredientOptions.length > 0
+    ? saucesOnly
+      ? 'Scegli una salsa e gli ingredienti da togliere per personalizzare il prodotto.'
+      : 'Scegli una salsa, gli extra e gli ingredienti da togliere per personalizzare il prodotto.'
+    : saucesOnly
+      ? 'Scegli una salsa per personalizzare il prodotto.'
+      : 'Scegli una salsa e gli extra per personalizzare il prodotto.'
 
   const renderPieceOptionsSection = () => {
     if (!hasPieceOptions) return null
@@ -263,6 +289,41 @@ export function ProductCard({
             )
           })}
         </div>
+      </div>
+    )
+  }
+
+  const renderIngredientRemovalsSection = () => {
+    if (!canRemoveIngredients) return null
+
+    return (
+      <div className="space-y-2">
+        <div className="space-y-1">
+          <p className="text-lg font-semibold">Togli ingredienti</p>
+          <p className="text-xs text-muted-foreground">
+            Deseleziona gli ingredienti già presenti nel prodotto.
+          </p>
+        </div>
+        {removableIngredientOptions.length > 0 ? (
+          <div className="grid gap-2">
+            {removableIngredientOptions.map((ingredient) => {
+              const checked = selectedRemovedIngredients.has(ingredient)
+              return (
+                <label key={ingredient} className="flex items-center gap-2 rounded-md border p-2.5 text">
+                  <Checkbox
+                    checked={checked}
+                    onCheckedChange={(value) => toggleRemovedIngredient(ingredient, Boolean(value))}
+                  />
+                  <span>{ingredient}</span>
+                </label>
+              )
+            })}
+          </div>
+        ) : (
+          <p className="rounded-md border border-dashed px-3 py-2 text-sm text-muted-foreground">
+            Nessun ingrediente configurato per questo prodotto.
+          </p>
+        )}
       </div>
     )
   }
@@ -470,19 +531,16 @@ export function ProductCard({
 
       {isMobile ? (
         <Drawer open={additionsOpen} onOpenChange={setAdditionsOpen}>
-          <DrawerContent className="w-full max-h-[85vh] rounded-t-2xl p-0 overflow-hidden flex flex-col">
-            <DrawerHeader className="px-6 pt-6 pb-3">
-              <DrawerTitle>Aggiunte per {product.name}</DrawerTitle>
-              <DrawerDescription>
-                {saucesOnly
-                  ? 'Scegli una salsa per personalizzare il prodotto.'
-                  : 'Scegli una salsa e gli extra per personalizzare il prodotto.'}
-              </DrawerDescription>
+            <DrawerContent className="w-full max-h-[85vh] rounded-t-2xl p-0 overflow-hidden flex flex-col">
+              <DrawerHeader className="px-6 pt-6 pb-3">
+              <DrawerTitle>Personalizza {product.name}</DrawerTitle>
+              <DrawerDescription>{additionsDescription}</DrawerDescription>
             </DrawerHeader>
 
             <div className="flex-1 overflow-y-auto px-6 pb-4">
               <div className="space-y-4">
                 {renderPieceOptionsSection()}
+                {renderIngredientRemovalsSection()}
 
                 <div className="space-y-2">
                   <p className="sticky top-0 z-10 bg-background/95 py-1 text-lg font-semibold backdrop-blur">
@@ -576,17 +634,14 @@ export function ProductCard({
         <Dialog open={additionsOpen} onOpenChange={setAdditionsOpen}>
           <DialogContent className="flex h-[85vh] max-h-[85vh] max-w-xl flex-col overflow-hidden p-0 gap-0">
             <DialogHeader className="px-6 pt-6 pb-3 text-left">
-              <DialogTitle>Aggiunte per {product.name}</DialogTitle>
-              <DialogDescription>
-                {saucesOnly
-                  ? 'Scegli una salsa per personalizzare il prodotto.'
-                  : 'Scegli una salsa e gli extra per personalizzare il prodotto.'}
-              </DialogDescription>
-            </DialogHeader>
+            <DialogTitle>Personalizza {product.name}</DialogTitle>
+            <DialogDescription>{additionsDescription}</DialogDescription>
+          </DialogHeader>
 
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
               <div className="space-y-4">
                 {renderPieceOptionsSection()}
+                {renderIngredientRemovalsSection()}
 
                 <div className="space-y-2">
                   <p className="text-lg font-semibold">

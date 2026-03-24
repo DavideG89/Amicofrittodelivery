@@ -19,6 +19,7 @@ import { hasSavedNativePrinterConfig, printOrderOnNativePrinter } from '@/lib/na
 import { printReceipt } from '@/lib/print-receipt'
 import { toast } from 'sonner'
 import { useIsMobile } from '@/components/ui/use-mobile'
+import { formatRemovedIngredientsLabel, normalizeIngredientSelection } from '@/lib/ingredient-removals'
 
 const statusConfig = {
   pending: { label: 'In attesa', icon: Clock, variant: 'secondary' as const },
@@ -68,6 +69,7 @@ const normalizeItems = (items: Order['items']) =>
     price: toNumber(item.price),
     quantity: toNumber(item.quantity, 1),
     additions_unit_price: toNumber(item.additions_unit_price),
+    removed_ingredients: normalizeIngredientSelection(item.removed_ingredients),
   }))
 
 const toItems = (value: unknown): Order['items'] => {
@@ -803,27 +805,36 @@ export default function OrdersManagementPage() {
                   <div>
                     <h3 className="font-semibold mb-3">Articoli ordinati</h3>
                     <div className="space-y-2">
-                      {selectedOrder.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm py-2 border-b">
-                          <div>
-                            <span className="font-medium">{item.quantity}x</span> {item.name}
-                            <div className="text-xs text-muted-foreground">
-                              {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
-                            </div>
-                            {item.additions_unit_price && item.additions_unit_price > 0 && (
+                      {selectedOrder.items.map((item, index) => {
+                        const removedIngredientsLabel = formatRemovedIngredientsLabel(
+                          Array.isArray(item.removed_ingredients) ? item.removed_ingredients : []
+                        )
+
+                        return (
+                          <div key={index} className="flex justify-between text-sm py-2 border-b">
+                            <div>
+                              <span className="font-medium">{item.quantity}x</span> {item.name}
                               <div className="text-xs text-muted-foreground">
-                                Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
+                                {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
                               </div>
-                            )}
-                            {item.additions && (
-                              <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
-                            )}
+                              {item.additions_unit_price && item.additions_unit_price > 0 && (
+                                <div className="text-xs text-muted-foreground">
+                                  Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
+                                </div>
+                              )}
+                              {removedIngredientsLabel && (
+                                <div className="text-xs text-muted-foreground">{removedIngredientsLabel}</div>
+                              )}
+                              {item.additions && (
+                                <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
+                              )}
+                            </div>
+                            <span className="font-medium">
+                              {((item.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
+                            </span>
                           </div>
-                          <span className="font-medium">
-                            {((item.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
-                          </span>
-                        </div>
-                      ))}
+                        )
+                      })}
                     </div>
                   </div>
 
@@ -963,27 +974,36 @@ export default function OrdersManagementPage() {
                     <div>
                       <h3 className="font-semibold mb-3">Articoli ordinati</h3>
                       <div className="space-y-2">
-                        {selectedOrder.items.map((item, index) => (
-                          <div key={index} className="flex justify-between text-sm py-2 border-b">
-                            <div>
-                              <span className="font-medium">{item.quantity}x</span> {item.name}
-                              <div className="text-xs text-muted-foreground">
-                                {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
-                              </div>
-                              {item.additions_unit_price && item.additions_unit_price > 0 && (
+                        {selectedOrder.items.map((item, index) => {
+                          const removedIngredientsLabel = formatRemovedIngredientsLabel(
+                            Array.isArray(item.removed_ingredients) ? item.removed_ingredients : []
+                          )
+
+                          return (
+                            <div key={index} className="flex justify-between text-sm py-2 border-b">
+                              <div>
+                                <span className="font-medium">{item.quantity}x</span> {item.name}
                                 <div className="text-xs text-muted-foreground">
-                                  Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
+                                  {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
                                 </div>
-                              )}
-                              {item.additions && (
-                                <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
-                              )}
+                                {item.additions_unit_price && item.additions_unit_price > 0 && (
+                                  <div className="text-xs text-muted-foreground">
+                                    Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
+                                  </div>
+                                )}
+                                {removedIngredientsLabel && (
+                                  <div className="text-xs text-muted-foreground">{removedIngredientsLabel}</div>
+                                )}
+                                {item.additions && (
+                                  <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
+                                )}
+                              </div>
+                              <span className="font-medium">
+                                {((item.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
+                              </span>
                             </div>
-                            <span className="font-medium">
-                              {((item.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
-                            </span>
-                          </div>
-                        ))}
+                          )
+                        })}
                       </div>
                     </div>
 

@@ -21,6 +21,7 @@ import { Separator } from '@/components/ui/separator'
 import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { getCartItemKey, useCart } from '@/lib/cart-context'
+import { formatRemovedIngredientsLabel } from '@/lib/ingredient-removals'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import { StoreInfo, OrderStatus } from '@/lib/supabase'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
@@ -345,80 +346,91 @@ export default function CartPage() {
         ) : !redirectingHome ? (
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="lg:col-span-2 space-y-3 sm:space-y-4">
-              {items.map((item) => (
-                <Card key={getCartItemKey(item)} className="overflow-hidden">
-                  <CardContent className="p-3 sm:p-4">
-                    <div className="flex gap-3 sm:gap-4">
-                      <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-md overflow-hidden flex-shrink-0">
-                        {item.product.image_url ? (
-                          <Image
-                            src={item.product.image_url}
-                            alt={item.product.name}
-                            fill
-                            className="object-cover"
-                            sizes="(max-width: 640px) 80px, 96px"
-                          />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
-                            No img
-                          </div>
-                        )}
-                      </div>
+              {items.map((item) => {
+                const removedIngredientsLabel = formatRemovedIngredientsLabel(
+                  Array.isArray(item.removed_ingredients) ? item.removed_ingredients : []
+                )
 
-                      <div className="flex-grow min-w-0">
-                        <h3 className="font-semibold text-base sm:text-lg truncate">{item.product.name}</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
-                          {(item.product.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
-                          {(item.additions_unit_price || 0) > 0 && (
-                            <span> (base {item.product.price.toFixed(2)}€ + extra {(item.additions_unit_price || 0).toFixed(2)}€)</span>
+                return (
+                  <Card key={getCartItemKey(item)} className="overflow-hidden">
+                    <CardContent className="p-3 sm:p-4">
+                      <div className="flex gap-3 sm:gap-4">
+                        <div className="relative w-20 h-20 sm:w-24 sm:h-24 bg-muted rounded-md overflow-hidden flex-shrink-0">
+                          {item.product.image_url ? (
+                            <Image
+                              src={item.product.image_url}
+                              alt={item.product.name}
+                              fill
+                              className="object-cover"
+                              sizes="(max-width: 640px) 80px, 96px"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                              No img
+                            </div>
                           )}
-                        </p>
-                        {item.additions && (
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {item.additions}
-                          </p>
-                        )}
-                        
-                        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-3">
-                          <div className="flex items-center border rounded-md bg-background">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 sm:h-9 sm:w-9"
-                              onClick={() => updateQuantity(getCartItemKey(item), item.quantity - 1)}
-                            >
-                              <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </Button>
-                            <span className="w-10 text-center font-medium text-sm">{item.quantity}</span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 sm:h-9 sm:w-9"
-                              onClick={() => updateQuantity(getCartItemKey(item), item.quantity + 1)}
-                            >
-                              <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                            </Button>
-                          </div>
+                        </div>
 
-                          <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
-                            <span className="font-bold text-lg sm:text-xl text-primary">
-                              {((item.product.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
-                            </span>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              className="h-8 w-8 sm:h-9 sm:w-9 text-destructive hover:bg-destructive/10"
-                              onClick={() => removeItem(getCartItemKey(item))}
-                            >
-                              <Trash2 className="h-4 w-4" />
-                            </Button>
+                        <div className="flex-grow min-w-0">
+                          <h3 className="font-semibold text-base sm:text-lg truncate">{item.product.name}</h3>
+                          <p className="text-xs sm:text-sm text-muted-foreground">
+                            {(item.product.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
+                            {(item.additions_unit_price || 0) > 0 && (
+                              <span> (base {item.product.price.toFixed(2)}€ + extra {(item.additions_unit_price || 0).toFixed(2)}€)</span>
+                            )}
+                          </p>
+                          {removedIngredientsLabel && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {removedIngredientsLabel}
+                            </p>
+                          )}
+                          {item.additions && (
+                            <p className="text-xs text-muted-foreground mt-1">
+                              {item.additions}
+                            </p>
+                          )}
+
+                          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-3">
+                            <div className="flex items-center border rounded-md bg-background">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 sm:h-9 sm:w-9"
+                                onClick={() => updateQuantity(getCartItemKey(item), item.quantity - 1)}
+                              >
+                                <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              </Button>
+                              <span className="w-10 text-center font-medium text-sm">{item.quantity}</span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 sm:h-9 sm:w-9"
+                                onClick={() => updateQuantity(getCartItemKey(item), item.quantity + 1)}
+                              >
+                                <Plus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+                              </Button>
+                            </div>
+
+                            <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                              <span className="font-bold text-lg sm:text-xl text-primary">
+                                {((item.product.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
+                              </span>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 sm:h-9 sm:w-9 text-destructive hover:bg-destructive/10"
+                                onClick={() => removeItem(getCartItemKey(item))}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </Button>
+                            </div>
                           </div>
                         </div>
                       </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                    </CardContent>
+                  </Card>
+                )
+              })}
             </div>
 
             <div className="lg:col-span-1">

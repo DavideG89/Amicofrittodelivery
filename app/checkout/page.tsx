@@ -492,7 +492,7 @@ function CheckoutForm() {
         customer_phone: sanitizedData.customer_phone,
         customer_address: sanitizedData.customer_address,
         order_type: isDelivery ? 'delivery' : 'takeaway',
-        items: items.map(item => ({
+          items: items.map(item => ({
           product_id: item.product.id,
           item_source: item.item_source === 'upsell' ? 'upsell' : 'menu',
           name: item.product.name,
@@ -505,6 +505,7 @@ function CheckoutForm() {
               ? Number(item.additions_unit_price)
               : 0,
           additions_ids: Array.isArray(item.additions_ids) ? item.additions_ids : [],
+          removed_ingredients: Array.isArray(item.removed_ingredients) ? item.removed_ingredients : [],
         })),
         subtotal,
         discount_code: discountAmount > 0 ? formData.discountCode.toUpperCase() : null,
