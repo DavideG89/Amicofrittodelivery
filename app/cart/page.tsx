@@ -18,7 +18,7 @@ import {
 } from '@/components/ui/drawer'
 import { Input } from '@/components/ui/input'
 import { Separator } from '@/components/ui/separator'
-import { Switch } from '@/components/ui/switch'
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { Label } from '@/components/ui/label'
 import { getCartItemKey, useCart } from '@/lib/cart-context'
 import { formatRemovedIngredientsLabel } from '@/lib/ingredient-removals'
@@ -439,20 +439,23 @@ export default function CartPage() {
                   <CardTitle className="text-lg sm:text-xl">Riepilogo ordine</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                  <div className="flex items-center justify-between p-3 rounded-lg border bg-muted/50">
+                  <div className="space-y-3 rounded-lg border bg-muted/50 p-3">
                     <div className="space-y-1">
-                      <Label htmlFor="delivery-mode" className="cursor-pointer font-medium text-sm">
-                        Modalità ordine
-                      </Label>
+                      <Label className="font-medium text-sm">Modalità ordine</Label>
                       <p className="text-xs text-muted-foreground">
                         {isDelivery ? 'Consegna a domicilio' : 'Ritiro in negozio'}
                       </p>
                     </div>
-                    <Switch
-                      id="delivery-mode"
-                      checked={isDelivery}
-                      onCheckedChange={setIsDelivery}
-                    />
+                    <Tabs
+                      value={isDelivery ? 'delivery' : 'takeaway'}
+                      onValueChange={(value) => setIsDelivery(value === 'delivery')}
+                      className="w-full"
+                    >
+                      <TabsList className="grid w-full grid-cols-2">
+                        <TabsTrigger value="takeaway">Ritiro</TabsTrigger>
+                        <TabsTrigger value="delivery">Consegna</TabsTrigger>
+                      </TabsList>
+                    </Tabs>
                   </div>
 
                   {isDelivery && storeInfo && subtotal < storeInfo.min_order_delivery && (
@@ -499,9 +502,11 @@ export default function CartPage() {
                         {verifyingDiscount ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Applica'}
                       </Button>
                     </div>
-                    <p className="text-xs text-muted-foreground">
-                      Ordine minimo per usare lo sconto: {DISCOUNT_MIN_ORDER.toFixed(2)}€
-                    </p>
+                    {discountCode.trim() && (
+                      <p className="text-xs text-muted-foreground">
+                        Ordine minimo per usare lo sconto: {DISCOUNT_MIN_ORDER.toFixed(2)}€
+                      </p>
+                    )}
                     {discountError && (
                       <p className="text-xs sm:text-sm text-red-600 font-medium">{discountError}</p>
                     )}

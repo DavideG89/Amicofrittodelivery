@@ -354,17 +354,17 @@ export function ProductCard({
   }
 
   return (
-    <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
-      <div className="relative aspect-[16/10] sm:aspect-[4/3] bg-white">
+    <Card className="mx-auto flex h-full w-full max-w-[350px] flex-row overflow-hidden transition-shadow duration-300 hover:shadow-lg sm:max-w-none sm:flex-col">
+      <div className="relative w-36 shrink-0 aspect-square overflow-hidden bg-white sm:w-full sm:aspect-[4/3]">
         {product.image_url ? (
           imageFit === 'contain' ? (
-            <div className="absolute inset-3 sm:inset-4">
+            <div className="absolute inset-2 sm:inset-4">
               <Image
                 src={product.image_url}
                 alt={product.name}
                 fill
                 className="object-contain"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                sizes="(max-width: 640px) 144px, (max-width: 1024px) 50vw, 33vw"
               />
             </div>
           ) : (
@@ -372,8 +372,8 @@ export function ProductCard({
               src={product.image_url}
               alt={product.name}
               fill
-              className="object-cover"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              className="object-contain object-center sm:object-cover"
+              sizes="(max-width: 640px) 144px, (max-width: 1024px) 50vw, 33vw"
             />
           )
         ) : (
@@ -405,85 +405,100 @@ export function ProductCard({
             </Badge>
           </div>
         )}
+        <Drawer
+          open={detailsOpen}
+          onOpenChange={(open) => {
+            setDetailsOpen(open)
+            if (open) void ensureDetails()
+          }}
+        >
+          <DrawerTrigger asChild>
+            <Button
+              variant="outline"
+              size="icon"
+              className="absolute -bottom-2 -right-2 z-20 h-8 w-8 rounded-full bg-background shadow-md sm:h-9 sm:w-9"
+            >
+              <Info className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
+              <span className="sr-only">Informazioni prodotto</span>
+            </Button>
+          </DrawerTrigger>
+          <DrawerContent className="max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pb-6 pt-6 sm:px-6">
+            <DrawerHeader>
+              <DrawerTitle>{product.name}</DrawerTitle>
+              <DrawerDescription className="text-pretty">
+                {detailsLoading ? 'Caricamento dettagli...' : details?.description}
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="space-y-4">
+              {detailsLoading && (
+                <p className="text-sm text-muted-foreground">Recupero informazioni...</p>
+              )}
+              {!detailsLoading && !hasDetails && (
+                <p className="text-sm text-muted-foreground">Nessun dettaglio disponibile.</p>
+              )}
+              {details?.ingredients && (
+                <div>
+                  <h4 className="font-semibold mb-2 text-sm">Ingredienti:</h4>
+                  <p className="text-sm text-muted-foreground leading-relaxed">
+                    {details.ingredients}
+                  </p>
+                </div>
+              )}
+              {details?.allergens && (
+                <div className='text-center'>
+                  <h4 className="font-semibold mb-2 text-sm">Allergeni:</h4>
+                  <div className="flex flex-wrap gap-2 justify-center">
+                    {details.allergens.split(',').map((allergen, i) => (
+                      <Badge key={i} variant="secondary" className="text-xs">
+                        {allergen.trim()}
+                      </Badge>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </DrawerContent>
+        </Drawer>
       </div>
       
-      <CardHeader className="flex-grow space-y-1.5 p-3 sm:space-y-2 sm:p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 items-start gap-1.5">
-            <CardTitle className="min-w-0 line-clamp-2 break-words text-[20px] leading-tight text-pretty sm:text-xl">
-              {product.name}
-            </CardTitle>
-            <Drawer
-              open={detailsOpen}
-              onOpenChange={(open) => {
-                setDetailsOpen(open)
-                if (open) void ensureDetails()
-              }}
-            >
-              <DrawerTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 -mt-1">
-                  <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span className="sr-only">Informazioni prodotto</span>
-                </Button>
-              </DrawerTrigger>
-              <DrawerContent className="max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pb-6 pt-6 sm:px-6">
-                <DrawerHeader>
-                  <DrawerTitle>{product.name}</DrawerTitle>
-                  <DrawerDescription className="text-pretty">
-                    {detailsLoading ? 'Caricamento dettagli...' : details?.description}
-                  </DrawerDescription>
-                </DrawerHeader>
-                <div className="space-y-4">
-                  {detailsLoading && (
-                    <p className="text-sm text-muted-foreground">Recupero informazioni...</p>
-                  )}
-                  {!detailsLoading && !hasDetails && (
-                    <p className="text-sm text-muted-foreground">Nessun dettaglio disponibile.</p>
-                  )}
-                  {details?.ingredients && (
-                    <div>
-                      <h4 className="font-semibold mb-2 text-sm">Ingredienti:</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {details.ingredients}
-                      </p>
-                    </div>
-                  )}
-                  {details?.allergens && (
-                    <div className='text-center'>
-                      <h4 className="font-semibold mb-2 text-sm">Allergeni:</h4>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {details.allergens.split(',').map((allergen, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
-                            {allergen.trim()}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </DrawerContent>
-            </Drawer>
-          </div>
+      <div className="flex min-w-0 flex-1 flex-col">
+      <CardHeader className="min-w-0 flex-grow space-y-1.5 p-3 sm:space-y-2 sm:p-4">
+        <CardTitle className="w-full line-clamp-2 break-words text-[22px] leading-tight text-pretty sm:text-2xl">
+          {product.name}
+        </CardTitle>
+        {details?.description && (
+          <CardDescription className="line-clamp-2 text-[13px] leading-snug sm:text-sm sm:leading-relaxed">
+            {details.description}
+          </CardDescription>
+        )}
+      </CardHeader>
 
+      <CardFooter className="flex flex-col items-start gap-2 p-3 pt-0 sm:flex-row sm:items-center sm:justify-between sm:p-4 sm:pt-0">
+        <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:justify-start sm:gap-4">
+          <div className="flex items-baseline gap-1">
+            <span className="text-2xl sm:text-2xl font-bold text-primary leading-none">
+              {product.price.toFixed(2)}€
+            </span>
+          </div>
           {product.available && !hasPieceOptions && (
             <div className="flex items-center border rounded-md bg-background shrink-0" role="group" aria-label="Selettore quantità">
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 sm:h-9 sm:w-9"
+                className="h-8 w-7 sm:h-9 sm:w-9"
                 onClick={handleDecrementInCart}
                 disabled={inCartQuantity <= 0}
                 aria-label="Diminuisci quantità"
               >
                 <Minus className="h-4 w-4" aria-hidden="true" />
               </Button>
-              <span className="w-8 sm:w-10 text-center font-medium text-xs sm:text-sm" aria-live="polite" aria-atomic="true">
+              <span className="w-7 text-center font-medium text-xs sm:w-10 sm:text-sm" aria-live="polite" aria-atomic="true">
                 {inCartQuantity}
               </span>
               <Button
                 variant="ghost"
                 size="icon"
-                className="h-8 w-8 sm:h-9 sm:w-9"
+                className="h-8 w-7 sm:h-9 sm:w-9"
                 onClick={handleOpenAdditions}
                 aria-label={`Aggiungi ${product.name}`}
               >
@@ -503,24 +518,11 @@ export function ProductCard({
             </Button>
           )}
         </div>
-        {details?.description && (
-          <CardDescription className="line-clamp-2 text-[13px] leading-snug sm:text-sm sm:leading-relaxed">
-            {details.description}
-          </CardDescription>
-        )}
-      </CardHeader>
-
-      <CardFooter className="flex items-center justify-between gap-3 p-3 pt-0 sm:p-4 sm:pt-0">
-        <div className="flex items-baseline gap-1">
-          <span className="text-2xl sm:text-2xl font-bold text-primary leading-none">
-            {product.price.toFixed(2)}€
-          </span>
-        </div>
 
         {product.available && (
           <Button 
             onClick={handleOpenAdditions} 
-            className="h-9 sm:h-10 px-6 sm:px-7 min-w-[130px] sm:min-w-[150px] text-sm whitespace-nowrap justify-center" 
+            className="h-9 w-full px-6 text-sm justify-center sm:h-10 sm:w-auto sm:px-7 sm:min-w-[150px] sm:whitespace-nowrap" 
             size="default"
             aria-label={`Aggiungi ${product.name} al carrello`}
           >
@@ -528,6 +530,7 @@ export function ProductCard({
           </Button>
         )}
       </CardFooter>
+      </div>
 
       {isMobile ? (
         <Drawer open={additionsOpen} onOpenChange={setAdditionsOpen}>

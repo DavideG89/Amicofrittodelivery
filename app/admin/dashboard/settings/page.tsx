@@ -445,7 +445,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="opening_hours">Orari di Apertura (JSON)</Label>
+            <Label htmlFor="opening_hours">Orari di Apertura</Label>
             <Textarea
               id="opening_hours"
               placeholder='{"lunedi": "11:00-22:00", "martedi": "11:00-22:00"}'
@@ -456,7 +456,7 @@ export default function SettingsPage() {
               }
             />
             <p className="text-sm text-muted-foreground">
-              Formato JSON: {`{"lunedi": "11:00-22:00", "martedi": "Chiuso"}`}
+              Esempio: {`"lunedi": "11:00-22:00", "martedi": "Chiuso"`}
             </p>
           </div>
 

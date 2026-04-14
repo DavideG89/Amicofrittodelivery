@@ -366,6 +366,15 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-background pb-20 md:pb-6">
       <Header />
+      {!orderStatus.isOpen && (
+        <div className="relative z-40 w-full overflow-hidden">
+          <div className="w-full bg-gradient-to-r from-amber-100 via-orange-100 to-rose-100 px-4 py-3 text-center text-orange-900 shadow-sm">
+            <p className="text-sm font-semibold sm:text-base">
+              Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo ${nextOpenLabel}.` : ''}
+            </p>
+          </div>
+        </div>
+      )}
       
       <main className="container px-4 sm:px-6 lg:px-8 py-6 max-w-7xl mx-auto">
         <div className="mb-2 text-center space-y-2">
@@ -376,14 +385,6 @@ export default function Home() {
             Scopri i tuoi nuovi sfizi in pochi click
           </p>
         </div>
-
-        {!orderStatus.isOpen && (
-          <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-red-700 text-center">
-            <p className="font-medium">
-              Ordinazioni chiuse.{nextOpenLabel ? ` Riapriamo ${nextOpenLabel}.` : ''}
-            </p>
-          </div>
-        )}
 
         {categories.length === 0 ? (
           <div className="text-center py-12">
@@ -490,7 +491,7 @@ export default function Home() {
               
               return (
                 <TabsContent key={category.id} value={category.id} className="mt-0 space-y-0">
-                  <div className="sticky top-[11.5rem] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-2  sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0 lg:static lg:top-auto">
+                  <div className="-mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-2 sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0">
                     <div className="flex items-baseline justify-between">
                     <h2 className="font-bold text-2xl sm:text-xl">{category.name}</h2>
                     <span className="text-sm text-muted-foreground">
@@ -513,13 +514,13 @@ export default function Home() {
                     <div className="space-y-8">
                       {meatBurgers.length > 0 && (
                         <section className="space-y-3">
-                          <h3 className=" sticky top-[14.5rem] z-10 bg-background/95 backdrop-blur sm:bg-transparent sm:backdrop-blur-0 text-xl sm:text-3xl font-semibold px-2 py-2 md:top-[4rem] md:z-10 md:bg-background/95 md:backdrop-blur">Carne</h3>
+                          <h3 className="text-xl sm:text-3xl font-semibold px-2 py-2">Carne</h3>
                           {renderProductsGrid(meatBurgers)}
                         </section>
                       )}
                       {chickenBurgers.length > 0 && (
                         <section className="space-y-3">
-                          <h3 className="sticky top-[14.5rem] z-10 bg-background/95 backdrop-blur sm:bg-transparent sm:backdrop-blur-0 text-xl sm:text-3xl font-semibold px-2 py-2 md:top-[4rem] md:z-10 md:bg-background/95 md:backdrop-blur">Pollo</h3>
+                          <h3 className="text-xl sm:text-3xl font-semibold px-2 py-2">Pollo</h3>
                           {renderProductsGrid(chickenBurgers)}
                         </section>
                       )}
