@@ -399,15 +399,15 @@ export default function SettingsPage() {
         </p>
       </div>
 
-      <Card>
-        <CardHeader>
+      <Card className="border-0">
+        <CardHeader className='p-2'>
           <CardTitle>Informazioni Locale</CardTitle>
           <CardDescription>
             Queste informazioni saranno visibili ai clienti nella pagina Info
           </CardDescription>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="space-y-2">
+        <CardContent className="space-y-6 p-2">
+          <div className="space-y-2 ">
             <Label htmlFor="name">Nome Locale *</Label>
             <Input
               id="name"
@@ -445,7 +445,7 @@ export default function SettingsPage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="opening_hours">Orari di Apertura (JSON)</Label>
+            <Label htmlFor="opening_hours">Orari di Apertura</Label>
             <Textarea
               id="opening_hours"
               placeholder='{"lunedi": "11:00-22:00", "martedi": "11:00-22:00"}'
@@ -456,17 +456,17 @@ export default function SettingsPage() {
               }
             />
             <p className="text-sm text-muted-foreground">
-              Formato JSON: {`{"lunedi": "11:00-22:00", "martedi": "Chiuso"}`}
+              Esempio formato : {`"lunedi": "11:00-22:00", "martedi": "Chiuso"`}
             </p>
           </div>
 
-          <div className="space-y-4 rounded-lg border p-4">
+          <div className="space-y-4 rounded-lg">
             <div className="flex items-center justify-between gap-4">
               <div>
-                <Label>Programmazione Ordini</Label>
-                <p className="text-xs text-muted-foreground mt-1">
+                <CardTitle>Programmazione Ordini</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground mt-1">
                   Se attiva, gli ordini sono accettati solo negli orari indicati.
-                </p>
+                </CardDescription>
               </div>
               <Switch
                 checked={orderSchedule.enabled}
@@ -687,6 +687,7 @@ export default function SettingsPage() {
         </CardContent>
       </Card>
 
+      {/* 
       <Card className="opacity-70">
         <CardHeader className="pb-2">
           <CardTitle className="text-base">Sicurezza</CardTitle>
@@ -704,6 +705,8 @@ export default function SettingsPage() {
           </div>
         </CardContent>
       </Card>
+     */ }
+
     </div>
   )
 }

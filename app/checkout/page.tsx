@@ -45,6 +45,7 @@ type CheckoutFormData = {
   notes: string
   discountCode: string
   paymentMethod: 'cash' | 'card'
+  changeAmount: string
 }
 
 type DeliveryCheckState = 'idle' | 'checking' | 'inside' | 'outside' | 'unverifiable' | 'not_configured' | 'error'
@@ -112,7 +113,8 @@ function CheckoutForm() {
     addressDetails: '',
     notes: '',
     discountCode: '',
-    paymentMethod: 'cash' as 'cash' | 'card'
+    paymentMethod: 'cash' as 'cash' | 'card',
+    changeAmount: ''
   })
 
   const [discountAmount, setDiscountAmount] = useState(0)
@@ -458,11 +460,20 @@ function CheckoutForm() {
       return
     }
 
+    if (formData.changeAmount.trim()) {
+      const change = parseFloat(formData.changeAmount)
+      if (isNaN(change) || change < 0) {
+        toast.error('Importo per il resto non valido')
+        return
+      }
+    }
+
     const requestedTimeLine =
       orderTiming === 'asap'
         ? `Orario ${isDelivery ? 'consegna' : 'ritiro'}: prima possibile`
         : `Orario ${isDelivery ? 'consegna' : 'ritiro'}: ${scheduledTime}`
-    const combinedNotes = [requestedTimeLine, formData.notes?.trim() || ''].filter(Boolean).join('\n').slice(0, 1000)
+    const changeAmountLine = formData.changeAmount.trim() ? `Resto su: ${formData.changeAmount}€` : ''
+    const combinedNotes = [requestedTimeLine, changeAmountLine, formData.notes?.trim() || ''].filter(Boolean).join('\n').slice(0, 1000)
 
     // Validate input data
     const validation = validateOrderData({
@@ -841,6 +852,24 @@ function CheckoutForm() {
                     )}
                   </RadioGroup>
                 </div>
+
+                {isDelivery && (
+                  <div className="space-y-2">
+                    <Label htmlFor="change-amount">Importo per il resto (opzionale)</Label>
+                    <Input
+                      id="change-amount"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      placeholder="0.00"
+                      value={formData.changeAmount}
+                      onChange={(e) => setFormData({ ...formData, changeAmount: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Inserisci l'importo che darai al fattorino per ricevere il resto esatto.
+                    </p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label htmlFor="notes">Note (opzionale)</Label>

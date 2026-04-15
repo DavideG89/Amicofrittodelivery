@@ -441,7 +441,7 @@ export default function CartPage() {
                       className="w-full"
                     >
                       <TabsList className="grid w-full grid-cols-2">
-                        <TabsTrigger value="takeaway">Ritiro</TabsTrigger>
+                        <TabsTrigger value="takeaway">Ritiro in negozio</TabsTrigger>
                         <TabsTrigger value="delivery">Consegna</TabsTrigger>
                       </TabsList>
                     </Tabs>
