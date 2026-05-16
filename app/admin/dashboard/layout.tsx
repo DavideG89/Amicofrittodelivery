@@ -4,8 +4,9 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { LayoutDashboard, MapPinned, Package, Settings, ShoppingCart, LogOut, Ticket, Sparkles, Bell, Star } from 'lucide-react'
+import { ChevronDown, Grid2X2, LayoutDashboard, MapPinned, Package, Settings, ShoppingCart, LogOut, Ticket, Sparkles, Bell, Star, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { logoutAdmin } from '@/lib/admin-auth'
 import {
@@ -20,9 +21,14 @@ import {
   registerNativePushToken,
   unregisterNativePush,
 } from '@/lib/admin-native-push'
-import { supabase } from '@/lib/supabase'
+import { supabase, StoreInfo } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { extractOpeningHours, formatNextOpen, getCurrentOrderScheduleClock, getOrderStatus } from '@/lib/order-schedule'
+
+const brandYellow = '#ffc400'
+const brandRed = '#ff2d20'
+const brandGreen = '#1aa33b'
 
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -30,6 +36,19 @@ const navItems = [
   { href: '/admin/dashboard/menu', label: 'Menu', icon: Package },
   { href: '/admin/dashboard/upsell', label: 'Upsell', icon: Sparkles },
   { href: '/admin/dashboard/discounts', label: 'Sconti', icon: Ticket },
+  { href: '/admin/dashboard/delivery-area', label: 'Area Delivery', icon: MapPinned },
+  { href: '/admin/dashboard/settings', label: 'Impostazioni', icon: Settings },
+]
+
+const mobilePrimaryNavItems = [
+  { href: '/admin/dashboard', label: 'Home', icon: LayoutDashboard },
+  { href: '/admin/dashboard/orders', label: 'Ordini', icon: ShoppingCart },
+  { href: '/admin/dashboard/menu', label: 'Menu', icon: Package },
+  { href: '/admin/dashboard/discounts', label: 'Sconti', icon: Ticket },
+]
+
+const mobileMoreItems = [
+  { href: '/admin/dashboard/upsell', label: 'Upsell', icon: Sparkles },
   { href: '/admin/dashboard/delivery-area', label: 'Area Delivery', icon: MapPinned },
   { href: '/admin/dashboard/settings', label: 'Impostazioni', icon: Settings },
 ]
@@ -46,6 +65,8 @@ export default function AdminDashboardLayout({
   const [pushErrorDetail, setPushErrorDetail] = useState('')
   const [showPushTooltip, setShowPushTooltip] = useState(false)
   const [pendingToneActive, setPendingToneActive] = useState(false)
+  const [pendingOrdersCount, setPendingOrdersCount] = useState(0)
+  const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [alertingPendingIds, setAlertingPendingIds] = useState<Set<string>>(new Set())
   const hasInitializedPendingRef = useRef(false)
   const prevPendingIdsRef = useRef<Set<string>>(new Set())
@@ -55,6 +76,45 @@ export default function AdminDashboardLayout({
   const pendingPollingIdRef = useRef<number | null>(null)
   const isLeaderRef = useRef(false)
   const nativePushTokenKey = 'admin-native-push-token'
+  const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
+  const orderStatus = getOrderStatus(schedule)
+  const nextOpenLabel = formatNextOpen(orderStatus.nextOpen)
+
+  const getActiveOpenLabel = () => {
+    if (!schedule?.enabled) return 'Chiusura non configurata'
+
+    const clock = getCurrentOrderScheduleClock()
+    const dayOrder = ['mon', 'tue', 'wed', 'thu', 'fri', 'sat', 'sun'] as const
+    const previousDay = dayOrder[(dayOrder.indexOf(clock.dayKey) + dayOrder.length - 1) % dayOrder.length]
+    const toMinutes = (value: string) => {
+      const [hours, minutes] = value.split(':').map(Number)
+      if (!Number.isFinite(hours) || !Number.isFinite(minutes)) return null
+      return hours * 60 + minutes
+    }
+    const formatClosingTime = (value: string) => (value === '00:00' ? '24:00' : value)
+    const todayRanges = schedule.days[clock.dayKey] || []
+    const active = todayRanges.find((range) => {
+      const start = toMinutes(range.start)
+      const end = toMinutes(range.end)
+      if (start === null || end === null) return false
+      if (start === end) return true
+      if (end > start) return clock.minutes >= start && clock.minutes < end
+      return clock.minutes >= start || clock.minutes < end
+    })
+    if (active) {
+      if (active.start === active.end) return 'Aperto 24h'
+      return `Chiude alle ${formatClosingTime(active.end)}`
+    }
+
+    const overnight = (schedule.days[previousDay] || []).find((range) => {
+      const start = toMinutes(range.start)
+      const end = toMinutes(range.end)
+      return start !== null && end !== null && end < start && clock.minutes < end
+    })
+    if (overnight) return `Chiude alle ${overnight.end}`
+
+    return 'Fuori fascia oraria'
+  }
 
   const getAdminAccessToken = async () => {
     const { data } = await supabase.auth.getSession()
@@ -129,6 +189,31 @@ export default function AdminDashboardLayout({
       subscription.subscription.unsubscribe()
     }
   }, [router])
+
+  useEffect(() => {
+    let cancelled = false
+    const fetchStoreInfo = async () => {
+      const { data } = await supabase
+        .from('store_info')
+        .select('id, name, address, phone, opening_hours, delivery_fee, min_order_delivery, updated_at')
+        .limit(1)
+        .maybeSingle()
+
+      if (!cancelled && data) {
+        setStoreInfo(data as StoreInfo)
+      }
+    }
+
+    void fetchStoreInfo()
+    const interval = window.setInterval(() => {
+      void fetchStoreInfo()
+    }, 60000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(interval)
+    }
+  }, [])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -454,6 +539,8 @@ export default function AdminDashboardLayout({
     }
 
     const updatePendingIds = (nextIds: Set<string>) => {
+      setPendingOrdersCount(nextIds.size)
+
       if (!hasInitializedPendingRef.current) {
         hasInitializedPendingRef.current = true
         prevPendingIdsRef.current = nextIds
@@ -682,37 +769,44 @@ export default function AdminDashboardLayout({
   }
 
   const Sidebar = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-6 border-b">
+    <div className="flex h-full flex-col bg-[#020a0f] text-white">
+      <div className="px-7 pb-5 pt-6">
         <Image 
-          src="/logo.png" 
+          src="/logo-bianco.png" 
           alt="Amico Fritto" 
-          width={140} 
-          height={50}
-          className="h-10 w-auto"
+          width={200} 
+          height={64}
+          className="h-14 w-auto object-contain"
           priority
         />
       </div>
       
-      <nav className="flex-1 p-4">
+      <nav className="px-3">
         <ul className="space-y-2">
           {navItems.map((item) => {
             const Icon = item.icon
             const isActive = pathname === item.href
+            const showOrdersBadge = item.href === '/admin/dashboard/orders' && pendingOrdersCount > 0
             
             return (
               <li key={item.href}>
                 <Link
                   href={item.href}
                   className={cn(
-                    'flex items-center gap-3 px-3 py-2 rounded-md transition-colors',
+                    'flex items-center gap-4 rounded-lg px-4 py-3 text-[15px] font-bold transition-colors',
                     isActive 
-                      ? 'bg-primary text-primary-foreground' 
-                      : 'hover:bg-muted'
+                      ? 'text-zinc-950 shadow-sm'
+                      : 'text-white/90 hover:bg-white/10'
                   )}
+                  style={isActive ? { backgroundColor: brandYellow } : undefined}
                 >
                   <Icon className="h-5 w-5" />
-                  <span>{item.label}</span>
+                  <span className="flex-1">{item.label}</span>
+                  {showOrdersBadge && (
+                    <span className="rounded-full px-2 py-0.5 text-xs font-black text-white" style={{ backgroundColor: brandRed }}>
+                      {pendingOrdersCount}
+                    </span>
+                  )}
                 </Link>
               </li>
             )
@@ -720,43 +814,126 @@ export default function AdminDashboardLayout({
         </ul>
       </nav>
 
-      <div className="p-4 border-t space-y-2">
-        <div className="relative inline-flex">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handlePushToggle}
-            className={cn(
-              'inline-flex flex-col items-center gap-0.5 rounded-full border px-3 py-1 text-[11px] font-medium leading-none',
-              pushStatus === 'enabled'
-                ? 'border-emerald-200 text-emerald-700 bg-emerald-50'
-                : 'border-muted text-muted-foreground bg-muted/40'
-            )}
-          >
-            <Bell
-              className={cn(
-                'h-3.5 w-3.5',
-                pushStatus === 'enabled' ? 'text-emerald-600' : 'text-muted-foreground'
-              )}
-            />
-            <span>{pushStatus === 'enabled' ? 'On' : 'Off'}</span>
-          </Button>
-          {showPushTooltip && (
-            <div className="absolute left-0 top-9 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
-              Notifiche disattivate
+      <div className="mt-auto space-y-3 p-3">
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <p className="text-xs font-black uppercase text-white/75">Stato locale</p>
+              <p className="mt-1.5 text-lg font-black" style={{ color: orderStatus.isOpen ? brandGreen : brandRed }}>
+                {orderStatus.isOpen ? 'APERTO' : 'CHIUSO'}
+              </p>
+              <p className="mt-1 text-sm text-white/70">
+                {orderStatus.isOpen ? getActiveOpenLabel() : nextOpenLabel ? `Apre ${nextOpenLabel}` : 'Ordinazioni chiuse'}
+              </p>
             </div>
-          )}
+            <div className="flex h-9 w-9 items-center justify-center rounded-full bg-green-950/60">
+              <span className="h-3 w-3 rounded-full" style={{ backgroundColor: orderStatus.isOpen ? brandGreen : brandRed }} />
+            </div>
+          </div>
+          <Button asChild size="sm" className="mt-3 w-full border-0 text-zinc-950 hover:brightness-95" style={{ backgroundColor: brandYellow }}>
+            <Link href="/admin/dashboard/settings">
+              <Store className="mr-2 h-4 w-4" />
+              Gestisci orari
+            </Link>
+          </Button>
         </div>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start"
-          onClick={handleLogout}
-        >
-          <LogOut className="mr-3 h-5 w-5" />
-          Esci
-        </Button>
+
+        <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black text-zinc-950" style={{ backgroundColor: brandYellow }}>
+              AF
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-bold leading-tight text-white">Amico Fritto</p>
+              <p className="text-xs leading-tight text-white/60">Staff</p>
+            </div>
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 shrink-0 text-white/70 hover:bg-white/10 hover:text-white"
+                  aria-label="Apri menu profilo"
+                >
+                  <ChevronDown className="h-4 w-4" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={handleLogout}>
+                  <LogOut className="mr-2 h-4 w-4" />
+                  Esci
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+        </div>
+
+       
       </div>
     </div>
+  )
+
+  const MobileBottomBar = () => (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 shadow-[0_-10px_30px_rgba(15,23,42,0.10)] backdrop-blur md:hidden">
+      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
+        {mobilePrimaryNavItems.map((item) => {
+          const Icon = item.icon
+          const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
+          const showOrdersBadge = item.href === '/admin/dashboard/orders' && pendingOrdersCount > 0
+
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={cn(
+                'relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-bold transition-colors',
+                isActive ? 'text-zinc-950' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950'
+              )}
+              style={isActive ? { backgroundColor: brandYellow } : undefined}
+            >
+              <span className="relative">
+                <Icon className="h-5 w-5" />
+                {showOrdersBadge && (
+                  <span className="absolute -right-2.5 -top-2 rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none text-white" style={{ backgroundColor: brandRed }}>
+                    {pendingOrdersCount}
+                  </span>
+                )}
+              </span>
+              <span className="leading-none">{item.label}</span>
+            </Link>
+          )
+        })}
+
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <button
+              type="button"
+              className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-bold text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
+              aria-label="Apri altre sezioni"
+            >
+              <Grid2X2 className="h-5 w-5" />
+              <span className="leading-none">Altro</span>
+            </button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end" side="top" className="mb-2 w-56">
+            {mobileMoreItems.map((item) => {
+              const Icon = item.icon
+              return (
+                <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)}>
+                  <Icon className="mr-2 h-4 w-4" />
+                  {item.label}
+                </DropdownMenuItem>
+              )
+            })}
+            <DropdownMenuItem onClick={handleLogout}>
+              <LogOut className="mr-2 h-4 w-4" />
+              Esci
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
+      </div>
+    </nav>
   )
 
   if (!authChecked) {
@@ -764,15 +941,15 @@ export default function AdminDashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="flex h-screen">
+    <div className="h-dvh overflow-hidden bg-background">
+      <div className="flex h-full min-h-0">
         {/* Desktop Sidebar */}
-        <aside className="hidden md:flex w-64 border-r bg-card flex-col">
+        <aside className="hidden w-64 flex-col border-r border-black bg-[#020a0f] md:flex">
           <Sidebar />
         </aside>
 
         {/* Main Content */}
-        <div className="flex-1 flex flex-col overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {/* Mobile Header */}
           <header className="md:hidden border-b bg-card p-4 flex items-center justify-between gap-3">
             <Image 
@@ -810,15 +987,11 @@ export default function AdminDashboardLayout({
                   </div>
                 )}
               </div>
-              <Button variant="ghost" size="sm" onClick={handleLogout} className="gap-2">
-                <LogOut className="h-5 w-5" />
-                Esci
-              </Button>
             </div>
           </header>
 
           {/* Main Content Area */}
-          <main className="flex-1 overflow-y-auto">
+          <main className="min-h-0 flex-1 overflow-y-auto pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-0">
             {pushStatus !== 'enabled' && (
               <div className="border-b bg-card/60 px-4 py-3 flex items-center justify-between gap-3">
                 <div className="text-sm text-muted-foreground">
@@ -845,6 +1018,7 @@ export default function AdminDashboardLayout({
             )}
             {children}
           </main>
+          <MobileBottomBar />
         </div>
       </div>
     </div>
