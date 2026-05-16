@@ -369,6 +369,7 @@ function CheckoutForm() {
 
   const deliveryFee = isDelivery ? (storeInfo?.delivery_fee || 0) : 0
   const total = subtotal + deliveryFee - discountAmount
+  const isCashPayment = formData.paymentMethod === 'cash'
   const { schedule } = extractOpeningHours(storeInfo?.opening_hours ?? null)
   const orderStatus = getOrderStatus(schedule)
   const nextOpenLabel = formatNextOpen(orderStatus.nextOpen)
@@ -460,7 +461,7 @@ function CheckoutForm() {
       return
     }
 
-    if (formData.changeAmount.trim()) {
+    if (isCashPayment && formData.changeAmount.trim()) {
       const change = parseFloat(formData.changeAmount)
       if (isNaN(change) || change < 0) {
         toast.error('Importo per il resto non valido')
@@ -472,7 +473,7 @@ function CheckoutForm() {
       orderTiming === 'asap'
         ? `Orario ${isDelivery ? 'consegna' : 'ritiro'}: prima possibile`
         : `Orario ${isDelivery ? 'consegna' : 'ritiro'}: ${scheduledTime}`
-    const changeAmountLine = formData.changeAmount.trim() ? `Resto su: ${formData.changeAmount}€` : ''
+    const changeAmountLine = isCashPayment && formData.changeAmount.trim() ? `Resto su: ${formData.changeAmount}€` : ''
     const combinedNotes = [requestedTimeLine, changeAmountLine, formData.notes?.trim() || ''].filter(Boolean).join('\n').slice(0, 1000)
 
     // Validate input data
@@ -853,7 +854,7 @@ function CheckoutForm() {
                   </RadioGroup>
                 </div>
 
-                {isDelivery && (
+                {isCashPayment && (
                   <div className="space-y-2">
                     <Label htmlFor="change-amount">Importo per il resto (opzionale)</Label>
                     <Input
@@ -866,7 +867,7 @@ function CheckoutForm() {
                       onChange={(e) => setFormData({ ...formData, changeAmount: e.target.value })}
                     />
                     <p className="text-xs text-muted-foreground">
-                      Inserisci l'importo che darai al fattorino per ricevere il resto esatto.
+                      Inserisci l'importo che darai {isDelivery ? 'al fattorino' : 'in cassa'} per ricevere il resto esatto.
                     </p>
                   </div>
                 )}
