@@ -126,6 +126,8 @@ export function GlobalOrderTerminalDialog() {
     const exists = selectedReasons.some(
       (item) => item.category === reason.category && item.label === reason.label
     )
+    if (exists && selectedReasons.length === 1) return
+
     const nextReasons = exists
       ? selectedReasons.filter((item) => !(item.category === reason.category && item.label === reason.label))
       : selectedReasons.length >= 3
