@@ -31,9 +31,9 @@ type FeedbackReason = {
 }
 
 const feedbackReasons: Array<{ category: FeedbackReason['category']; items: string[] }> = [
-  { category: 'Food', items: ['Prodotto freddo', 'Poco saporito', 'Cotto male'] },
-  { category: 'Delivery', items: ['Ordine in ritardo', 'Consegna rovinata', 'Problema consegna'] },
-  { category: 'Accuratezza', items: ['Ordine sbagliato', 'Mancava qualcosa'] },
+  { category: 'Food', items: ['Prodotto freddo', 'Crudo/Bruciato', 'Quantità errata'] },
+  { category: 'Delivery', items: ['Ordine in ritardo', 'Consegna rovinata', 'Rider poco professionale'] },
+  { category: 'Accuratezza', items: ['Prodotto sbagliato', 'Ingrediente sbagliato', 'Ingrediente mancante'] },
 ]
 
 export function GlobalOrderTerminalDialog() {
