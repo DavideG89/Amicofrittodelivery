@@ -12,11 +12,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge'
 import { normalizeOrderNumber } from '@/lib/order-number'
 import { getStoredOrders, removeOrderFromDevice, type StoredOrder } from '@/lib/order-storage'
+import { fetchPublicOrderLight } from '@/lib/public-order-client'
+
+const ORDER_TERMINAL_STATUS_EVENT = 'af:order-terminal-status'
 
 export default function UserPage() {
   const router = useRouter()
   const [orderNumber, setOrderNumber] = useState('')
   const [storedOrders, setStoredOrders] = useState<StoredOrder[]>([])
+  const [feedbackOrderNumber, setFeedbackOrderNumber] = useState('')
+  const [feedbackLoading, setFeedbackLoading] = useState(false)
 
   useEffect(() => {
     const syncOrders = () => {
@@ -33,6 +38,41 @@ export default function UserPage() {
     }
   }, [])
 
+  useEffect(() => {
+    let cancelled = false
+
+    const findCompletedOrder = async () => {
+      setFeedbackLoading(storedOrders.length > 0)
+      setFeedbackOrderNumber('')
+
+      try {
+        for (const order of storedOrders) {
+          const data = await fetchPublicOrderLight(order.orderNumber)
+          if (cancelled) return
+          if (data?.status === 'completed') {
+            setFeedbackOrderNumber(data.order_number)
+            return
+          }
+        }
+      } catch {
+        // Feedback entrypoint is optional; ignore lookup errors.
+      } finally {
+        if (!cancelled) setFeedbackLoading(false)
+      }
+    }
+
+    if (storedOrders.length === 0) {
+      setFeedbackOrderNumber('')
+      setFeedbackLoading(false)
+      return
+    }
+
+    void findCompletedOrder()
+    return () => {
+      cancelled = true
+    }
+  }, [storedOrders])
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
@@ -45,6 +85,19 @@ export default function UserPage() {
   const handleRemoveOrder = (orderNum: string) => {
     removeOrderFromDevice(orderNum)
     setStoredOrders(getStoredOrders())
+  }
+
+  const handleOpenFeedback = () => {
+    if (!feedbackOrderNumber) return
+    window.dispatchEvent(
+      new CustomEvent(ORDER_TERMINAL_STATUS_EVENT, {
+        detail: {
+          orderNumber: feedbackOrderNumber,
+          status: 'completed',
+          force: true,
+        },
+      })
+    )
   }
 
   return (
@@ -92,7 +145,7 @@ export default function UserPage() {
                   >
                     <button
                       onClick={() => router.push(`/order/${encodeURIComponent(order.orderNumber)}`)}
-                      className="flex-1 text-left"
+                      className="flex-1 rounded-full text-left"
                       aria-label={`Visualizza ordine ${order.orderNumber}`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
@@ -129,6 +182,29 @@ export default function UserPage() {
               <p className="text-xs text-muted-foreground mt-4 text-center">
                 Gli ordini vengono salvati solo su questo dispositivo per 7 giorni
               </p>
+            </CardContent>
+          </Card>
+        )}
+        {(feedbackLoading || feedbackOrderNumber) && (
+          <Card className="mb-6 border-primary/30">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Star className="h-5 w-5 fill-[#ffc400] text-[#ffc400]" />
+                Lascia un feedback
+              </CardTitle>
+              <CardDescription>
+                Aiutaci a migliorare la tua esperienza con l&apos;ultimo ordine completato.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button
+                type="button"
+                className="w-full"
+                onClick={handleOpenFeedback}
+                disabled={!feedbackOrderNumber || feedbackLoading}
+              >
+                {feedbackLoading ? 'Controllo ordini...' : 'Lascia feedback'}
+              </Button>
             </CardContent>
           </Card>
         )}

@@ -95,7 +95,7 @@ export default function AdminResetPasswordPage() {
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
                 >
@@ -117,7 +117,7 @@ export default function AdminResetPasswordPage() {
                 />
                 <button
                   type="button"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground"
+                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground"
                   onClick={() => setShowConfirm((prev) => !prev)}
                   aria-label={showConfirm ? 'Nascondi password' : 'Mostra password'}
                 >

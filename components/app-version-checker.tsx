@@ -94,14 +94,14 @@ export function AppVersionChecker() {
       <div className="mt-3 flex justify-end gap-2">
         <button
           type="button"
-          className="rounded-md border px-3 py-1.5 text-xs hover:bg-muted"
+          className="rounded-full border px-3 py-1.5 text-xs hover:bg-muted"
           onClick={() => setHasUpdate(false)}
         >
           Dopo
         </button>
         <button
           type="button"
-          className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+          className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
           onClick={() => {
             if (latestVersion) {
               safeSetItem(VERSION_KEY, latestVersion)

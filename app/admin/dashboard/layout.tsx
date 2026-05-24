@@ -909,7 +909,7 @@ export default function AdminDashboardLayout({
           <DropdownMenuTrigger asChild>
             <button
               type="button"
-              className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-bold text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
+              className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-full px-1 text-[11px] font-bold text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
               aria-label="Apri altre sezioni"
             >
               <Grid2X2 className="h-5 w-5" />

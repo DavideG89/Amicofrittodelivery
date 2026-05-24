@@ -18,6 +18,7 @@ import {
   Printer,
   Settings,
   ShoppingCart,
+  Star,
   Ticket,
   Utensils,
   X,
@@ -34,6 +35,18 @@ import { toast } from 'sonner'
 
 type DailyRevenueRow = { key: string; date: string; total: number }
 type RevenuePoint = { label: string; total: number }
+type FeedbackReason = {
+  category: 'Food' | 'Delivery' | 'Accuratezza'
+  label: string
+}
+type OrderFeedback = {
+  id: string
+  order_number: string
+  rating: number
+  reasons: FeedbackReason[]
+  created_at: string
+  updated_at?: string
+}
 
 const orderSelect =
   'id, order_number, customer_name, customer_phone, customer_address, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, status, notes, created_at, updated_at'
@@ -187,6 +200,8 @@ export default function AdminDashboardPage() {
   const [showAllDailyRevenue, setShowAllDailyRevenue] = useState(false)
   const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null)
   const [printingOrderId, setPrintingOrderId] = useState<string | null>(null)
+  const [feedbackRows, setFeedbackRows] = useState<OrderFeedback[]>([])
+  const [feedbackSummary, setFeedbackSummary] = useState({ count: 0, average: 0 })
 
   const currentMonthPrefix = toLocalDayKey(new Date()).slice(0, 7)
   const currentMonthLabel = new Intl.DateTimeFormat('it-IT', { month: 'long', year: 'numeric' }).format(new Date())
@@ -282,10 +297,36 @@ export default function AdminDashboardPage() {
     }
   }, [businessStartDay, currentMonthStart, showAllDailyRevenue])
 
+  const fetchOrderFeedback = useCallback(async () => {
+    try {
+      const { data: sessionData } = await supabase.auth.getSession()
+      const accessToken = sessionData.session?.access_token
+      if (!accessToken) return
+
+      const res = await fetch('/api/admin/order-feedback', {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      })
+
+      if (!res.ok) return
+
+      const payload = await res.json()
+      setFeedbackRows(Array.isArray(payload?.feedback) ? payload.feedback : [])
+      setFeedbackSummary({
+        count: Number(payload?.summary?.count || 0),
+        average: Number(payload?.summary?.average || 0),
+      })
+    } catch (error) {
+      console.error('[dashboard] Error fetching feedback:', error)
+    }
+  }, [])
+
   const refreshDashboard = useCallback(() => {
     void fetchLiveStats()
     void fetchDailyRevenue()
-  }, [fetchDailyRevenue, fetchLiveStats])
+    void fetchOrderFeedback()
+  }, [fetchDailyRevenue, fetchLiveStats, fetchOrderFeedback])
 
   useEffect(() => {
     refreshDashboard()
@@ -501,7 +542,7 @@ export default function AdminDashboardPage() {
         </div>
 
         <div className="hidden flex-wrap items-center gap-3 md:flex">
-          <Button variant="outline" className="h-12 gap-2 rounded-lg border-zinc-200 bg-white shadow-sm">
+          <Button variant="outline" className="h-12 gap-2 rounded-full border-zinc-200 bg-white shadow-sm">
             <Bell className="h-4 w-4" />
             <span>Notifiche</span>
             {displayedPendingCount > 0 && (
@@ -510,7 +551,7 @@ export default function AdminDashboardPage() {
               </span>
             )}
           </Button>
-          <Button variant="outline" className="h-12 gap-2 rounded-lg border-zinc-200 bg-white shadow-sm">
+          <Button variant="outline" className="h-12 gap-2 rounded-full border-zinc-200 bg-white shadow-sm">
             <CalendarDays className="h-4 w-4" />
             <span>{new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'long', year: 'numeric' }).format(new Date())}</span>
             <ChevronDown className="h-4 w-4 text-zinc-500" />
@@ -672,8 +713,8 @@ export default function AdminDashboardPage() {
           </CardContent>
         </Card>
 
-        <div>
-          <Card className="h-full rounded-lg border-zinc-200 bg-white shadow-sm">
+        <div className="space-y-4">
+          <Card className="rounded-lg border-zinc-200 bg-white shadow-sm">
             <CardHeader className="flex flex-row items-start justify-between pb-2">
               <div>
                 <CardTitle className="text-base font-black">Andamento incasso</CardTitle>
@@ -689,6 +730,62 @@ export default function AdminDashboardPage() {
               ) : (
                 <div className="flex h-48 items-center justify-center text-sm text-zinc-500">
                   Nessun incasso nel mese corrente.
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card className="rounded-lg border-zinc-200 bg-white shadow-sm">
+            <CardHeader className="flex flex-row items-start justify-between gap-3 pb-3">
+              <div>
+                <CardTitle className="text-base font-black">Feedback ricevuti</CardTitle>
+                <CardDescription>Ultime recensioni dagli ordini completati</CardDescription>
+              </div>
+              <div className="flex shrink-0 items-center gap-1 rounded-full bg-[#fff6d7] px-3 py-1 text-sm font-black text-zinc-950">
+                <Star className="h-4 w-4 fill-[#ffc400] text-[#ffc400]" />
+                {feedbackSummary.count > 0 ? feedbackSummary.average.toFixed(1) : '--'}
+              </div>
+            </CardHeader>
+            <CardContent>
+              {feedbackRows.length === 0 ? (
+                <div className="rounded-lg border border-dashed border-zinc-200 px-4 py-8 text-center text-sm text-zinc-500">
+                  Nessun feedback ricevuto.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {feedbackRows.map((feedback) => {
+                    const createdAt = new Date(feedback.created_at)
+                    const dateLabel = Number.isFinite(createdAt.getTime())
+                      ? createdAt.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', hour: '2-digit', minute: '2-digit' })
+                      : 'Data non disponibile'
+                    return (
+                      <div key={feedback.id} className="rounded-lg border border-zinc-200 p-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-mono text-sm font-black text-zinc-950">#{feedback.order_number}</div>
+                            <div className="mt-1 text-xs text-zinc-500">{dateLabel}</div>
+                          </div>
+                          <div className="flex shrink-0 items-center gap-0.5" aria-label={`${feedback.rating} stelle`}>
+                            {[1, 2, 3, 4, 5].map((value) => (
+                              <Star
+                                key={value}
+                                className={`h-4 w-4 ${value <= feedback.rating ? 'fill-[#ffc400] text-[#ffc400]' : 'fill-transparent text-zinc-300'}`}
+                              />
+                            ))}
+                          </div>
+                        </div>
+                        {feedback.reasons.length > 0 && (
+                          <div className="mt-3 flex flex-wrap gap-1.5">
+                            {feedback.reasons.map((reason) => (
+                              <Badge key={`${reason.category}:${reason.label}`} variant="outline" className="rounded-full bg-zinc-50">
+                                {reason.category}: {reason.label}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )}
             </CardContent>

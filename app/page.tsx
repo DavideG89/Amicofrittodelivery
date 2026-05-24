@@ -484,7 +484,7 @@ export default function Home() {
                 ? categoryProducts.filter((product) => !isChickenBurger(product))
                 : []
 
-              const renderProductsGrid = (products: Product[]) => (
+              const renderProductsGrid = (products: Product[], mobileBadgeLabel?: string) => (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {products.map((product) => (
                     <ProductCard
@@ -495,6 +495,7 @@ export default function Home() {
                       skipAdditions={isSaucesCategory || isDrinksCategory}
                       saucesOnly={isFriedCategory}
                       forceFreeSingleSauce={isFriedCategory}
+                      mobileBadgeLabel={mobileBadgeLabel}
                     />
                   ))}
                 </div>
@@ -525,14 +526,12 @@ export default function Home() {
                     <div className="space-y-8">
                       {meatBurgers.length > 0 && (
                         <section className="space-y-3">
-                          <h3 className=" sticky top-[14.5rem] z-10 bg-background/95 backdrop-blur sm:bg-transparent sm:backdrop-blur-0 text-xl sm:text-3xl font-semibold px-2 py-2 md:top-[4rem] md:z-10 md:bg-background/95 md:backdrop-blur">Carne</h3>
-                          {renderProductsGrid(meatBurgers)}
+                          {renderProductsGrid(meatBurgers, 'Carne')}
                         </section>
                       )}
                       {chickenBurgers.length > 0 && (
                         <section className="space-y-3">
-                          <h3 className="sticky top-[14.5rem] z-10 bg-background/95 backdrop-blur sm:bg-transparent sm:backdrop-blur-0 text-xl sm:text-3xl font-semibold px-2 py-2 md:top-[4rem] md:z-10 md:bg-background/95 md:backdrop-blur">Pollo</h3>
-                          {renderProductsGrid(chickenBurgers)}
+                          {renderProductsGrid(chickenBurgers, 'Pollo')}
                         </section>
                       )}
                     </div>
@@ -574,7 +573,7 @@ export default function Home() {
               </div>
               <button
                 type="button"
-                className={`inline-flex h-8 items-center justify-center rounded-md border bg-white px-3 text-xs font-medium ${
+                className={`inline-flex h-8 items-center justify-center rounded-full border bg-white px-3 text-xs font-medium ${
                   isCancelledLastOrder
                     ? 'border-red-300 text-red-900 hover:bg-red-100'
                     : 'border-emerald-300 text-emerald-900 hover:bg-emerald-100'

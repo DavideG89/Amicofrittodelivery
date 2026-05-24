@@ -3,10 +3,10 @@
 import { useState } from 'react'
 import Image from 'next/image'
 import { Plus, Minus, Info } from 'lucide-react'
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle, DrawerTrigger } from '@/components/ui/drawer'
+import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useIsMobile } from '@/components/ui/use-mobile'
@@ -24,6 +24,7 @@ type ProductCardProps = {
   categorySlug?: string | null
   saucesOnly?: boolean
   forceFreeSingleSauce?: boolean
+  mobileBadgeLabel?: string
 }
 
 export function ProductCard({
@@ -34,6 +35,7 @@ export function ProductCard({
   categorySlug,
   saucesOnly = false,
   forceFreeSingleSauce = false,
+  mobileBadgeLabel,
 }: ProductCardProps) {
   const { addItem, items, updateQuantity } = useCart()
   const isMobile = useIsMobile()
@@ -232,6 +234,18 @@ export function ProductCard({
     updateQuantity(getCartItemKey(firstItem), firstItem.quantity - 1)
   }
   const hasDetails = Boolean(details?.description || details?.ingredients || details?.allergens)
+  const mobileBadge = mobileBadgeLabel?.trim()
+  const mobileBadgeClassName =
+    mobileBadge?.toLowerCase() === 'carne'
+      ? 'bg-red-600 text-white shadow-md'
+      : mobileBadge?.toLowerCase() === 'pollo'
+        ? 'bg-amber-500 text-black shadow-md'
+        : 'bg-primary text-primary-foreground shadow-md'
+
+  const openDetails = () => {
+    setDetailsOpen(true)
+    void ensureDetails()
+  }
 
   const renderPieceOptionsSection = () => {
     if (!hasPieceOptions) return null
@@ -247,7 +261,7 @@ export function ProductCard({
                 key={option.id}
                 type="button"
                 onClick={() => setSelectedPieceOptionId(option.id)}
-                className={`flex min-w-[88px] flex-col items-center gap-2 rounded-2xl border px-3 py-3 transition-colors ${
+                className={`flex min-w-[88px] flex-col items-center gap-2 rounded-full border px-3 py-3 transition-colors ${
                   selected ? 'border-primary bg-primary/10' : 'border-border bg-background'
                 }`}
                 aria-pressed={selected}
@@ -332,8 +346,15 @@ export function ProductCard({
             </Badge>
           </div>
         )}
-        {product.label && (
+        {mobileBadge && (
           <div className="absolute top-2 left-2">
+            <Badge className={`${mobileBadgeClassName} uppercase`}>
+              {mobileBadge}
+            </Badge>
+          </div>
+        )}
+        {product.label && (
+          <div className={mobileBadge ? 'absolute top-10 left-2' : 'absolute top-2 left-2'}>
             <Badge 
               className={product.label === 'sconto' 
                 ? 'bg-red-500 text-white shadow-md' 
@@ -352,56 +373,10 @@ export function ProductCard({
             <CardTitle className="min-w-0 line-clamp-2 break-words text-[20px] leading-tight text-pretty sm:text-xl">
               {product.name}
             </CardTitle>
-            <Drawer
-              open={detailsOpen}
-              onOpenChange={(open) => {
-                setDetailsOpen(open)
-                if (open) void ensureDetails()
-              }}
-            >
-              <DrawerTrigger asChild>
-                <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 -mt-1">
-                  <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-                  <span className="sr-only">Informazioni prodotto</span>
-                </Button>
-              </DrawerTrigger>
-              <DrawerContent className="max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pb-6 pt-6 sm:px-6">
-                <DrawerHeader>
-                  <DrawerTitle>{product.name}</DrawerTitle>
-                  <DrawerDescription className="text-pretty">
-                    {detailsLoading ? 'Caricamento dettagli...' : details?.description}
-                  </DrawerDescription>
-                </DrawerHeader>
-                <div className="space-y-4">
-                  {detailsLoading && (
-                    <p className="text-sm text-muted-foreground">Recupero informazioni...</p>
-                  )}
-                  {!detailsLoading && !hasDetails && (
-                    <p className="text-sm text-muted-foreground">Nessun dettaglio disponibile.</p>
-                  )}
-                  {details?.ingredients && (
-                    <div>
-                      <h4 className="font-semibold mb-2 text-sm">Ingredienti:</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">
-                        {details.ingredients}
-                      </p>
-                    </div>
-                  )}
-                  {details?.allergens && (
-                    <div className='text-center'>
-                      <h4 className="font-semibold mb-2 text-sm">Allergeni:</h4>
-                      <div className="flex flex-wrap gap-2 justify-center">
-                        {details.allergens.split(',').map((allergen, i) => (
-                          <Badge key={i} variant="secondary" className="text-xs">
-                            {allergen.trim()}
-                          </Badge>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </DrawerContent>
-            </Drawer>
+            <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 -mt-1" onClick={openDetails}>
+              <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
+              <span className="sr-only">Informazioni prodotto</span>
+            </Button>
           </div>
 
           {product.available && !hasPieceOptions && (
@@ -459,7 +434,7 @@ export function ProductCard({
         {product.available && (
           <Button 
             onClick={handleOpenAdditions} 
-            className="h-9 sm:h-10 px-6 sm:px-7 min-w-[130px] sm:min-w-[150px] text-sm whitespace-nowrap justify-center" 
+            className="h-9 min-w-[130px] rounded-full bg-[#ffc400] px-6 text-sm font-black uppercase text-black hover:bg-[#f5b700] sm:h-10 sm:min-w-[150px] sm:px-7" 
             size="default"
             aria-label={`Aggiungi ${product.name} al carrello`}
           >
@@ -467,6 +442,66 @@ export function ProductCard({
           </Button>
         )}
       </CardFooter>
+
+      <Drawer
+        open={detailsOpen}
+        onOpenChange={(open) => {
+          setDetailsOpen(open)
+          if (open) void ensureDetails()
+        }}
+      >
+        <DrawerContent className="max-h-[80vh] overflow-y-auto rounded-t-2xl px-4 pb-6 pt-6 sm:px-6">
+          <div className="relative mx-auto mb-3 h-44 w-full max-w-sm overflow-hidden rounded-2xl bg-white">
+            {product.image_url ? (
+              <Image
+                src={product.image_url}
+                alt={product.name}
+                fill
+                className="object-contain"
+                sizes="(max-width: 640px) 90vw, 384px"
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+                Nessuna immagine
+              </div>
+            )}
+          </div>
+          <DrawerHeader>
+            <DrawerTitle>{product.name}</DrawerTitle>
+            <DrawerDescription className="text-pretty">
+              {detailsLoading ? 'Caricamento dettagli...' : details?.description}
+            </DrawerDescription>
+          </DrawerHeader>
+          <div className="space-y-4">
+            {detailsLoading && (
+              <p className="text-sm text-muted-foreground">Recupero informazioni...</p>
+            )}
+            {!detailsLoading && !hasDetails && (
+              <p className="text-sm text-muted-foreground">Nessun dettaglio disponibile.</p>
+            )}
+            {details?.ingredients && (
+              <div>
+                <h4 className="font-semibold mb-2 text-sm">Ingredienti:</h4>
+                <p className="text-sm text-muted-foreground leading-relaxed">
+                  {details.ingredients}
+                </p>
+              </div>
+            )}
+            {details?.allergens && (
+              <div className='text-center'>
+                <h4 className="font-semibold mb-2 text-sm">Allergeni:</h4>
+                <div className="flex flex-wrap gap-2 justify-center">
+                  {details.allergens.split(',').map((allergen, i) => (
+                    <Badge key={i} variant="secondary" className="text-xs">
+                      {allergen.trim()}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </DrawerContent>
+      </Drawer>
 
       {isMobile ? (
         <Drawer open={additionsOpen} onOpenChange={setAdditionsOpen}>

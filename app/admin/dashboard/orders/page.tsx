@@ -754,7 +754,7 @@ export default function OrdersManagementPage() {
                   <DrawerHeader>
                     <div className="flex items-start justify-between gap-4">
                       <DrawerTitle>Ordine n° {selectedOrder.order_number}</DrawerTitle>
-                      <DrawerClose className="rounded-md p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
+                      <DrawerClose className="rounded-full p-1.5 text-muted-foreground hover:text-foreground hover:bg-muted transition-colors">
                         <span className="sr-only">Chiudi</span>
                         <X className="h-4 w-4" />
                       </DrawerClose>
