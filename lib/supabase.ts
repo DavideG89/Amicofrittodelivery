@@ -46,6 +46,7 @@ export type Category = {
   name: string
   slug: string
   display_order: number
+  ingredient_customization_enabled: boolean
   created_at: string
   updated_at: string
 }
@@ -121,6 +122,22 @@ export type OrderAddition = {
   updated_at: string
 }
 
+export type ProductIngredient = {
+  id: string
+  product_id: string
+  name: string
+  removable: boolean
+  active: boolean
+  display_order: number
+  created_at: string
+  updated_at: string
+}
+
+export type RemovedIngredient = {
+  id: string
+  name: string
+}
+
 export type OrderItem = {
   product_id: string
   item_source?: 'menu' | 'upsell'
@@ -131,6 +148,8 @@ export type OrderItem = {
   additions?: string | null
   additions_unit_price?: number | null
   additions_ids?: string[] | null
+  removed_ingredient_ids?: string[] | null
+  removed_ingredients?: RemovedIngredient[] | null
 }
 
 export type OrderStatus = 'pending' | 'confirmed' | 'preparing' | 'ready' | 'completed' | 'cancelled'
@@ -157,6 +176,7 @@ export type Order = {
 
 export type PublicOrder = {
   order_number: string
+  public_token?: string | null
   order_type: 'delivery' | 'takeaway'
   payment_method: 'cash' | 'card' | null
   items: OrderItem[]

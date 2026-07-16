@@ -16,6 +16,7 @@ import {
 } from '@/components/ui/drawer'
 import { supabase } from '@/lib/supabase'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { normalizeOrderPublicToken } from '@/lib/order-public-token'
 import { fetchPublicOrderLight } from '@/lib/public-order-client'
 import { cn } from '@/lib/utils'
 
@@ -40,6 +41,7 @@ export function GlobalOrderTerminalDialog() {
   const router = useRouter()
   const [status, setStatus] = useState<TerminalStatus>(null)
   const [orderNumber, setOrderNumber] = useState<string>('')
+  const [orderPublicToken, setOrderPublicToken] = useState<string>('')
   const [contactPhone, setContactPhone] = useState<string | null>(null)
   const [rating, setRating] = useState<number | null>(null)
   const [selectedReasons, setSelectedReasons] = useState<FeedbackReason[]>([])
@@ -51,6 +53,7 @@ export function GlobalOrderTerminalDialog() {
     try {
       sessionStorage.setItem(`order-terminal-dialog:${number}:${nextStatus}`, '1')
       localStorage.removeItem('lastOrderNumber')
+      localStorage.removeItem('lastOrderPublicToken')
       localStorage.removeItem('lastOrderActive')
     } catch {
       // ignore storage errors
@@ -89,6 +92,7 @@ export function GlobalOrderTerminalDialog() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           orderNumber,
+          publicToken: orderPublicToken,
           rating: nextRating,
           reasons,
         }),
@@ -162,18 +166,28 @@ export function GlobalOrderTerminalDialog() {
     const isTerminalStatus = (value: string): value is Exclude<TerminalStatus, null> =>
       value === 'completed' || value === 'cancelled'
 
-    const openIfNeeded = (nextStatus: Exclude<TerminalStatus, null>, number: string, force = false) => {
+    const openIfNeeded = (
+      nextStatus: Exclude<TerminalStatus, null>,
+      number: string,
+      publicToken = '',
+      force = false
+    ) => {
       const key = `order-terminal-dialog:${number}:${nextStatus}`
       const alreadyShown = sessionStorage.getItem(key) === '1'
       if (alreadyShown && !force) return
       setOrderNumber(number)
+      setOrderPublicToken(normalizeOrderPublicToken(publicToken))
       setStatus(nextStatus)
     }
 
-    const broadcastTerminalStatus = (nextStatus: Exclude<TerminalStatus, null>, number: string) => {
+    const broadcastTerminalStatus = (
+      nextStatus: Exclude<TerminalStatus, null>,
+      number: string,
+      publicToken = ''
+    ) => {
       window.dispatchEvent(
         new CustomEvent(ORDER_TERMINAL_STATUS_EVENT, {
-          detail: { orderNumber: number, status: nextStatus },
+          detail: { orderNumber: number, publicToken, status: nextStatus },
         })
       )
     }
@@ -183,15 +197,16 @@ export function GlobalOrderTerminalDialog() {
       inFlight = true
       try {
         const number = normalizeOrderNumber(localStorage.getItem('lastOrderNumber'))
+        const publicToken = normalizeOrderPublicToken(localStorage.getItem('lastOrderPublicToken'))
         if (!number) return
 
-        const data = await fetchPublicOrderLight(number)
+        const data = await fetchPublicOrderLight(number, publicToken)
 
         if (cancelled || !data?.status) return
         const current = String(data.status)
         if (!isTerminalStatus(current)) return
-        broadcastTerminalStatus(current, data.order_number)
-        openIfNeeded(current, data.order_number)
+        broadcastTerminalStatus(current, data.order_number, publicToken)
+        openIfNeeded(current, data.order_number, publicToken)
       } catch {
         // ignore polling errors
       } finally {
@@ -200,11 +215,12 @@ export function GlobalOrderTerminalDialog() {
     }
 
     const onTerminalStatus = (event: Event) => {
-      const detail = (event as CustomEvent<{ orderNumber?: string; status?: string; force?: boolean }>)?.detail
+      const detail = (event as CustomEvent<{ orderNumber?: string; publicToken?: string; status?: string; force?: boolean }>)?.detail
       const number = normalizeOrderNumber(detail?.orderNumber || '')
+      const publicToken = normalizeOrderPublicToken(detail?.publicToken)
       const nextStatus = String(detail?.status || '')
       if (!number || !isTerminalStatus(nextStatus)) return
-      openIfNeeded(nextStatus, number, detail?.force === true)
+      openIfNeeded(nextStatus, number, publicToken, detail?.force === true)
     }
 
     const onFocus = () => {

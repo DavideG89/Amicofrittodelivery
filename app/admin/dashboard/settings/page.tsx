@@ -225,8 +225,20 @@ export default function SettingsPage() {
   async function handlePurgeOldOrders() {
     setPurgingOrders(true)
     try {
-      const { error } = await supabase.rpc('rollup_and_purge_orders', { keep_days: 7 })
-      if (error) throw error
+      const { data } = await supabase.auth.getSession()
+      const accessToken = data.session?.access_token || ''
+      if (!accessToken) throw new Error('Sessione amministratore non disponibile')
+
+      const response = await fetch('/api/admin/orders/purge', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${accessToken}`,
+        },
+        body: JSON.stringify({ keepDays: 7 }),
+      })
+
+      if (!response.ok) throw new Error('Pulizia ordini non riuscita')
       toast.success('Pulizia completata: incassi salvati e ordini vecchi eliminati')
     } catch (error) {
       console.error('[v0] Error purging orders:', error)
@@ -686,26 +698,6 @@ export default function SettingsPage() {
           </AlertDialog>
         </CardContent>
       </Card>
-
-      {/* 
-      <Card className="opacity-70">
-        <CardHeader className="pb-2">
-          <CardTitle className="text-base">Sicurezza</CardTitle>
-          <CardDescription className="text-xs">
-            Gestisci la password di accesso alla dashboard
-          </CardDescription>
-        </CardHeader>
-        <CardContent className="text-xs text-muted-foreground overflow-x-auto">
-          <p className="mb-3">
-            La password è configurata tramite variabili d&apos;ambiente (ADMIN_PASSWORD).
-            Per cambiarla, modifica la variabile d&apos;ambiente nel tuo progetto.
-          </p>
-          <div className="bg-muted/60 p-3 rounded-md">
-            <code className="text-xs break-words">ADMIN_PASSWORD=la_tua_password_sicura</code>
-          </div>
-        </CardContent>
-      </Card>
-     */ }
 
     </div>
   )

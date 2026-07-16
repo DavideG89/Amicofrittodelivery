@@ -1,57 +1,12 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { getSupabaseServerClient } from '@/lib/supabase-server'
+import { requireAdmin } from '@/lib/admin-authorization'
 
 export const runtime = 'nodejs'
 
 const fcmTokenPattern = /^[A-Za-z0-9\-_.:]{80,4096}$/
 
-async function requireAdminAuth(authHeader: string) {
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (!token) return { ok: false as const, status: 401, error: 'Non autorizzato' }
-
-  if (
-    !process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-    !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-  ) {
-    return { ok: false as const, status: 500, error: 'Supabase env mancanti' }
-  }
-
-  const authClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    {
-      auth: { persistSession: false },
-      global: {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      },
-    }
-  )
-
-  const { data: authData, error: authError } = await authClient.auth.getUser()
-  if (authError || !authData?.user) {
-    return { ok: false as const, status: 401, error: 'Non autorizzato' }
-  }
-
-  const supabase = getSupabaseServerClient()
-  const { data: adminUser } = await supabase
-    .from('admin_users')
-    .select('user_id')
-    .eq('user_id', authData.user.id)
-    .maybeSingle()
-
-  if (!adminUser) {
-    return { ok: false as const, status: 403, error: 'Non autorizzato' }
-  }
-
-  return { ok: true as const, supabase }
-}
-
 export async function POST(request: Request) {
-  const auth = await requireAdminAuth(request.headers.get('authorization') || '')
+  const auth = await requireAdmin(request)
   if (!auth.ok) {
     return NextResponse.json({ error: auth.error }, { status: auth.status })
   }

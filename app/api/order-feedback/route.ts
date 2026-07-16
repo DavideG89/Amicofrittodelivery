@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { normalizeOrderPublicToken } from '@/lib/order-public-token'
 
 export const runtime = 'nodejs'
 
@@ -54,6 +55,7 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const orderNumber = normalizeOrderNumber(body?.orderNumber)
+    const publicToken = normalizeOrderPublicToken(body?.publicToken)
     const rating = Number(body?.rating)
     const reasons = normalizeReasons(body?.reasons)
 
@@ -71,10 +73,15 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabaseServerClient()
-    const { data: order, error: orderError } = await supabase
+    const query = supabase
       .from('orders')
       .select('order_number, status')
       .eq('order_number', orderNumber)
+
+    const { data: order, error: orderError } = await (publicToken
+      ? query.eq('public_token', publicToken)
+      : query.is('public_token', null)
+    )
       .maybeSingle()
 
     if (orderError) {

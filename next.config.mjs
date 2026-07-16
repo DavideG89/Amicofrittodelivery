@@ -1,8 +1,5 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  typescript: {
-    ignoreBuildErrors: true,
-  },
   async headers() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || ''
     let supabaseOrigin = ''

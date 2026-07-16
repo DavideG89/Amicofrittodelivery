@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
-import { getSupabaseServerClient } from '@/lib/supabase-server'
+import { requireAdmin } from '@/lib/admin-authorization'
 import { sendFcmMessages } from '@/lib/fcm'
+import { buildOrderTrackingPath } from '@/lib/order-public-token'
 import type { OrderStatus } from '@/lib/supabase'
 import { enqueuePrintJob } from '@/lib/print-jobs-server'
 
@@ -46,49 +46,13 @@ function maskToken(token: string) {
 }
 
 export async function POST(request: Request) {
-  const authHeader = request.headers.get('authorization') || ''
-  const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : ''
-  if (!token) {
-    return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
+  const auth = await requireAdmin(request)
+  if (!auth.ok) {
+    return NextResponse.json({ error: auth.error }, { status: auth.status })
   }
 
   try {
-    if (
-      !process.env.SUPABASE_SERVICE_ROLE_KEY ||
-      !process.env.NEXT_PUBLIC_SUPABASE_URL ||
-      !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-    ) {
-      return NextResponse.json({ error: 'Supabase env mancanti' }, { status: 500 })
-    }
-
-    const authClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-      {
-        auth: { persistSession: false },
-        global: {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        },
-      }
-    )
-
-    const { data: authData, error: authError } = await authClient.auth.getUser()
-    if (authError || !authData?.user) {
-      return NextResponse.json({ error: 'Non autorizzato' }, { status: 401 })
-    }
-
-    const supabase = getSupabaseServerClient()
-    const { data: adminUser } = await supabase
-      .from('admin_users')
-      .select('user_id')
-      .eq('user_id', authData.user.id)
-      .maybeSingle()
-
-    if (!adminUser) {
-      return NextResponse.json({ error: 'Non autorizzato' }, { status: 403 })
-    }
+    const supabase = auth.supabase
 
     const body = await request.json()
     const orderId = typeof body?.orderId === 'string' ? body.orderId.trim() : ''
@@ -108,7 +72,7 @@ export async function POST(request: Request) {
 
     const { data: order, error: orderError } = await supabase
       .from('orders')
-      .select('id, order_number, status')
+      .select('id, order_number, public_token, status')
       .eq('id', orderId)
       .single()
 
@@ -159,7 +123,7 @@ export async function POST(request: Request) {
 
         const tokens = [...new Set((tokensData || []).map((row) => row.token).filter(Boolean))]
         if (tokens.length > 0) {
-          const clickAction = `/order/${order.order_number}`
+          const clickAction = buildOrderTrackingPath(order.order_number, order.public_token)
           const results = await sendFcmMessages(tokens, {
             title: notification.title,
             body: notification.body(order.order_number),

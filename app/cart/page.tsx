@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Plus, Minus, Trash2, ShoppingBag, Loader2 } from 'lucide-react'
+import { ArrowLeft, Plus, Minus, Trash2, ShoppingBag, Loader2, Pencil } from 'lucide-react'
 import { Header } from '@/components/header'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
@@ -22,11 +22,14 @@ import { Switch } from '@/components/ui/switch'
 import { Label } from '@/components/ui/label'
 import { getCartItemKey, useCart } from '@/lib/cart-context'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { buildOrderTrackingPath, normalizeOrderPublicToken } from '@/lib/order-public-token'
 import { StoreInfo, OrderStatus } from '@/lib/supabase'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
 import { fetchPublicOrderLight } from '@/lib/public-order-client'
 import { subscribeToStoreInfo } from '@/lib/store-info-sync'
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CartItemCustomizer } from '@/components/cart-item-customizer'
+import type { CartItem } from '@/lib/cart-context'
 
 const DISCOUNT_MIN_ORDER = 6
 
@@ -36,6 +39,7 @@ export default function CartPage() {
   const [isDelivery, setIsDelivery] = useState(false)
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
+  const [lastOrderPublicToken, setLastOrderPublicToken] = useState<string | null>(null)
   const [lastOrderActive, setLastOrderActive] = useState(false)
   const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
@@ -46,6 +50,7 @@ export default function CartPage() {
   const [discountAppliedSubtotal, setDiscountAppliedSubtotal] = useState<number | null>(null)
   const [clearCartDrawerOpen, setClearCartDrawerOpen] = useState(false)
   const [redirectingHome, setRedirectingHome] = useState(false)
+  const [editingItem, setEditingItem] = useState<CartItem | null>(null)
   const selectedOrderType = isDelivery ? 'delivery' : 'takeaway'
 
   useEffect(() => {
@@ -66,8 +71,10 @@ export default function CartPage() {
   useEffect(() => {
     try {
       const number = normalizeOrderNumber(localStorage.getItem('lastOrderNumber'))
+      const publicToken = normalizeOrderPublicToken(localStorage.getItem('lastOrderPublicToken'))
       const active = localStorage.getItem('lastOrderActive') === 'true'
       setLastOrderNumber(number || null)
+      setLastOrderPublicToken(publicToken || null)
       setLastOrderActive(active)
     } catch {
       // ignore storage errors
@@ -80,7 +87,7 @@ export default function CartPage() {
     const refreshStatus = async () => {
       setLastOrderLoading(true)
       try {
-        const data = await fetchPublicOrderLight(lastOrderNumber)
+        const data = await fetchPublicOrderLight(lastOrderNumber, lastOrderPublicToken)
         if (cancelled) return
         const status = (data?.status as OrderStatus) || null
         setLastOrderStatus(status)
@@ -107,7 +114,7 @@ export default function CartPage() {
     return () => {
       cancelled = true
     }
-  }, [lastOrderNumber])
+  }, [lastOrderNumber, lastOrderPublicToken])
 
   useEffect(() => {
     if (items.length > 0) return
@@ -322,7 +329,7 @@ export default function CartPage() {
               </p>
               {lastOrderNumber && (
                 <Button asChild size="sm" variant="outline" className="border-amber-300 text-amber-900">
-                  <Link href={`/order/${encodeURIComponent(lastOrderNumber)}`}>Traccia ordine</Link>
+                  <Link href={buildOrderTrackingPath(lastOrderNumber, lastOrderPublicToken)}>Traccia ordine</Link>
                 </Button>
               )}
             </div>
@@ -379,6 +386,11 @@ export default function CartPage() {
                             {item.additions}
                           </p>
                         )}
+                        {Array.isArray(item.removed_ingredients) && item.removed_ingredients.length > 0 ? (
+                          <p className="mt-1 text-xs font-medium text-destructive">
+                            Senza: {item.removed_ingredients.map((ingredient) => ingredient.name).join(', ')}
+                          </p>
+                        ) : null}
                         
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-3">
                           <div className="flex items-center border rounded-md bg-background">
@@ -402,6 +414,20 @@ export default function CartPage() {
                           </div>
 
                           <div className="flex items-center gap-2 sm:gap-3 w-full sm:w-auto justify-between sm:justify-end">
+                            {item.item_source !== 'upsell' && (
+                              item.ingredient_customization_enabled === true ||
+                              (item.removed_ingredient_ids?.length || 0) > 0
+                            ) ? (
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 sm:h-9 sm:w-9"
+                                onClick={() => setEditingItem(item)}
+                                aria-label={`Modifica ${item.product.name}`}
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </Button>
+                            ) : null}
                             <span className="font-bold text-lg sm:text-xl text-primary">
                               {((item.product.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
                             </span>
@@ -547,6 +573,11 @@ export default function CartPage() {
           </div>
         ) : null}
       </main>
+      <CartItemCustomizer
+        item={editingItem}
+        open={Boolean(editingItem)}
+        onOpenChange={(open) => { if (!open) setEditingItem(null) }}
+      />
 
       <Drawer open={clearCartDrawerOpen} onOpenChange={setClearCartDrawerOpen}>
         <DrawerContent className="md:hidden">

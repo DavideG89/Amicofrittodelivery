@@ -1,110 +1,78 @@
-# Security Notes
+# Sicurezza
 
-## Critical Security Improvements Needed
+Questo documento descrive lo stato versionato del repository. Non certifica la configurazione effettiva del deployment Supabase o Vercel.
 
-### 1. Admin Authentication
-**Current State**: Server-side verification with httpOnly cookie session
-**Risk Level**: 🟡 MEDIUM
+## Confini di fiducia
 
-**Implemented:**
-- Server-side login API with rate limiting
-- httpOnly cookie session
-- Middleware protection for `/admin/dashboard/*`
+- Browser pubblico → route API Next.js
+- Dashboard autenticata → Supabase RLS e route API amministrative
+- Route server → Supabase tramite service-role
+- Print agent → API tramite chiave dedicata
+- Database → notifiche e funzioni pianificate
 
-**Still Recommended:**
-- Store a hashed admin password instead of plaintext
-- Add MFA or migrate to Supabase Auth/NextAuth for robust auth
+Input client, cookie, header, numeri ordine e dati in storage locale non sono considerati affidabili.
 
-### 2. Supabase Row Level Security (RLS)
-**Current State**: Depends on your Supabase configuration
-**Risk Level**: 🔴 HIGH if RLS is disabled
+## Autenticazione e autorizzazione amministrativa
 
-**Recommended RLS Policies (example):**
-```sql
--- Orders: Allow insert for anyone, select only own orders
-CREATE POLICY "Enable insert for all users" ON orders
-  FOR INSERT WITH CHECK (true);
+Il sistema supportato usa:
 
-CREATE POLICY "Enable select for order owner" ON orders
-  FOR SELECT USING (
-    customer_phone = current_setting('request.headers')::json->>'x-customer-phone'
-  );
+- Supabase Auth per verificare identità e password;
+- `public.admin_users` come allowlist degli UUID autorizzati;
+- `public.is_admin()` nelle policy RLS;
+- `lib/admin-authorization.ts` come controllo unico per le API amministrative;
+- service-role soltanto dopo la verifica dell'amministratore.
 
--- Products: Read-only for public
-CREATE POLICY "Enable read access for all users" ON products
-  FOR SELECT USING (true);
+Le vecchie sessioni HMAC basate su `ADMIN_PASSWORD` e `ADMIN_SESSION_SECRET` non sono più supportate.
 
--- Admin tables: Require authentication
-CREATE POLICY "Enable all for authenticated users only" ON discount_codes
-  FOR ALL USING (auth.role() = 'authenticated');
-```
+La dashboard verifica l'appartenenza a `admin_users` tramite `/api/admin/session`. Il controllo client migliora il flusso utente, mentre la protezione effettiva dei dati resta nelle API e nelle policy RLS.
 
-### 3. Input Validation
-**Current State**: ✅ Server-side validation + sanitization
-**Risk Level**: 🟡 MEDIUM
+## Row Level Security
 
-**Implemented:**
-- Phone number validation
-- String sanitization (XSS prevention)
-- Length limits on all text fields
-- Server-side recalculation of order totals
-- CAPTCHA verification
-- Rate limiting on order submission
+- `scripts/20-create-admin-authorization.sql` crea l'allowlist e la funzione `is_admin()`.
+- `scripts/21-harden-row-level-security.sql` sostituisce le policy delle tabelle applicative con policy versionate e fail-closed.
+- Le tabelle contenenti ordini, ricavi, feedback, token cliente e job di stampa non hanno accesso pubblico diretto.
+- Menu e configurazione pubblica espongono soltanto letture esplicitamente autorizzate.
 
-### 4. Environment Variables
-**Current State**: ✅ Sensitive vars moved server-side
-**Risk Level**: 🟡 MEDIUM
+La presenza degli script non prova che siano stati applicati. Prima del rilascio verificare policy, grant, owner, trigger e publication Realtime sul database effettivo.
 
-**Required Environment Variables:**
-```env
-# Supabase (already public - anon key)
-NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+## Controlli già presenti
 
-# Admin (should be server-side only)
-ADMIN_PASSWORD=strong-password
-ADMIN_SESSION_SECRET=random-secret-key
-```
+- Ricalcolo server-side di prodotti, aggiunte, sconti, consegna e totale ordine
+- Chiave service-role esclusa dal bundle client
+- Validazione di base degli ordini
+- CAPTCHA configurabile sul checkout
+- Cookie e credenziali legacy rimossi dal flusso admin
+- Header HTTP di sicurezza applicativi
+- Tabelle push cliente e print queue senza accesso anonimo diretto
+- Token pubblico casuale per i nuovi link di tracking ordine
 
-### 5. Data Exposure
-**Current State**: Order details accessible by anyone with order number
-**Risk Level**: 🟡 MEDIUM
+## Rischi ancora aperti
 
-**Considerations:**
-- Order numbers are somewhat predictable (timestamp-based)
-- Anyone with the order number can view full details
-- Consider adding email/phone verification to view orders
+### Alta priorità
 
-### 6. Rate Limiting
-**Current State**: ✅ Implemented in API routes
-**Risk Level**: 🟡 MEDIUM
+1. Gli ordini creati prima di `scripts/22-add-order-public-token.sql` possono restare leggibili senza token finché `orders.public_token` è `NULL`.
+2. Il webhook della funzione push deve fallire quando `WEBHOOK_SECRET` manca.
 
-**Implemented:**
-- Limit order submissions per IP
-- Limit admin login attempts
+### Media priorità
 
-## Best Practices Implemented
+1. Il rate limiting in memoria non coordina più istanze serverless.
+2. Il payload ordine non ha ancora limiti strutturali completi.
+3. La creazione ordine non usa ancora una chiave di idempotenza.
+4. Le transizioni di stato non sono ancora una state machine atomica.
+5. Il print agent usa una chiave condivisa e deve verificare ownership e lease del job.
 
-✅ Server-side admin auth + httpOnly cookie  
-✅ Input sanitization for XSS prevention  
-✅ Phone number validation  
-✅ Session expiry (8 hours) for admin  
-✅ HTTPS enforced by Vercel  
-✅ Supabase parameterized queries (SQL injection prevention)  
-✅ CORS handled by Supabase  
-✅ Basic rate limiting on sensitive endpoints  
+## Segreti
 
-## Immediate Actions Recommended
+Non committare:
 
-1. **Configure Supabase RLS policies** (see section 2)
-2. **Hash the admin password** (avoid plaintext in env)
-3. **Monitor for suspicious activity** in Supabase logs
+- `SUPABASE_SERVICE_ROLE_KEY`
+- chiavi private Firebase
+- `RECAPTCHA_SECRET_KEY`
+- `PRINTER_AGENT_KEY`
+- password, token o file `.env.local`
 
-## Long-term Improvements
+Le variabili `NEXT_PUBLIC_*` sono visibili nel browser e non devono contenere segreti.
 
-- Implement proper authentication with NextAuth.js
-- Add email verification for customers
-- Implement order tracking with secure tokens (UUID)
-- Add webhook signatures for payment integrations
-- Set up security monitoring and alerts
-- Regular security audits
+## Segnalazione
+
+Una vulnerabilità deve essere descritta con percorso d'attacco, impatto, prerequisiti e riproduzione minima. Non includere credenziali o dati reali dei clienti nei report.

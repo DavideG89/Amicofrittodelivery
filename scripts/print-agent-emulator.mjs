@@ -47,6 +47,17 @@ function buildReceiptPreview(job) {
     const name = String(item?.name || 'Prodotto')
     const price = Number(item?.price || 0)
     lines.push(`${qty}x ${name}  EUR ${price.toFixed(2)}`)
+    const removedIngredientNames = Array.isArray(item?.removed_ingredients)
+      ? item.removed_ingredients
+          .map((ingredient) => String(ingredient?.name || '').trim())
+          .filter(Boolean)
+      : []
+    if (removedIngredientNames.length > 0) {
+      lines.push('SENZA:')
+      for (const ingredientName of removedIngredientNames) {
+        lines.push(`- ${ingredientName}`)
+      }
+    }
   }
 
   lines.push('------------------------------')

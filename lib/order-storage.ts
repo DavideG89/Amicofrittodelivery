@@ -1,6 +1,7 @@
 'use client'
 
 import { normalizeOrderNumber } from './order-number'
+import { normalizeOrderPublicToken } from './order-public-token'
 
 /**
  * Utility per gestire lo storage locale degli ordini
@@ -13,6 +14,7 @@ const ORDER_RETENTION_DAYS = 7
 
 export interface StoredOrder {
   orderNumber: string
+  publicToken?: string
   createdAt: string
   type: 'delivery' | 'takeaway'
 }
@@ -20,17 +22,23 @@ export interface StoredOrder {
 /**
  * Salva un ordine nel localStorage
  */
-export function saveOrderToDevice(orderNumber: string, orderType: 'delivery' | 'takeaway') {
+export function saveOrderToDevice(
+  orderNumber: string,
+  orderType: 'delivery' | 'takeaway',
+  publicToken?: string | null
+) {
   if (typeof window === 'undefined') return
 
   try {
     const normalizedOrderNumber = normalizeOrderNumber(orderNumber)
     if (!normalizedOrderNumber) return
+    const normalizedPublicToken = normalizeOrderPublicToken(publicToken)
 
     const orders = getStoredOrders()
     
     const newOrder: StoredOrder = {
       orderNumber: normalizedOrderNumber,
+      ...(normalizedPublicToken ? { publicToken: normalizedPublicToken } : {}),
       createdAt: new Date().toISOString(),
       type: orderType
     }
@@ -60,6 +68,7 @@ export function getStoredOrders(): StoredOrder[] {
     
     const rawOrders = JSON.parse(stored) as Array<{
       orderNumber?: unknown
+      publicToken?: unknown
       createdAt?: unknown
       type?: unknown
     }>
@@ -69,12 +78,13 @@ export function getStoredOrders(): StoredOrder[] {
     const orders: StoredOrder[] = rawOrders
       .map((order) => {
         const orderNumber = normalizeOrderNumber(order.orderNumber)
+        const publicToken = normalizeOrderPublicToken(order.publicToken)
         const createdAt = typeof order.createdAt === 'string' ? order.createdAt : ''
         const typeRaw = typeof order.type === 'string' ? order.type : ''
         const type: StoredOrder['type'] =
           typeRaw === 'delivery' ? 'delivery' : typeRaw === 'pickup' ? 'takeaway' : 'takeaway'
         if (!orderNumber || !createdAt) return null
-        return { orderNumber, createdAt, type }
+        return { orderNumber, ...(publicToken ? { publicToken } : {}), createdAt, type }
       })
       .filter((order): order is StoredOrder => Boolean(order))
     

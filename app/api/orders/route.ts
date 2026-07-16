@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { validateOrderData, sanitizeOrderData, sanitizeString } from '@/lib/validation'
 import { createRateLimiter } from '@/lib/rate-limit'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
 import { sendFcmMessages } from '@/lib/fcm'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { normalizeOrderPublicToken } from '@/lib/order-public-token'
 import { buildProductNameWithPieceOption, normalizeProductPieceOptions, type ProductPieceOption } from '@/lib/product-piece-options'
 import { normalizeUpsellProductOverrides } from '@/lib/upsell-overrides'
 import type { OrderStatus } from '@/lib/supabase'
@@ -21,6 +23,12 @@ type OrderItem = {
   additions?: string | null
   additions_unit_price?: number | null
   additions_ids?: string[] | null
+  removed_ingredient_ids?: string[] | null
+}
+
+type RemovedIngredient = {
+  id: string
+  name: string
 }
 
 type OrderPayload = {
@@ -48,6 +56,8 @@ const PUBLIC_ORDER_SELECT =
   'order_number, status, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, created_at, updated_at'
 const PUBLIC_ORDER_LIGHT_SELECT = 'order_number, status, updated_at'
 const GLOBAL_DISCOUNT_MIN_ORDER = 6
+const MAX_ORDER_ITEMS = 50
+const MAX_REMOVED_INGREDIENTS_PER_ITEM = 20
 
 function normalizeDiscountOrderTypeScope(value: unknown): DiscountOrderTypeScope {
   if (value === 'delivery' || value === 'takeaway' || value === 'all') return value
@@ -96,6 +106,19 @@ function sanitizePublicOrder(order: Record<string, unknown>) {
     created_at: String(order.created_at || ''),
     updated_at: typeof order.updated_at === 'string' ? order.updated_at : undefined,
   }
+}
+
+function generateOrderPublicToken() {
+  return randomBytes(32).toString('base64url')
+}
+
+function applyPublicOrderOwnershipFilter<T extends { eq: (column: string, value: string) => T; is: (column: string, value: null) => T }>(
+  query: T,
+  publicToken: string
+) {
+  if (publicToken) return query.eq('public_token', publicToken)
+  // Legacy compatibility: only orders created before the public_token migration may be read without a token.
+  return query.is('public_token', null)
 }
 
 function sanitizePublicOrderLight(order: Record<string, unknown>) {
@@ -407,6 +430,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const orderNumber = normalizeOrderNumber(searchParams.get('orderNumber'))
+    const publicToken = normalizeOrderPublicToken(searchParams.get('token'))
     const light = searchParams.get('light') === 'true'
 
     if (!orderNumber) {
@@ -415,10 +439,12 @@ export async function GET(request: Request) {
 
     const supabase = getSupabaseServerClient()
     if (light) {
-      const { data, error } = await supabase
+      const query = supabase
         .from('orders')
         .select(PUBLIC_ORDER_LIGHT_SELECT)
         .eq('order_number', orderNumber)
+
+      const { data, error } = await applyPublicOrderOwnershipFilter(query, publicToken)
         .maybeSingle()
 
       if (error) {
@@ -441,10 +467,12 @@ export async function GET(request: Request) {
       )
     }
 
-    const { data, error } = await supabase
+    const query = supabase
       .from('orders')
       .select(PUBLIC_ORDER_SELECT)
       .eq('order_number', orderNumber)
+
+    const { data, error } = await applyPublicOrderOwnershipFilter(query, publicToken)
       .maybeSingle()
 
     if (error) {
@@ -510,6 +538,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Carrello vuoto' }, { status: 400 })
     }
 
+    if (order.items.length > MAX_ORDER_ITEMS) {
+      return NextResponse.json({ error: 'Troppi articoli nel carrello' }, { status: 400 })
+    }
+
+    for (const item of order.items) {
+      if (item.removed_ingredient_ids === undefined || item.removed_ingredient_ids === null) continue
+      if (!Array.isArray(item.removed_ingredient_ids)) {
+        return NextResponse.json({ error: 'Personalizzazione ingredienti non valida' }, { status: 400 })
+      }
+      if (item.removed_ingredient_ids.length > MAX_REMOVED_INGREDIENTS_PER_ITEM) {
+        return NextResponse.json({ error: 'Troppi ingredienti rimossi per un prodotto' }, { status: 400 })
+      }
+      if (item.removed_ingredient_ids.some((id) => typeof id !== 'string' || !isUuid(id))) {
+        return NextResponse.json({ error: 'ID ingrediente non valido' }, { status: 400 })
+      }
+    }
+
     if (order.order_type !== 'delivery' && order.order_type !== 'takeaway') {
       return NextResponse.json({ error: 'Tipo ordine non valido' }, { status: 400 })
     }
@@ -547,6 +592,9 @@ export async function POST(request: Request) {
       additions: item.additions ? sanitizeString(String(item.additions), 160) : null,
       additions_ids: Array.isArray(item.additions_ids)
         ? item.additions_ids.filter((id): id is string => typeof id === 'string')
+        : [],
+      removed_ingredient_ids: Array.isArray(item.removed_ingredient_ids)
+        ? [...new Set(item.removed_ingredient_ids)]
         : [],
     }))
 
@@ -649,6 +697,62 @@ export async function POST(request: Request) {
     const categorySlugMap = new Map<string, string>()
     const sauceRulesMap = new Map<string, SauceRule>()
     const additionsMap = new Map<string, { type: 'sauce' | 'extra'; name: string; price: number }>()
+    const removedIngredientIds = [...new Set(items.flatMap((item) => item.removed_ingredient_ids))]
+    const productIngredientsMap = new Map<
+      string,
+      { id: string; product_id: string; name: string; active: boolean; removable: boolean }
+    >()
+    const ingredientCustomizationCategoryMap = new Map<string, boolean>()
+
+    if (removedIngredientIds.length > 0) {
+      const ingredientCategoryIds = [
+        ...new Set(
+          items
+            .map((item) => productMap.get(item.product_id)?.category_id)
+            .filter((id): id is string => typeof id === 'string' && id.length > 0)
+        ),
+      ]
+      const categoriesPromise = ingredientCategoryIds.length > 0
+        ? supabase
+            .from('categories')
+            .select('id, ingredient_customization_enabled')
+            .in('id', ingredientCategoryIds)
+        : Promise.resolve({ data: [], error: null })
+      const productIngredientsPromise = supabase
+          .from('product_ingredients')
+          .select('id, product_id, name, active, removable')
+          .in('id', removedIngredientIds)
+
+      const [
+        { data: ingredientCategoriesData, error: ingredientCategoriesError },
+        { data: productIngredientsData, error: productIngredientsError },
+      ] = await Promise.all([categoriesPromise, productIngredientsPromise])
+
+      if (ingredientCategoriesError || productIngredientsError) {
+        console.error('[orders-api] Product ingredients verification error:', {
+          categories: ingredientCategoriesError,
+          ingredients: productIngredientsError,
+        })
+        return NextResponse.json({ error: 'Errore verifica ingredienti' }, { status: 500 })
+      }
+
+      for (const category of ingredientCategoriesData || []) {
+        ingredientCustomizationCategoryMap.set(
+          category.id,
+          category.ingredient_customization_enabled === true
+        )
+      }
+
+      for (const ingredient of productIngredientsData || []) {
+        productIngredientsMap.set(ingredient.id, {
+          id: ingredient.id,
+          product_id: ingredient.product_id,
+          name: String(ingredient.name || ''),
+          active: Boolean(ingredient.active),
+          removable: Boolean(ingredient.removable),
+        })
+      }
+    }
 
     if (hasRequestedAdditions) {
       const categoryIds = [
@@ -717,11 +821,15 @@ export async function POST(request: Request) {
     let additionsValidationError: string | null = null
     let pieceOptionsValidationError: string | null = null
     let upsellValidationError: string | null = null
+    let ingredientsValidationError: string | null = null
     const normalizedItems = items.map((item) => {
       const product = productMap.get(item.product_id)
       const quantity = Math.min(Math.floor(item.quantity), 99)
 
       if (item.item_source === 'upsell') {
+        if (item.removed_ingredient_ids.length > 0 && !ingredientsValidationError) {
+          ingredientsValidationError = 'Personalizzazione ingredienti non consentita per questo prodotto'
+        }
         const upsellConfigured = upsellConfiguredMap.get(item.product_id) || null
         if (!upsellConfigured && !upsellValidationError) {
           const fallbackName = product?.name || item.name || 'prodotto'
@@ -738,6 +846,8 @@ export async function POST(request: Request) {
           additions: null,
           additions_unit_price: 0,
           additions_ids: [],
+          removed_ingredient_ids: [],
+          removed_ingredients: [] as RemovedIngredient[],
           available: Boolean(upsellConfigured),
         }
       }
@@ -755,6 +865,31 @@ export async function POST(request: Request) {
           ? buildProductNameWithPieceOption(product.name, selectedPieceOption)
           : product?.name ?? ''
       const itemPrice = selectedPieceOption ? selectedPieceOption.price : product?.price ?? 0
+      const ingredientCustomizationEnabled = product?.category_id
+        ? ingredientCustomizationCategoryMap.get(product.category_id) === true
+        : false
+      if (item.removed_ingredient_ids.length > 0 && !ingredientCustomizationEnabled && !ingredientsValidationError) {
+        ingredientsValidationError = `Personalizzazione ingredienti non consentita per ${product?.name || 'questo prodotto'}`
+      }
+      const removedIngredients = item.removed_ingredient_ids.reduce<RemovedIngredient[]>((result, ingredientId) => {
+        const ingredient = productIngredientsMap.get(ingredientId)
+        const isAllowed =
+          ingredient &&
+          ingredient.product_id === item.product_id &&
+          ingredient.active &&
+          ingredient.removable &&
+          ingredient.name.trim().length > 0
+
+        if (!isAllowed) {
+          if (!ingredientsValidationError) {
+            ingredientsValidationError = `Ingrediente non rimovibile o non disponibile per ${product?.name || 'questo prodotto'}`
+          }
+          return result
+        }
+
+        result.push({ id: ingredient.id, name: sanitizeString(ingredient.name, 120) })
+        return result
+      }, [])
 
       if (!hasRequestedAdditions) {
         return {
@@ -767,6 +902,8 @@ export async function POST(request: Request) {
           additions: null,
           additions_unit_price: 0,
           additions_ids: [],
+          removed_ingredient_ids: removedIngredients.map((ingredient) => ingredient.id),
+          removed_ingredients: removedIngredients,
           available: product?.available ?? false,
         }
       }
@@ -808,12 +945,18 @@ export async function POST(request: Request) {
         additions: additionsLabelParts.join(' | ') || null,
         additions_unit_price: Math.round(additionsUnitPrice * 100) / 100,
         additions_ids: normalizedAdditionIds,
+        removed_ingredient_ids: removedIngredients.map((ingredient) => ingredient.id),
+        removed_ingredients: removedIngredients,
         available: product?.available ?? false,
       }
     })
 
     if (additionsValidationError) {
       return NextResponse.json({ error: additionsValidationError }, { status: 400 })
+    }
+
+    if (ingredientsValidationError) {
+      return NextResponse.json({ error: ingredientsValidationError }, { status: 400 })
     }
 
     if (pieceOptionsValidationError) {
@@ -951,6 +1094,7 @@ export async function POST(request: Request) {
     const maxInsertAttempts = 20
     const maxFallbackInsertAttempts = 20
     let orderNumber = ''
+    const publicToken = generateOrderPublicToken()
     let insertedOrder: { id: string; created_at: string } | null = null
     let insertError: {
       message?: string
@@ -964,6 +1108,7 @@ export async function POST(request: Request) {
         .from('orders')
         .insert({
           order_number: candidateOrderNumber,
+          public_token: publicToken,
           customer_name: sanitized.customer_name,
           customer_phone: sanitized.customer_phone,
           customer_address: sanitized.customer_address,
@@ -1051,7 +1196,7 @@ export async function POST(request: Request) {
       createdAt: insertedOrder?.created_at || new Date().toISOString(),
     })
 
-    return NextResponse.json({ orderNumber }, { headers: rate.headers })
+    return NextResponse.json({ orderNumber, publicToken }, { headers: rate.headers })
   } catch (error: unknown) {
     const err = error as { name?: string; message?: string }
     console.error('[orders-api] Unhandled POST error:', error)

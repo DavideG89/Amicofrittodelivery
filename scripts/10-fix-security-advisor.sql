@@ -48,12 +48,7 @@ BEGIN
       USING (EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid()))
       WITH CHECK (EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid()))';
   ELSE
-    EXECUTE 'CREATE POLICY order_additions_admin_manage
-      ON public.order_additions
-      FOR ALL
-      TO authenticated
-      USING (auth.role() = ''authenticated'')
-      WITH CHECK (auth.role() = ''authenticated'')';
+    RAISE NOTICE 'admin_users not found: order_additions remains read-only until migrations 20 and 21';
   END IF;
 END $$;
 
@@ -86,11 +81,6 @@ BEGIN
       USING (EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid()))
       WITH CHECK (EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid()))';
   ELSE
-    EXECUTE 'CREATE POLICY order_addition_category_rules_admin_manage
-      ON public.order_addition_category_rules
-      FOR ALL
-      TO authenticated
-      USING (auth.role() = ''authenticated'')
-      WITH CHECK (auth.role() = ''authenticated'')';
+    RAISE NOTICE 'admin_users not found: addition rules remain read-only until migrations 20 and 21';
   END IF;
 END $$;

@@ -1,7 +1,7 @@
 'use client'
 
 import { createContext, useContext, useState, useEffect, ReactNode } from 'react'
-import { Product } from './supabase'
+import { Product, RemovedIngredient } from './supabase'
 
 export type CartItem = {
   product: Product
@@ -11,14 +11,21 @@ export type CartItem = {
   additions?: string
   additions_unit_price?: number
   additions_ids?: string[]
+  removed_ingredient_ids?: string[]
+  removed_ingredients?: RemovedIngredient[]
+  ingredient_customization_enabled?: boolean
 }
 
 type AddItemOptions = {
+  product?: Product
   source?: 'menu' | 'upsell'
   pieceOptionId?: string
   additions?: string
   additionsUnitPrice?: number
   additionsIds?: string[]
+  removedIngredientIds?: string[]
+  removedIngredients?: RemovedIngredient[]
+  ingredientCustomizationEnabled?: boolean
 }
 
 type CartContextType = {
@@ -26,6 +33,7 @@ type CartContextType = {
   addItem: (product: Product, options?: string | AddItemOptions) => void
   removeItem: (itemKey: string) => void
   updateQuantity: (itemKey: string, quantity: number) => void
+  replaceItem: (itemKey: string, options: AddItemOptions) => void
   clearCart: () => void
   totalItems: number
   subtotal: number
@@ -47,6 +55,9 @@ type StoredCartItem = {
   additions?: string
   additions_unit_price?: number
   additions_ids?: string[]
+  removed_ingredient_ids?: string[]
+  removed_ingredients?: RemovedIngredient[]
+  ingredient_customization_enabled?: boolean
 }
 
 const toSafeProductForStorage = (product: Product): StoredCartItem['product'] => ({
@@ -77,8 +88,27 @@ const hydrateProduct = (stored: StoredCartItem['product']): Product => ({
   updated_at: '',
 })
 
-export const getCartItemKey = (item: Pick<CartItem, 'product' | 'item_source' | 'piece_option_id' | 'additions' | 'additions_ids'>) => {
+const normalizeIds = (ids: unknown): string[] =>
+  Array.isArray(ids)
+    ? [...new Set(ids.filter((id): id is string => typeof id === 'string' && id.length > 0))].sort()
+    : []
+
+const normalizeRemovedIngredients = (ingredients: unknown): RemovedIngredient[] => {
+  if (!Array.isArray(ingredients)) return []
+  const byId = new Map<string, RemovedIngredient>()
+  ingredients.forEach((ingredient) => {
+    if (!ingredient || typeof ingredient !== 'object') return
+    const { id, name } = ingredient as Partial<RemovedIngredient>
+    if (typeof id === 'string' && id && typeof name === 'string' && name.trim()) {
+      byId.set(id, { id, name: name.trim().slice(0, 120) })
+    }
+  })
+  return [...byId.values()].sort((a, b) => a.id.localeCompare(b.id))
+}
+
+export const getCartItemKey = (item: Pick<CartItem, 'product' | 'item_source' | 'piece_option_id' | 'additions' | 'additions_ids' | 'removed_ingredient_ids'>) => {
   const additionsIds = Array.isArray(item.additions_ids) ? [...item.additions_ids].sort().join(',') : ''
+  const removedIngredientIds = normalizeIds(item.removed_ingredient_ids).join(',')
   return [
     item.product.id,
     item.item_source || 'menu',
@@ -87,6 +117,7 @@ export const getCartItemKey = (item: Pick<CartItem, 'product' | 'item_source' | 
     Number(item.product.price || 0).toFixed(2),
     item.additions || '',
     additionsIds,
+    removedIngredientIds,
   ].join('::')
 }
 
@@ -131,6 +162,9 @@ const normalizeStoredCart = (raw: unknown): CartItem[] => {
         additions_ids: Array.isArray(item.additions_ids)
           ? item.additions_ids.filter((id): id is string => typeof id === 'string')
           : [],
+        removed_ingredient_ids: normalizeIds(item.removed_ingredient_ids),
+        removed_ingredients: normalizeRemovedIngredients(item.removed_ingredients),
+        ingredient_customization_enabled: item.ingredient_customization_enabled === true,
       }
     })
   return normalized.filter((item): item is CartItem => item !== null)
@@ -162,6 +196,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
         additions: item.additions || '',
         additions_unit_price: Number(item.additions_unit_price) || 0,
         additions_ids: Array.isArray(item.additions_ids) ? item.additions_ids : [],
+        removed_ingredient_ids: normalizeIds(item.removed_ingredient_ids),
+        removed_ingredients: normalizeRemovedIngredients(item.removed_ingredients),
+        ingredient_customization_enabled: item.ingredient_customization_enabled === true,
       }))
       localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(compactItems))
     } catch (error) {
@@ -184,6 +221,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
             additions: '',
             additions_unit_price: Number(item.additions_unit_price) || 0,
             additions_ids: Array.isArray(item.additions_ids) ? item.additions_ids : [],
+            removed_ingredient_ids: normalizeIds(item.removed_ingredient_ids),
+            removed_ingredients: normalizeRemovedIngredients(item.removed_ingredients),
+            ingredient_customization_enabled: item.ingredient_customization_enabled === true,
           }))
           localStorage.setItem(CART_STORAGE_KEY, JSON.stringify(fallbackItems))
         } catch {
@@ -212,11 +252,13 @@ export function CartProvider({ children }: { children: ReactNode }) {
         ? Math.round(rawAdditionsUnitPrice * 100) / 100
         : 0
     const normalizedAdditionsIds =
-      typeof options === 'string'
-        ? []
-        : Array.isArray(options?.additionsIds)
-          ? options.additionsIds.filter((id): id is string => typeof id === 'string')
-          : []
+      typeof options === 'string' ? [] : normalizeIds(options?.additionsIds)
+    const normalizedRemovedIngredientIds =
+      typeof options === 'string' ? [] : normalizeIds(options?.removedIngredientIds)
+    const normalizedRemovedIngredients =
+      typeof options === 'string' ? [] : normalizeRemovedIngredients(options?.removedIngredients)
+    const ingredientCustomizationEnabled =
+      typeof options !== 'string' && options?.ingredientCustomizationEnabled === true
 
     setItems((prevItems) => {
       const existingItem = prevItems.find(
@@ -227,6 +269,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
           (item.additions || '') === (normalizedAdditions || '') &&
           Number(item.additions_unit_price || 0) === normalizedAdditionsUnitPrice &&
           JSON.stringify(item.additions_ids || []) === JSON.stringify(normalizedAdditionsIds)
+          && JSON.stringify(normalizeIds(item.removed_ingredient_ids)) === JSON.stringify(normalizedRemovedIngredientIds)
       )
       if (existingItem) {
         return prevItems.map((item) =>
@@ -243,6 +286,10 @@ export function CartProvider({ children }: { children: ReactNode }) {
                   normalizedAdditionsIds.length > 0
                     ? normalizedAdditionsIds
                     : item.additions_ids || [],
+                removed_ingredient_ids: normalizedRemovedIngredientIds,
+                removed_ingredients: normalizedRemovedIngredients,
+                ingredient_customization_enabled:
+                  item.ingredient_customization_enabled || ingredientCustomizationEnabled,
               }
             : item
         )
@@ -257,6 +304,9 @@ export function CartProvider({ children }: { children: ReactNode }) {
           additions: normalizedAdditions,
           additions_unit_price: normalizedAdditionsUnitPrice,
           additions_ids: normalizedAdditionsIds,
+          removed_ingredient_ids: normalizedRemovedIngredientIds,
+          removed_ingredients: normalizedRemovedIngredients,
+          ingredient_customization_enabled: ingredientCustomizationEnabled,
         },
       ]
     })
@@ -278,6 +328,37 @@ export function CartProvider({ children }: { children: ReactNode }) {
     )
   }
 
+  const replaceItem = (itemKey: string, options: AddItemOptions) => {
+    setItems((prevItems) => {
+      const current = prevItems.find((item) => getCartItemKey(item) === itemKey)
+      if (!current) return prevItems
+
+      const replacement: CartItem = {
+        ...current,
+        product: options.product || current.product,
+        piece_option_id: options.pieceOptionId ?? current.piece_option_id,
+        additions: (options.additions || '').slice(0, 160),
+        additions_unit_price: Math.max(0, Number(options.additionsUnitPrice) || 0),
+        additions_ids: normalizeIds(options.additionsIds),
+        removed_ingredient_ids: normalizeIds(options.removedIngredientIds),
+        removed_ingredients: normalizeRemovedIngredients(options.removedIngredients),
+      }
+      const replacementKey = getCartItemKey(replacement)
+      const matching = prevItems.find(
+        (item) => getCartItemKey(item) !== itemKey && getCartItemKey(item) === replacementKey
+      )
+
+      if (!matching) {
+        return prevItems.map((item) => getCartItemKey(item) === itemKey ? replacement : item)
+      }
+      return prevItems
+        .filter((item) => getCartItemKey(item) !== itemKey)
+        .map((item) => getCartItemKey(item) === replacementKey
+          ? { ...item, quantity: item.quantity + current.quantity }
+          : item)
+    })
+  }
+
   const clearCart = () => {
     setItems([])
   }
@@ -296,6 +377,7 @@ export function CartProvider({ children }: { children: ReactNode }) {
         addItem,
         removeItem,
         updateQuantity,
+        replaceItem,
         clearCart,
         totalItems,
         subtotal,

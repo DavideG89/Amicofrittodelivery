@@ -8,7 +8,7 @@ import { ChevronDown, Grid2X2, LayoutDashboard, MapPinned, Package, Settings, Sh
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
-import { logoutAdmin } from '@/lib/admin-auth'
+import { logoutAdmin, verifyAdminAccess } from '@/lib/admin-auth'
 import {
   disableAdminPush,
   enableAdminPush,
@@ -169,19 +169,24 @@ export default function AdminDashboardLayout({
 
   useEffect(() => {
     let mounted = true
-    supabase.auth.getSession().then(({ data }) => {
+    const checkAdminAccess = async (accessToken?: string) => {
+      const authorized = await verifyAdminAccess(accessToken)
       if (!mounted) return
-      if (!data.session) {
+      if (!authorized) {
+        await logoutAdmin()
         router.replace('/admin/login')
       } else {
         setAuthChecked(true)
       }
-    })
+    }
+
+    void checkAdminAccess()
     const { data: subscription } = supabase.auth.onAuthStateChange((_event, session) => {
       if (!session) {
+        setAuthChecked(false)
         router.replace('/admin/login')
       } else {
-        setAuthChecked(true)
+        void checkAdminAccess(session.access_token)
       }
     })
     return () => {

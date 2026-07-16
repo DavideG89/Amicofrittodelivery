@@ -32,6 +32,34 @@ function truncate(text, len = 42) {
   return `${input.slice(0, len - 1)}…`
 }
 
+function wrapText(text, len = 32) {
+  const words = String(text || '').trim().split(/\s+/).filter(Boolean)
+  const lines = []
+  let current = ''
+
+  for (const word of words) {
+    if (word.length > len) {
+      if (current) lines.push(current)
+      current = ''
+      for (let offset = 0; offset < word.length; offset += len) {
+        lines.push(word.slice(offset, offset + len))
+      }
+      continue
+    }
+
+    const candidate = current ? `${current} ${word}` : word
+    if (candidate.length <= len) {
+      current = candidate
+    } else {
+      lines.push(current)
+      current = word
+    }
+  }
+
+  if (current) lines.push(current)
+  return lines
+}
+
 function line(text = '') {
   return Buffer.from(`${text}\n`, 'ascii')
 }
@@ -116,6 +144,21 @@ function buildEscPosBuffer(job) {
     const price = toPrice(item?.price || 0)
     chunks.push(line(`${qty}x ${name}  EUR ${price}`))
     if (item?.additions) chunks.push(line(`+ ${truncate(item.additions, 34)}`))
+    const removedIngredientNames = Array.isArray(item?.removed_ingredients)
+      ? item.removed_ingredients
+          .map((ingredient) => String(ingredient?.name || '').trim())
+          .filter(Boolean)
+      : []
+    if (removedIngredientNames.length > 0) {
+      chunks.push(bold(true))
+      chunks.push(line('SENZA:'))
+      chunks.push(bold(false))
+      for (const ingredientName of removedIngredientNames) {
+        for (const ingredientLine of wrapText(`- ${ingredientName}`, 32)) {
+          chunks.push(line(ingredientLine))
+        }
+      }
+    }
   }
 
   chunks.push(hr())

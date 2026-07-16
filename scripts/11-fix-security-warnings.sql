@@ -93,17 +93,6 @@ BEGIN
         AND EXISTS (SELECT 1 FROM public.admin_users au WHERE au.user_id = auth.uid())
       )';
   ELSE
-    EXECUTE 'CREATE POLICY upsell_settings_admin_insert
-      ON public.upsell_settings
-      FOR INSERT
-      TO authenticated
-      WITH CHECK (id = ''default'' AND auth.role() = ''authenticated'')';
-
-    EXECUTE 'CREATE POLICY upsell_settings_admin_update
-      ON public.upsell_settings
-      FOR UPDATE
-      TO authenticated
-      USING (id = ''default'' AND auth.role() = ''authenticated'')
-      WITH CHECK (id = ''default'' AND auth.role() = ''authenticated'')';
+    RAISE NOTICE 'admin_users not found: upsell settings remains read-only until migrations 20 and 21';
   END IF;
 END $$;

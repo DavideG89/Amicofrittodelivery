@@ -78,6 +78,7 @@ CREATE TABLE IF NOT EXISTS upsell_settings (
 CREATE TABLE IF NOT EXISTS orders (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   order_number TEXT UNIQUE NOT NULL,
+  public_token TEXT UNIQUE,
   customer_name TEXT NOT NULL,
   customer_phone TEXT NOT NULL,
   customer_address TEXT,
@@ -90,6 +91,7 @@ CREATE TABLE IF NOT EXISTS orders (
   total NUMERIC(10, 2) NOT NULL,
   status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'confirmed', 'preparing', 'ready', 'completed', 'cancelled')),
   notes TEXT,
+  payment_method TEXT CHECK (payment_method IN ('cash', 'card')),
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
@@ -99,6 +101,7 @@ CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
 CREATE INDEX IF NOT EXISTS idx_products_available ON products(available);
 CREATE INDEX IF NOT EXISTS idx_orders_status ON orders(status);
 CREATE INDEX IF NOT EXISTS idx_orders_created ON orders(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_orders_public_lookup ON orders(order_number, public_token);
 CREATE INDEX IF NOT EXISTS idx_discount_codes_active ON discount_codes(active);
 CREATE INDEX IF NOT EXISTS idx_order_additions_type_active ON order_additions(type, active);
 

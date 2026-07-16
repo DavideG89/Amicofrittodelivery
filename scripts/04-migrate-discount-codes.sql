@@ -23,14 +23,34 @@ ADD COLUMN IF NOT EXISTS valid_from TIMESTAMP WITH TIME ZONE DEFAULT NOW();
 ALTER TABLE discount_codes 
 ADD COLUMN IF NOT EXISTS valid_until TIMESTAMP WITH TIME ZONE;
 
--- Step 2: Migrate data from old columns to new columns
-UPDATE discount_codes 
-SET discount_value = discount_percent 
-WHERE discount_value IS NULL AND discount_percent IS NOT NULL;
+-- Step 2: Migrate legacy columns only when they exist.
+-- A fresh database created by 01-create-tables.sql already uses the new schema.
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'discount_codes'
+      AND column_name = 'discount_percent'
+  ) THEN
+    EXECUTE 'UPDATE public.discount_codes
+      SET discount_value = discount_percent
+      WHERE discount_value IS NULL AND discount_percent IS NOT NULL';
+  END IF;
 
-UPDATE discount_codes 
-SET active = is_active 
-WHERE active IS NULL AND is_active IS NOT NULL;
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'discount_codes'
+      AND column_name = 'is_active'
+  ) THEN
+    EXECUTE 'UPDATE public.discount_codes
+      SET active = is_active
+      WHERE active IS NULL AND is_active IS NOT NULL';
+  END IF;
+END $$;
 
 -- Step 3: Drop old columns
 ALTER TABLE discount_codes DROP COLUMN IF EXISTS discount_percent;

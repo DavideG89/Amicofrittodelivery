@@ -1,70 +1,74 @@
-# Migration Guide - Amico Fritto
+# Guida alle migrazioni
 
-## Database Migrations
+Le migrazioni SQL si trovano in `scripts/` e sono ordinate numericamente.
 
-Esegui questi script SQL nel Supabase SQL Editor (in ordine):
+## Regole
 
-### 1. Migration: Aggiorna tabella discount_codes
+- Non modificare il database remoto automaticamente.
+- Esportare schema, policy, grant, funzioni e trigger prima di una migrazione di sicurezza.
+- Applicare in staging prima della produzione.
+- Non usare la disattivazione di RLS come rollback.
+- Una nuova migrazione deve dichiarare prerequisiti, impatto e rollback.
 
-**File:** `scripts/04-migrate-discount-codes.sql`
+## Compatibilità della cronologia
 
-**Quando eseguire:** Se ricevi l'errore `Could not find the 'discount_percent' column`
+`04-migrate-discount-codes.sql` gestisce sia lo schema legacy (`discount_percent`, `is_active`) sia il nuovo schema creato da `01-create-tables.sql`.
 
-**Cosa fa:**
-- Aggiunge le nuove colonne: `discount_type`, `discount_value`, `active`
-- Migra i dati da `discount_percent` → `discount_value`
-- Migra i dati da `is_active` → `active`
-- Rimuove le vecchie colonne obsolete
+La colonna `orders.payment_method` è presente nel nuovo schema base e viene aggiunta in modo idempotente da `21-harden-row-level-security.sql` sui database esistenti.
 
-**Come eseguire:**
-1. Vai su https://supabase.com/dashboard/project/sghftuvrupaswqhdckvs/editor
-2. Apri il SQL Editor
-3. Copia il contenuto di `scripts/04-migrate-discount-codes.sql`
-4. Incolla ed esegui lo script
-5. Verifica che non ci siano errori
+La colonna `orders.public_token` è presente nel nuovo schema base e viene aggiunta in modo idempotente da `22-add-order-public-token.sql` sui database esistenti. I nuovi ordini devono avere un token casuale restituito dall'API; gli ordini legacy senza token restano compatibili solo temporaneamente.
 
----
+## Migrazioni 20 e 21
 
-### 2. Migration: Aggiungi colonna label ai prodotti
+La configurazione RLS è deliberatamente divisa in due fasi per evitare lockout:
 
-**File:** `scripts/03-add-product-label.sql`
+1. `20-create-admin-authorization.sql` crea `admin_users` e `is_admin()` senza revocare accessi esistenti.
+2. Un operatore inserisce esplicitamente almeno un UUID valido da `auth.users`.
+3. `21-harden-row-level-security.sql` verifica i prerequisiti e sostituisce policy e grant.
 
-**Cosa fa:**
-- Aggiunge la colonna `label` alla tabella `products`
-- Permette valori: 'sconto', 'novita', o NULL
+Il deploy applicativo deve avvenire soltanto dopo il completamento della fase 3 e nella stessa finestra di manutenzione. Durante il breve intervallo tra script 21 e deploy, il vecchio comando dashboard per la pulizia ordini non può più invocare direttamente la RPC. Lo script 21 rimuove inoltre il vecchio trigger push SQL: l'API ordini rimane l'unico proprietario dell'invio per evitare duplicati.
 
-**Come eseguire:**
-1. Vai su https://supabase.com/dashboard/project/sghftuvrupaswqhdckvs/editor
-2. Apri il SQL Editor
-3. Copia il contenuto di `scripts/03-add-product-label.sql`
-4. Incolla ed esegui lo script
+Consultare [`SETUP.md`](./SETUP.md) per bootstrap, verifica e rollback.
 
----
+## Migrazione 22
 
-## Dopo le migrazioni
+`22-add-order-public-token.sql` va applicata prima del deploy del codice che restituisce link ordine con `?token=...`.
 
-Dopo aver eseguito gli script:
+Impatto:
 
-1. **Ricarica la pagina** nel browser per forzare il refresh della cache
-2. **Testa le funzionalità:**
-   - Creazione codici sconto in `/admin/dashboard/discounts`
-   - Creazione/modifica prodotti con label in `/admin/dashboard/menu`
-3. Se persistono errori, contatta il supporto su vercel.com/help
+- aggiunge `orders.public_token`;
+- aggiunge indice univoco parziale sui token non nulli;
+- aggiunge indice di lookup pubblico `order_number + public_token`;
+- aggiunge vincolo formato token.
 
----
+Rollback operativo:
 
-## Troubleshooting
+1. ripristinare prima il codice applicativo precedente;
+2. mantenere la colonna finché esistono link cliente tokenizzati;
+3. rimuovere indici e colonna solo dopo finestra di retention ordini.
 
-### Errore: "Invalid API key"
-- Verifica che la chiave anon di Supabase sia corretta in `lib/supabase.ts`
-- Controlla che le variabili d'ambiente siano configurate
+## Migrazione 23
 
-### Errore: "Column not found"
-- Esegui la migrazione corrispondente
-- Verifica che lo script sia stato eseguito con successo
-- Controlla i log SQL per eventuali errori
+`23-add-product-ingredients.sql` va applicata prima di abilitare nel frontend la rimozione degli ingredienti.
+Richiede che le migrazioni 20 e 21 siano già state completate, perché riusa `public.is_admin()` per la policy di gestione.
 
-### Modifiche non salvate
-- Verifica la console del browser per errori
-- Controlla che il database abbia i permessi corretti (RLS policies)
-- Verifica che la connessione Supabase sia attiva
+Impatto:
+
+- aggiunge la tabella `product_ingredients`, collegata ai singoli prodotti;
+- aggiunge a `categories` il flag `ingredient_customization_enabled`, con default `false`;
+- abilita inizialmente il flag per Hamburger/Hamburgers, Kebab, Mini hamburger/Mini e Panini tramite corrispondenza prudente su slug o nome normalizzati, senza rinominare gli slug;
+- espone in lettura pubblica soltanto gli ingredienti attivi;
+- rende univoci per prodotto i nomi ingrediente ignorando maiuscole e spazi esterni;
+- espone `replace_product_ingredients(p_product_id uuid, p_ingredients jsonb)` come unico comando di sostituzione atomica, eseguibile soltanto da utenti autenticati presenti in `admin_users`;
+- valida un massimo di 20 oggetti `{name, removable?, active?}`, usa la posizione nell'array come `display_order`, conserva gli ID a parità di nome normalizzato e archivia come inattive le righe assenti;
+- espone `save_product_with_ingredients(p_product_id uuid, p_product jsonb, p_product_ingredients jsonb)` per creare o aggiornare prodotto e ingredienti nella stessa transazione, preservando `display_order` del prodotto; l'eventuale sincronizzazione upsell resta separata;
+- non modifica gli ordini esistenti né esegue automaticamente il backfill del campo testuale `products.ingredients`.
+
+Il backfill deve essere verificato manualmente: il testo storico separato da virgole non è una fonte strutturata affidabile.
+Il deploy deve seguire l'ordine: migrazione, configurazione ingredienti, backend, frontend cliente.
+
+Rollback operativo:
+
+1. disabilitare prima la personalizzazione nel frontend e ripristinare il backend precedente;
+2. conservare la tabella finché configurazione amministrativa o ordini conservati dipendono dai relativi ID;
+3. rimuovere la tabella soltanto dopo la finestra di retention necessaria.

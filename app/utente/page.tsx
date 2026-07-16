@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { buildOrderTrackingPath, normalizeOrderPublicToken } from '@/lib/order-public-token'
 import { getStoredOrders, removeOrderFromDevice, type StoredOrder } from '@/lib/order-storage'
 import { fetchPublicOrderLight } from '@/lib/public-order-client'
 
@@ -47,7 +48,7 @@ export default function UserPage() {
 
       try {
         for (const order of storedOrders) {
-          const data = await fetchPublicOrderLight(order.orderNumber)
+          const data = await fetchPublicOrderLight(order.orderNumber, order.publicToken)
           if (cancelled) return
           if (data?.status === 'completed') {
             setFeedbackOrderNumber(data.order_number)
@@ -76,10 +77,22 @@ export default function UserPage() {
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
 
-    const normalizedOrderNumber = normalizeOrderNumber(orderNumber)
+    const input = orderNumber.trim()
+    let normalizedOrderNumber = normalizeOrderNumber(input)
+    let publicToken = ''
+
+    try {
+      const parsed = new URL(input)
+      const orderPathSegment = parsed.pathname.split('/').filter(Boolean).pop()
+      normalizedOrderNumber = normalizeOrderNumber(orderPathSegment)
+      publicToken = normalizeOrderPublicToken(parsed.searchParams.get('token'))
+    } catch {
+      publicToken = normalizeOrderPublicToken(input.match(/[?&]token=([^&\s]+)/)?.[1])
+    }
+
     if (!normalizedOrderNumber) return
 
-    router.push(`/order/${encodeURIComponent(normalizedOrderNumber)}`)
+    router.push(buildOrderTrackingPath(normalizedOrderNumber, publicToken))
   }
 
   const handleRemoveOrder = (orderNum: string) => {
@@ -93,6 +106,7 @@ export default function UserPage() {
       new CustomEvent(ORDER_TERMINAL_STATUS_EVENT, {
         detail: {
           orderNumber: feedbackOrderNumber,
+          publicToken: storedOrders.find((order) => order.orderNumber === feedbackOrderNumber)?.publicToken || '',
           status: 'completed',
           force: true,
         },
@@ -144,7 +158,7 @@ export default function UserPage() {
                     className="flex items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
                     <button
-                      onClick={() => router.push(`/order/${encodeURIComponent(order.orderNumber)}`)}
+                      onClick={() => router.push(buildOrderTrackingPath(order.orderNumber, order.publicToken))}
                       className="flex-1 rounded-full text-left"
                       aria-label={`Visualizza ordine ${order.orderNumber}`}
                     >
@@ -212,7 +226,7 @@ export default function UserPage() {
           <CardHeader>
             <CardTitle>Cerca ordine</CardTitle>
             <CardDescription>
-              Inserisci il numero ordine che hai ricevuto alla conferma
+              Inserisci il link di tracking o il numero ordine legacy che hai ricevuto alla conferma
             </CardDescription>
           </CardHeader>
           <CardContent>
@@ -222,7 +236,7 @@ export default function UserPage() {
                 <Input
                   id="orderNumber"
                   type="text"
-                  placeholder="es: ORD-20240216-ABCD"
+                  placeholder="es: https://.../order/AF00012?token=..."
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
                   className="text-base sm:text-lg font-mono"

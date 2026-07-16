@@ -19,6 +19,7 @@ import { useCart } from '@/lib/cart-context'
 import { StoreInfo } from '@/lib/supabase'
 import { validateOrderData, sanitizeOrderData } from '@/lib/validation'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { buildOrderTrackingPath, normalizeOrderPublicToken } from '@/lib/order-public-token'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { toast } from 'sonner'
 import { extractOpeningHours, formatNextOpen, getCurrentOrderScheduleClock, getOrderStatus } from '@/lib/order-schedule'
@@ -517,6 +518,9 @@ function CheckoutForm() {
               ? Number(item.additions_unit_price)
               : 0,
           additions_ids: Array.isArray(item.additions_ids) ? item.additions_ids : [],
+          removed_ingredient_ids: Array.isArray(item.removed_ingredient_ids)
+            ? item.removed_ingredient_ids
+            : [],
         })),
         subtotal,
         discount_code: discountAmount > 0 ? formData.discountCode.toUpperCase() : null,
@@ -548,22 +552,27 @@ function CheckoutForm() {
 
       const data = await res.json()
       const orderNumber = normalizeOrderNumber(data?.orderNumber)
+      const publicToken = normalizeOrderPublicToken(data?.publicToken)
       if (!orderNumber) {
         throw new Error('Numero ordine mancante')
+      }
+      if (!publicToken) {
+        throw new Error('Token ordine mancante')
       }
 
       toast.success('Ordine inviato con successo!')
       try {
         localStorage.setItem('lastOrderNumber', orderNumber)
+        localStorage.setItem('lastOrderPublicToken', publicToken)
         localStorage.setItem('lastOrderActive', 'true')
       } catch {
         // ignore storage errors
       }
-      saveOrderToDevice(orderNumber, isDelivery ? 'delivery' : 'takeaway')
+      saveOrderToDevice(orderNumber, isDelivery ? 'delivery' : 'takeaway', publicToken)
       setOrderPlaced(true)
       setPlacedOrderNumber(orderNumber)
       clearCart()
-      router.push(`/order/${encodeURIComponent(orderNumber)}`)
+      router.push(buildOrderTrackingPath(orderNumber, publicToken))
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Errore durante l\'invio dell\'ordine'
       toast.error(message)

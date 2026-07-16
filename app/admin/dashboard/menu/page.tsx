@@ -15,7 +15,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { parseProductPieceOptionsInput, serializeProductPieceOptions } from '@/lib/product-piece-options'
-import { supabase, Category, Product, OrderAddition, OrderAdditionType, UpsellSettings } from '@/lib/supabase'
+import { supabase, Category, Product, ProductIngredient, OrderAddition, OrderAdditionType, UpsellSettings } from '@/lib/supabase'
 import { toast } from 'sonner'
 
 const DEFAULT_UPSELL_ID = 'default'
@@ -26,6 +26,7 @@ export default function MenuManagementPage() {
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [additions, setAdditions] = useState<OrderAddition[]>([])
+  const [productIngredients, setProductIngredients] = useState<ProductIngredient[]>([])
   const [upsellProductIds, setUpsellProductIds] = useState<Set<string>>(new Set())
   const [upsellSettingsExists, setUpsellSettingsExists] = useState(false)
   const [upsellSettingsDefaults, setUpsellSettingsDefaults] = useState({
@@ -56,6 +57,7 @@ export default function MenuManagementPage() {
     price: '',
     image_url: '',
     ingredients: '',
+    removable_ingredients_text: '',
     allergens: '',
     piece_options_text: '',
     available: true,
@@ -65,7 +67,8 @@ export default function MenuManagementPage() {
 
   const [categoryForm, setCategoryForm] = useState({
     name: '',
-    slug: ''
+    slug: '',
+    ingredient_customization_enabled: false,
   })
 
   const [additionForm, setAdditionForm] = useState({
@@ -94,6 +97,9 @@ export default function MenuManagementPage() {
     const name = category.name.toLowerCase()
     return slug.includes('bevande') || slug.includes('fritti') || name.includes('bevand') || name.includes('fritt')
   }
+
+  const supportsIngredientCustomization = (categoryId: string) =>
+    getCategoryById(categoryId)?.ingredient_customization_enabled === true
 
   const syncUpsellSelection = async (productId: string, includeInUpsell: boolean) => {
     const nextIds = new Set(upsellProductIds)
@@ -142,7 +148,7 @@ export default function MenuManagementPage() {
     try {
       const { data: categoriesData } = await supabase
         .from('categories')
-        .select('id, name, slug, display_order, created_at, updated_at')
+        .select('id, name, slug, display_order, ingredient_customization_enabled, created_at, updated_at')
         .order('display_order', { ascending: true })
 
       const { data: productsData } = await supabase
@@ -155,6 +161,11 @@ export default function MenuManagementPage() {
         .select('id, type, name, price, active, display_order, created_at, updated_at')
         .order('display_order', { ascending: true })
 
+      const { data: productIngredientsData, error: productIngredientsError } = await supabase
+        .from('product_ingredients')
+        .select('id, product_id, name, removable, active, display_order, created_at, updated_at')
+        .order('display_order', { ascending: true })
+
       const { data: upsellSettingsData, error: upsellSettingsError } = await supabase
         .from('upsell_settings')
         .select('id, enabled, max_items, product_ids')
@@ -164,6 +175,9 @@ export default function MenuManagementPage() {
       if (additionsError && additionsError.code !== '42P01') {
         throw additionsError
       }
+      if (productIngredientsError && productIngredientsError.code !== '42P01') {
+        throw productIngredientsError
+      }
       if (upsellSettingsError && upsellSettingsError.code !== '42P01') {
         throw upsellSettingsError
       }
@@ -171,6 +185,7 @@ export default function MenuManagementPage() {
       setCategories(categoriesData || [])
       setProducts(productsData || [])
       setAdditions((additionsData || []) as OrderAddition[])
+      setProductIngredients((productIngredientsData || []) as ProductIngredient[])
       const normalizedUpsell = (upsellSettingsData as UpsellSettings | null) || null
       setUpsellSettingsExists(Boolean(normalizedUpsell))
       setUpsellSettingsDefaults({
@@ -193,6 +208,7 @@ export default function MenuManagementPage() {
       price: '',
       image_url: '',
       ingredients: '',
+      removable_ingredients_text: '',
       allergens: '',
       piece_options_text: '',
       available: true,
@@ -205,9 +221,20 @@ export default function MenuManagementPage() {
   const resetCategoryForm = () => {
     setCategoryForm({
       name: '',
-      slug: ''
+      slug: '',
+      ingredient_customization_enabled: false,
     })
     setEditingCategory(null)
+  }
+
+  const handleEditCategory = (category: Category) => {
+    setEditingCategory(category)
+    setCategoryForm({
+      name: category.name,
+      slug: category.slug,
+      ingredient_customization_enabled: category.ingredient_customization_enabled,
+    })
+    setCategoryDialogOpen(true)
   }
 
   const resetAdditionForm = () => {
@@ -229,6 +256,11 @@ export default function MenuManagementPage() {
       price: product.price.toString(),
       image_url: product.image_url || '',
       ingredients: product.ingredients || '',
+      removable_ingredients_text: productIngredients
+        .filter((ingredient) => ingredient.product_id === product.id && ingredient.active && ingredient.removable)
+        .sort((a, b) => a.display_order - b.display_order)
+        .map((ingredient) => ingredient.name)
+        .join('\n'),
       allergens: product.allergens || '',
       piece_options_text: serializeProductPieceOptions(product.piece_options),
       available: product.available,
@@ -267,30 +299,34 @@ export default function MenuManagementPage() {
         label: productForm.label || null
       }
 
-      let savedProductId = editingProduct?.id || ''
+      const uniqueNames = new Map<string, string>()
+      productForm.removable_ingredients_text.split('\n').forEach((value) => {
+        const name = value.trim()
+        if (name) uniqueNames.set(name.toLocaleLowerCase('it'), name)
+      })
+      const configurableIngredients = supportsIngredientCustomization(productForm.category_id)
+        ? [...uniqueNames.values()]
+        : []
+      if (configurableIngredients.length > 20) {
+        toast.error('Puoi configurare al massimo 20 ingredienti rimovibili per prodotto')
+        return
+      }
 
-      if (editingProduct) {
-        const { error } = await supabase
-          .from('products')
-          .update(productData)
-          .eq('id', editingProduct.id)
-
-        if (error) {
-          console.error('[v0] Update error:', error)
-          throw error
+      const { data: savedProductId, error: saveProductError } = await supabase.rpc(
+        'save_product_with_ingredients',
+        {
+          p_product_id: editingProduct?.id || null,
+          p_product: productData,
+          p_product_ingredients: configurableIngredients.map((name) => ({
+            name,
+            removable: true,
+            active: true,
+          })),
         }
-      } else {
-        const { data: insertedProduct, error } = await supabase
-          .from('products')
-          .insert(productData)
-          .select('id')
-          .single()
-
-        if (error) {
-          console.error('[v0] Insert error:', error)
-          throw error
-        }
-        savedProductId = insertedProduct?.id || ''
+      )
+      if (saveProductError) throw saveProductError
+      if (typeof savedProductId !== 'string' || !savedProductId) {
+        throw new Error('ID prodotto mancante dopo il salvataggio')
       }
 
       if (savedProductId) {
@@ -367,7 +403,11 @@ export default function MenuManagementPage() {
       if (editingCategory) {
         const { error } = await supabase
           .from('categories')
-          .update({ name: categoryForm.name, slug })
+          .update({
+            name: categoryForm.name,
+            slug,
+            ingredient_customization_enabled: categoryForm.ingredient_customization_enabled,
+          })
           .eq('id', editingCategory.id)
 
         if (error) {
@@ -378,7 +418,11 @@ export default function MenuManagementPage() {
       } else {
         const { error } = await supabase
           .from('categories')
-          .insert({ name: categoryForm.name, slug })
+          .insert({
+            name: categoryForm.name,
+            slug,
+            ingredient_customization_enabled: categoryForm.ingredient_customization_enabled,
+          })
 
         if (error) {
           console.error('[v0] Category insert error:', error)
@@ -579,6 +623,22 @@ export default function MenuManagementPage() {
                     value={categoryForm.slug}
                     onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })}
                     placeholder="Es: panini"
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-md border p-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="category-ingredient-customization">Personalizzazione ingredienti</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Abilita la configurazione manuale degli ingredienti rimovibili per i prodotti della categoria.
+                    </p>
+                  </div>
+                  <Switch
+                    id="category-ingredient-customization"
+                    checked={categoryForm.ingredient_customization_enabled}
+                    onCheckedChange={(checked) => setCategoryForm((current) => ({
+                      ...current,
+                      ingredient_customization_enabled: checked,
+                    }))}
                   />
                 </div>
               </div>
@@ -784,6 +844,24 @@ export default function MenuManagementPage() {
                   />
                 </div>
 
+                {supportsIngredientCustomization(productForm.category_id) ? (
+                  <div>
+                    <Label htmlFor="removable-ingredients">Ingredienti rimovibili</Label>
+                    <Textarea
+                      id="removable-ingredients"
+                      value={productForm.removable_ingredients_text}
+                      onChange={(event) => setProductForm((current) => ({
+                        ...current,
+                        removable_ingredients_text: event.target.value,
+                      }))}
+                      placeholder={'Cipolla\nPomodoro\nInsalata'}
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Un ingrediente per riga. Questa lista alimenta il configuratore e non modifica il testo descrittivo sopra.
+                    </p>
+                  </div>
+                ) : null}
+
                 <div>
                   <Label htmlFor="allergens">Allergeni (separati da virgola)</Label>
                   <Input
@@ -901,14 +979,20 @@ export default function MenuManagementPage() {
                         {categoryProducts.length} prodotti
                       </CardDescription>
                     </div>
-                    <Button
-                      variant="destructive"
-                      size="sm"
-                      onClick={() => handleDeleteCategory(category.id)}
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Elimina Categoria
-                    </Button>
+                    <div className="flex gap-2">
+                      <Button variant="outline" size="sm" onClick={() => handleEditCategory(category)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Modifica
+                      </Button>
+                      <Button
+                        variant="destructive"
+                        size="sm"
+                        onClick={() => handleDeleteCategory(category.id)}
+                      >
+                        <Trash2 className="h-4 w-4 mr-2" />
+                        Elimina Categoria
+                      </Button>
+                    </div>
                   </div>
                 </CardHeader>
                 <CardContent>

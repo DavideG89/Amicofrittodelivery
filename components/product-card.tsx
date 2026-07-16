@@ -9,10 +9,11 @@ import { Badge } from '@/components/ui/badge'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog'
 import { Checkbox } from '@/components/ui/checkbox'
+import { Separator } from '@/components/ui/separator'
 import { useIsMobile } from '@/components/ui/use-mobile'
 import { getCartItemKey, useCart } from '@/lib/cart-context'
 import { buildProductNameWithPieceOption, normalizeProductPieceOptions } from '@/lib/product-piece-options'
-import { Product, supabase, OrderAddition } from '@/lib/supabase'
+import { Product, supabase, OrderAddition, ProductIngredient } from '@/lib/supabase'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
 import { toast } from 'sonner'
 
@@ -25,6 +26,7 @@ type ProductCardProps = {
   saucesOnly?: boolean
   forceFreeSingleSauce?: boolean
   mobileBadgeLabel?: string
+  ingredientCustomizationEnabled?: boolean
 }
 
 export function ProductCard({
@@ -36,6 +38,7 @@ export function ProductCard({
   saucesOnly = false,
   forceFreeSingleSauce = false,
   mobileBadgeLabel,
+  ingredientCustomizationEnabled = false,
 }: ProductCardProps) {
   const { addItem, items, updateQuantity } = useCart()
   const isMobile = useIsMobile()
@@ -63,6 +66,9 @@ export function ProductCard({
   const [selectedSauceIds, setSelectedSauceIds] = useState<Set<string>>(new Set())
   const [selectedExtras, setSelectedExtras] = useState<Set<string>>(new Set())
   const [selectedPieceOptionId, setSelectedPieceOptionId] = useState('')
+  const [removableIngredients, setRemovableIngredients] = useState<ProductIngredient[]>([])
+  const [selectedRemovedIngredientIds, setSelectedRemovedIngredientIds] = useState<Set<string>>(new Set())
+  const [ingredientsLoading, setIngredientsLoading] = useState(false)
   
   const pieceOptions = normalizeProductPieceOptions(product.piece_options)
   const hasPieceOptions = pieceOptions.length > 0
@@ -120,8 +126,28 @@ export function ProductCard({
     }
   }
 
+  const loadRemovableIngredients = async () => {
+    if (!ingredientCustomizationEnabled || removableIngredients.length > 0 || ingredientsLoading) return
+    setIngredientsLoading(true)
+    try {
+      const { data, error } = await supabase
+        .from('product_ingredients')
+        .select('id, product_id, name, removable, active, display_order, created_at, updated_at')
+        .eq('product_id', product.id)
+        .eq('active', true)
+        .eq('removable', true)
+        .order('display_order', { ascending: true })
+      if (error) throw error
+      setRemovableIngredients((data || []) as ProductIngredient[])
+    } catch {
+      setRemovableIngredients([])
+    } finally {
+      setIngredientsLoading(false)
+    }
+  }
+
   const handleOpenAdditions = async () => {
-    if (skipAdditions && !hasPieceOptions) {
+    if (skipAdditions && !hasPieceOptions && !ingredientCustomizationEnabled) {
       addItem(product)
       if (onAddToCart) onAddToCart(product, 1)
       return
@@ -129,8 +155,9 @@ export function ProductCard({
     setSelectedSauceIds(new Set())
     setSelectedExtras(new Set())
     setSelectedPieceOptionId(pieceOptions.length === 1 ? pieceOptions[0].id : '')
+    setSelectedRemovedIngredientIds(new Set())
     setAdditionsOpen(true)
-    await Promise.all([loadSauces(), loadSauceRule()])
+    await Promise.all([loadSauces(), loadSauceRule(), loadRemovableIngredients()])
   }
 
   const toggleSauce = (sauceId: string, checked: boolean) => {
@@ -208,6 +235,11 @@ export function ProductCard({
       additions,
       additionsUnitPrice,
       additionsIds,
+      removedIngredientIds: [...selectedRemovedIngredientIds],
+      removedIngredients: removableIngredients
+        .filter((ingredient) => selectedRemovedIngredientIds.has(ingredient.id))
+        .map(({ id, name }) => ({ id, name })),
+      ingredientCustomizationEnabled,
     })
     
     if (onAddToCart) {
@@ -217,6 +249,7 @@ export function ProductCard({
     setSelectedSauceIds(new Set())
     setSelectedExtras(new Set())
     setSelectedPieceOptionId('')
+    setSelectedRemovedIngredientIds(new Set())
     setAdditionsOpen(false)
   }
   const selectedSaucesPrice =
@@ -278,6 +311,41 @@ export function ProductCard({
           })}
         </div>
       </div>
+    )
+  }
+
+  const renderRemovedIngredientsSection = () => {
+    if (!ingredientCustomizationEnabled || (!ingredientsLoading && removableIngredients.length === 0)) return null
+    return (
+      <>
+        <div className="space-y-2">
+          <p className="text-lg font-semibold">Rimuovi ingredienti</p>
+          {ingredientsLoading ? (
+            <p className="text-xs text-muted-foreground">Caricamento ingredienti...</p>
+          ) : (
+            <div className="grid gap-2">
+              {removableIngredients.map((ingredient) => {
+                const checked = selectedRemovedIngredientIds.has(ingredient.id)
+                return (
+                  <label key={ingredient.id} className="flex items-center gap-2 rounded-md border p-2.5">
+                    <Checkbox
+                      checked={checked}
+                      onCheckedChange={(value) => setSelectedRemovedIngredientIds((current) => {
+                        const next = new Set(current)
+                        if (value) next.add(ingredient.id)
+                        else next.delete(ingredient.id)
+                        return next
+                      })}
+                    />
+                    <span>Senza {ingredient.name}</span>
+                  </label>
+                )
+              })}
+            </div>
+          )}
+        </div>
+        <Separator />
+      </>
     )
   }
 
@@ -507,7 +575,7 @@ export function ProductCard({
         <Drawer open={additionsOpen} onOpenChange={setAdditionsOpen}>
           <DrawerContent className="w-full max-h-[85vh] rounded-t-2xl p-0 overflow-hidden flex flex-col">
             <DrawerHeader className="px-6 pt-6 pb-3">
-              <DrawerTitle>Aggiunte per {product.name}</DrawerTitle>
+              <DrawerTitle>Personalizza {product.name}</DrawerTitle>
               <DrawerDescription>
                 {saucesOnly
                   ? 'Scegli una salsa per personalizzare il prodotto.'
@@ -518,6 +586,9 @@ export function ProductCard({
             <div className="flex-1 overflow-y-auto px-6 pb-4">
               <div className="space-y-4">
                 {renderPieceOptionsSection()}
+                {renderRemovedIngredientsSection()}
+
+                <p className="text-lg font-semibold">Aggiunte</p>
 
                 <div className="space-y-2">
                   <p className="sticky top-0 z-10 bg-background/95 py-1 text-lg font-semibold backdrop-blur">
@@ -611,7 +682,7 @@ export function ProductCard({
         <Dialog open={additionsOpen} onOpenChange={setAdditionsOpen}>
           <DialogContent className="flex h-[85vh] max-h-[85vh] max-w-xl flex-col overflow-hidden p-0 gap-0">
             <DialogHeader className="px-6 pt-6 pb-3 text-left">
-              <DialogTitle>Aggiunte per {product.name}</DialogTitle>
+              <DialogTitle>Personalizza {product.name}</DialogTitle>
               <DialogDescription>
                 {saucesOnly
                   ? 'Scegli una salsa per personalizzare il prodotto.'
@@ -622,6 +693,9 @@ export function ProductCard({
             <div className="min-h-0 flex-1 overflow-y-auto px-6 pb-4">
               <div className="space-y-4">
                 {renderPieceOptionsSection()}
+                {renderRemovedIngredientsSection()}
+
+                <p className="text-lg font-semibold">Aggiunte</p>
 
                 <div className="space-y-2">
                   <p className="text-lg font-semibold">

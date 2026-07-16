@@ -11,6 +11,7 @@ import { Badge } from '@/components/ui/badge'
 import type { PublicOrder } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { buildOrderTrackingPath, normalizeOrderPublicToken } from '@/lib/order-public-token'
 import { toast } from 'sonner'
 import { fetchPublicOrder } from '@/lib/public-order-client'
 
@@ -21,6 +22,7 @@ function OrderConfirmationContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
   const orderNumber = normalizeOrderNumber(searchParams.get('orderNumber'))
+  const publicToken = normalizeOrderPublicToken(searchParams.get('token'))
   const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [copied, setCopied] = useState(false)
@@ -39,7 +41,7 @@ function OrderConfirmationContent() {
 
       try {
         for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-          data = await fetchPublicOrder(orderNumber)
+          data = await fetchPublicOrder(orderNumber, publicToken)
           if (data) break
           if (attempt < maxAttempts) {
             await new Promise((resolve) => window.setTimeout(resolve, attempt * 700))
@@ -49,9 +51,10 @@ function OrderConfirmationContent() {
         if (data) {
           setOrder(data)
           // Salva l'ordine sul dispositivo
-          saveOrderToDevice(data.order_number, data.order_type)
+          saveOrderToDevice(data.order_number, data.order_type, publicToken)
           try {
             localStorage.setItem('lastOrderNumber', data.order_number)
+            if (publicToken) localStorage.setItem('lastOrderPublicToken', publicToken)
             const active = data.status !== 'completed' && data.status !== 'cancelled'
             localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
           } catch {
@@ -68,11 +71,11 @@ function OrderConfirmationContent() {
     }
 
     fetchOrder()
-  }, [orderNumber, router])
+  }, [orderNumber, publicToken, router])
 
   const handleCopyLink = () => {
     if (!order) return
-    const link = `${window.location.origin}/order/${encodeURIComponent(order.order_number)}`
+    const link = `${window.location.origin}${buildOrderTrackingPath(order.order_number, publicToken)}`
     navigator.clipboard.writeText(link)
     setCopied(true)
     toast.success('Link copiato negli appunti!')

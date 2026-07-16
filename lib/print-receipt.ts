@@ -194,6 +194,20 @@ export function buildReceiptLines(order: Order, storeInfo?: StoreInfo, lineWidth
       }
     }
 
+    const removedIngredientNames = Array.isArray(item.removed_ingredients)
+      ? item.removed_ingredients
+          .map((ingredient) => cleanText(ingredient?.name))
+          .filter(Boolean)
+      : []
+    if (removedIngredientNames.length > 0) {
+      lines.push('  SENZA:')
+      for (const ingredientName of removedIngredientNames) {
+        for (const ingredientLine of wrapText(`- ${ingredientName}`, lineWidth - 2)) {
+          lines.push(`  ${ingredientLine}`)
+        }
+      }
+    }
+
     if (quantity > 1) {
       lines.push(`  (${formatMoney(unitPrice)} cad.)`)
     }

@@ -1,133 +1,176 @@
-# Amico Fritto - Food Delivery App
+# Amico Fritto Delivery
 
-Una web app completa per la gestione degli ordini online del ristorante "Amico Fritto".
+Applicazione web e mobile per menu, carrello, ordini delivery/takeaway e gestione operativa del ristorante Amico Fritto.
 
-## Funzionalità
+Questo README è il regolamento tecnico del repository. Chi modifica il progetto, persona o agente, è tenuto a rispettarlo insieme ad [`AGENTS.md`](./AGENTS.md).
 
-### Per i Clienti
-- **Menu Interattivo**: Visualizzazione dei prodotti suddivisi per categorie (Panini, Hamburgers, Fritti, Salse, Bevande)
-- **Carrello**: Aggiunta/rimozione prodotti con gestione quantità
-- **Delivery o Takeaway**: Scelta tra consegna a domicilio o ritiro in negozio
-- **Codici Sconto**: Possibilità di applicare codici sconto agli ordini
-- **Pagamento in Contanti**: Pagamento alla consegna o al ritiro
-- **Informazioni Locale**: Pagina con indirizzo, telefono e orari
-- **Allergeni**: Visualizzazione degli allergeni per ogni prodotto
+## 1. Scopo del progetto
 
-### Per il Ristoratore
-- **Dashboard Amministrativa**: Interfaccia completa per la gestione
-- **Gestione Menu**: Creazione e modifica di categorie e prodotti con immagini
-- **Gestione Ordini**: Visualizzazione ordini in tempo reale con stati (Ricevuto, In Preparazione, Pronto, Completato)
-- **Codici Sconto**: Creazione e gestione dei codici sconto
-- **Impostazioni**: Modifica informazioni del locale (indirizzo, telefono, orari)
-- **QR Code**: Generazione e download del QR code per ordinazioni rapide
+Il sistema gestisce:
 
-## Setup
+- menu, categorie, prodotti, ingredienti e allergeni;
+- carrello, salse, extra, quantità e opzioni prodotto;
+- ordini delivery e takeaway;
+- sconti, costi di consegna e totale ordine;
+- dashboard amministrativa e stato degli ordini;
+- notifiche push, coda di stampa e applicazione Android tramite Capacitor.
 
-### 1. Configurazione Supabase
+La correttezza di ordini, prezzi, autorizzazioni e dati cliente prevale su velocità di sviluppo e refactoring estetici.
 
-Devi eseguire gli script SQL nel tuo progetto Supabase (**AmicoFritto** - ID: `sghftuvrupaswqhdckvs`):
+## 2. Stack ufficiale
 
-1. Vai su [Supabase](https://supabase.com) e accedi al tuo progetto
-2. Vai su **SQL Editor**
-3. Esegui in ordine i seguenti script:
-   - `scripts/01-create-tables.sql` - Crea le tabelle del database
-   - `scripts/02-seed-data.sql` - Inserisce dati di esempio
-   - `scripts/07-customer-push.sql` - Crea la tabella token notifiche cliente
-   - `scripts/08-add-order-additions.sql` - Crea tabella aggiunte ordine (salse/extra)
-   - `scripts/09-add-category-addition-rules.sql` - Crea regole aggiunte per categoria
-   - `scripts/10-fix-security-advisor.sql` - Applica fix sicurezza (RLS + view invoker)
-   - `scripts/11-fix-security-warnings.sql` - Applica fix warning sicurezza (policy RLS + estensione)
-   - `scripts/12-fix-function-search-path.sql` - Fissa search_path della funzione trigger ordini
-   - `scripts/13-add-print-jobs.sql` - Crea coda stampa robusta (print_jobs)
+- Next.js con App Router
+- React e TypeScript
+- Supabase/PostgreSQL
+- Tailwind CSS e componenti Radix/shadcn
+- Firebase Cloud Messaging
+- Capacitor per Android
 
-### 2. Variabili d'Ambiente
+Non introdurre framework, database, sistemi di autenticazione o librerie di produzione alternativi senza una decisione esplicita e documentata.
 
-Crea un file `.env.local` nella root del progetto con le seguenti variabili:
+## 3. Regole non negoziabili
 
-```env
-NEXT_PUBLIC_SUPABASE_URL=https://sghftuvrupaswqhdckvs.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=tua_anon_key_qui
-ADMIN_PASSWORD=password_admin_sicura
+### 3.1 Stabilità funzionale
+
+- Ogni modifica deve avere uno scopo definito e un diff limitato.
+- Non modificare contemporaneamente comportamento, architettura e interfaccia senza necessità verificabile.
+- I flussi menu, carrello, checkout, ordine, dashboard e stampa non devono regredire.
+- Prezzi, sconti, aggiunte, disponibilità e totale devono essere ricalcolati lato server da dati canonici.
+
+### 3.2 Qualità del codice
+
+- Usare TypeScript rigoroso ed evitare `any` o assertion non motivate.
+- Separare presentazione, logica di dominio, trasporto HTTP e accesso dati.
+- Evitare componenti e route con responsabilità multiple.
+- Eliminare duplicazioni delle regole commerciali invece di sincronizzarle manualmente.
+- Gestire esplicitamente errori, stati vuoti, caricamento e timeout.
+- Commentare decisioni non ovvie, non il funzionamento evidente del codice.
+
+### 3.3 Frontend
+
+- Usare HTML semantico e una gerarchia coerente dei titoli.
+- Garantire utilizzo da tastiera, focus visibile, label corrette e nomi accessibili.
+- Usare elementi nativi prima di ARIA: link per navigazione, button per azioni, controlli form per le scelte.
+- Mantenere il comportamento responsive su mobile e desktop.
+- I componenti di presentazione non devono interrogare direttamente il database.
+- Non usare lo stato client come prova di autorizzazione o come fonte autorevole dei prezzi.
+
+### 3.4 Backend e sicurezza
+
+- Considerare non attendibili body, parametri URL, query string, cookie, header e storage client.
+- Validare gli input al confine server con schemi strict, tipi, formati e limiti di dimensione.
+- Autenticazione e autorizzazione amministrativa devono avvenire lato server.
+- Minimizzare i dati restituiti dalle API e prevenire IDOR ed enumerazione degli ordini.
+- Le policy Supabase RLS devono restare attive e coerenti con le route applicative.
+- I link pubblici degli ordini nuovi devono usare numero ordine più token casuale; il solo numero ordine non deve essere considerato prova di possesso.
+- Non registrare password, token completi o dati personali non necessari.
+- Non presentare sanitizzazione, CORS o rate limiting in memoria come protezione completa.
+
+### 3.5 Segreti e dati personali
+
+- Non committare file `.env`, service account, chiavi private, password o token.
+- Le variabili `NEXT_PUBLIC_*` sono pubbliche e non devono contenere segreti.
+- `SUPABASE_SERVICE_ROLE_KEY`, credenziali Firebase e chiavi del print agent devono esistere solo lato server.
+- Log, screenshot, fixture e documentazione non devono contenere dati reali dei clienti.
+
+### 3.6 Database e migrazioni
+
+- Ogni modifica allo schema deve essere aggiunta come nuovo file numerato in `scripts/`.
+- Non modificare una migrazione già applicata per cambiarne il risultato storico.
+- Documentare dipendenze, ordine di esecuzione, impatto e rollback.
+- Non eseguire migrazioni sul database remoto durante attività di refactoring o audit.
+- Verificare RLS, privilegi e compatibilità applicativa prima del rilascio.
+
+## 4. Struttura del repository
+
+```text
+app/                  Pagine, layout e route API Next.js
+components/           Componenti applicativi e UI condivisa
+hooks/                Hook React condivisi
+lib/                  Dominio, integrazioni e servizi
+scripts/              Migrazioni SQL e agenti di stampa
+public/               Asset statici pubblici
+android/              Progetto Android Capacitor
+.codex/agents/         Agenti Codex specializzati del progetto
 ```
 
-Puoi trovare la `SUPABASE_ANON_KEY` nel tuo progetto Supabase in **Settings > API**.
+Le responsabilità degli agenti e le regole di collaborazione sono definite in [`AGENTS.md`](./AGENTS.md).
 
-### 3. Installazione
+## 5. Avvio locale
+
+### Prerequisiti
+
+- Node.js compatibile con la versione Next.js installata
+- pnpm
+- progetto Supabase configurato
+
+### Installazione
 
 ```bash
-# Installa le dipendenze
 pnpm install
-
-# Avvia il server di sviluppo
 pnpm dev
 ```
 
-L'applicazione sarà disponibile su [http://localhost:3000](http://localhost:3000)
+L'applicazione locale è disponibile normalmente su `http://localhost:3000`.
 
-## Accesso alla Dashboard
+### Variabili essenziali
 
-- URL: `/admin/login`
-- Password: quella configurata in `ADMIN_PASSWORD` (variabile d'ambiente)
+Creare `.env.local` senza commetterlo:
 
-## Struttura del Database
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+NEXT_PUBLIC_ADMIN_EMAIL=
+```
 
-### Tabelle Principali
+L'autenticazione amministrativa e le integrazioni Firebase, reCAPTCHA e stampa richiedono variabili aggiuntive. Consultare [`SETUP.md`](./SETUP.md) e il codice che usa `process.env` prima di abilitarle. Non inserire valori reali nella documentazione.
 
-- **categories**: Categorie del menu
-- **products**: Prodotti con ingredienti, allergeni, prezzi e immagini
-- **orders**: Ordini dei clienti con stato
-- **order_items**: Dettagli dei prodotti ordinati
-- **discount_codes**: Codici sconto attivi
-- **store_info**: Informazioni del locale
+## 6. Comandi ufficiali
 
-## Come Usare
+```bash
+pnpm dev                  # sviluppo locale
+pnpm build                # build di produzione
+pnpm start                # avvio della build
+pnpm print:emulator       # emulatore del print agent
+pnpm print:agent:escpos   # print agent ESC/POS
+pnpm cap:sync             # sincronizzazione progetto Android
+```
 
-### Per i Clienti
+Il comando `lint` deve essere considerato disponibile solo dopo averne verificato la compatibilità con la versione corrente di Next.js.
 
-1. Scansiona il QR code o accedi al link
-2. Sfoglia il menu per categorie
-3. Aggiungi prodotti al carrello
-4. Scegli delivery o takeaway
-5. Inserisci i dati e completa l'ordine
-6. Paga in contanti alla consegna/ritiro
+## 7. Verifica obbligatoria
 
-### Per il Ristoratore
+Prima di considerare conclusa una modifica:
 
-1. Accedi alla dashboard (`/admin/login`)
-2. **Menu**: Gestisci categorie e prodotti
-3. **Ordini**: Visualizza e aggiorna lo stato degli ordini
-4. **Sconti**: Crea codici sconto per i clienti
-5. **Impostazioni**: Modifica i dati del locale
-6. **QR Code**: Scarica il QR code da stampare
+1. eseguire `npx tsc --noEmit --incremental false` per modifiche TypeScript;
+2. eseguire `pnpm build` per modifiche a runtime, routing, configurazione o moduli condivisi;
+3. verificare il flusso utente interessato su mobile e desktop quando cambia la UI;
+4. verificare autorizzazione, validazione e risposta API quando cambia il backend;
+5. controllare che non siano stati aggiunti segreti o dati personali;
+6. aggiornare README, `SETUP.md` o `SECURITY.md` quando cambiano procedure, configurazione o garanzie;
+7. dichiarare verifiche non eseguite e rischi residui.
 
-## Tecnologie Utilizzate
+Una build riuscita non dimostra da sola correttezza funzionale, accessibilità o sicurezza.
 
-- **Next.js 16**: Framework React con App Router
-- **Supabase**: Database PostgreSQL e backend
-- **TypeScript**: Type safety
-- **Tailwind CSS**: Styling
-- **shadcn/ui**: Componenti UI
-- **QRCode**: Generazione QR code
+## 8. Regola del README
 
-## Note Importanti
+Il README deve rimanere breve, attuale e operativo.
 
-- **Sicurezza**: La password admin è gestita tramite variabile d'ambiente. Usa una password sicura in produzione.
-- **Immagini Prodotti**: Puoi caricare immagini tramite URL o caricandole su un servizio di hosting (es. Supabase Storage).
-- **Notifiche Ordini**: Per ricevere notifiche in tempo reale, considera l'aggiunta di webhook o email notifications.
-- **Pagamenti**: L'app è configurata per pagamenti in contanti. Per pagamenti online, integra Stripe o PayPal.
+- Deve descrivere ciò che il repository fa realmente.
+- Deve contenere solo comandi verificabili e nomi di variabili, mai valori sensibili.
+- Deve essere aggiornato nella stessa modifica che cambia setup, architettura, script o responsabilità.
+- Non deve contenere promesse di sicurezza assoluta, funzionalità future o istruzioni obsolete.
+- Le procedure dettagliate appartengono ai documenti dedicati; il README deve collegarle senza duplicarle integralmente.
 
-## Prossimi Passi
+Una modifica che rende il README falso o incompleto non è considerata conclusa.
 
-1. Configura le variabili d'ambiente
-2. Esegui gli script SQL su Supabase
-3. Personalizza i dati di esempio con i tuoi prodotti
-4. Aggiorna le informazioni del locale nella dashboard
-5. Scarica e stampa il QR code
-6. Inizia a ricevere ordini!
+## 9. Documentazione collegata
 
-## Supporto
+- [`AGENTS.md`](./AGENTS.md): regole operative per agenti e collaboratori
+- [`SETUP.md`](./SETUP.md): configurazione applicativa e servizi
+- [`SECURITY.md`](./SECURITY.md): stato e raccomandazioni di sicurezza
+- [`MIGRATION-GUIDE.md`](./MIGRATION-GUIDE.md): indicazioni sulle migrazioni
 
-Per problemi o domande, consulta la documentazione di:
-- [Next.js](https://nextjs.org/docs)
-- [Supabase](https://supabase.com/docs)
-- [shadcn/ui](https://ui.shadcn.com)
+In caso di conflitto, il codice e la configurazione verificata descrivono lo stato corrente; la documentazione deve essere corretta nella stessa attività.

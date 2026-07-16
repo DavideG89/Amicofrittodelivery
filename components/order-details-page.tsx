@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import Script from 'next/script'
 import { ArrowLeft, CircleCheckBig, Clock, Home, Loader2, RefreshCw, Utensils, XCircle, ChefHat } from 'lucide-react'
@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import type { PublicOrder } from '@/lib/supabase'
 import { saveOrderToDevice } from '@/lib/order-storage'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { normalizeOrderPublicToken } from '@/lib/order-public-token'
 import type { OrderStatus } from '@/lib/supabase'
 import { fetchPublicOrder, fetchPublicOrderLight } from '@/lib/public-order-client'
 
@@ -60,15 +61,21 @@ const timelineStatuses = ['pending', 'preparing', 'ready', 'completed'] as const
 
 export function OrderDetailsPage() {
   const params = useParams()
+  const searchParams = useSearchParams()
   const orderNumber = normalizeOrderNumber(params.orderNumber)
+  const publicToken = normalizeOrderPublicToken(searchParams.get('token'))
   const [order, setOrder] = useState<PublicOrder | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const pollingIntervalMs = 10000
 
-  const updateOrderContext = (number: string, status: string) => {
+  const updateOrderContext = (number: string, status: string, token?: string | null) => {
     try {
       localStorage.setItem('lastOrderNumber', number)
+      const normalizedToken = normalizeOrderPublicToken(token)
+      if (normalizedToken) {
+        localStorage.setItem('lastOrderPublicToken', normalizedToken)
+      }
       const active = status !== 'completed' && status !== 'cancelled'
       localStorage.setItem('lastOrderActive', active ? 'true' : 'false')
     } catch {
@@ -86,18 +93,18 @@ export function OrderDetailsPage() {
       }
 
       if (light) {
-        const data = await fetchPublicOrderLight(orderNumber)
+        const data = await fetchPublicOrderLight(orderNumber, publicToken)
         if (!data) throw new Error('Order not found')
 
         setOrder((prev) => (prev ? { ...prev, status: data.status, updated_at: data.updated_at } : prev))
-        updateOrderContext(data.order_number, data.status)
+        updateOrderContext(data.order_number, data.status, publicToken)
         return
       }
 
       const maxAttempts = 3
       let data: PublicOrder | null = null
       for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
-        data = await fetchPublicOrder(orderNumber)
+        data = await fetchPublicOrder(orderNumber, publicToken)
         if (data) break
         if (attempt < maxAttempts) {
           await wait(attempt * 700)
@@ -107,8 +114,8 @@ export function OrderDetailsPage() {
       if (!data) throw new Error('Order not found')
 
       setOrder(data)
-      saveOrderToDevice(data.order_number, data.order_type)
-      updateOrderContext(data.order_number, data.status)
+      saveOrderToDevice(data.order_number, data.order_type, publicToken)
+      updateOrderContext(data.order_number, data.status, publicToken)
     } catch {
       if (!light) {
         setOrder(null)
@@ -121,7 +128,7 @@ export function OrderDetailsPage() {
 
   useEffect(() => {
     fetchOrder()
-  }, [orderNumber])
+  }, [orderNumber, publicToken])
 
   useEffect(() => {
     const id = window.setInterval(() => {
@@ -132,7 +139,7 @@ export function OrderDetailsPage() {
       }
     }, pollingIntervalMs)
     return () => window.clearInterval(id)
-  }, [order, orderNumber])
+  }, [order, orderNumber, publicToken])
 
   useEffect(() => {
     const refreshOnForeground = () => {
@@ -150,7 +157,7 @@ export function OrderDetailsPage() {
       window.removeEventListener('focus', refreshOnForeground)
       document.removeEventListener('visibilitychange', refreshOnForeground)
     }
-  }, [order, orderNumber])
+  }, [order, orderNumber, publicToken])
 
   const handleRefresh = async () => {
     setRefreshing(true)
@@ -328,6 +335,17 @@ export function OrderDetailsPage() {
                         </span>
                       )}
                       {item.additions && <span className="block text-xs text-muted-foreground">Aggiunte: {item.additions}</span>}
+                      {Array.isArray(item.removed_ingredients) && item.removed_ingredients.length > 0 && (
+                        <span className="block text-xs font-semibold text-red-700">
+                          SENZA:{' '}
+                          {item.removed_ingredients
+                            .map((ingredient: { name?: unknown }) =>
+                              typeof ingredient?.name === 'string' ? ingredient.name.trim() : ''
+                            )
+                            .filter(Boolean)
+                            .join(', ')}
+                        </span>
+                      )}
                     </span>
                     <span className="font-medium">
                       {((Number(item.price || 0) + Number(item.additions_unit_price || 0)) * Number(item.quantity || 0)).toFixed(2)} euro

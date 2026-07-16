@@ -34,7 +34,7 @@ export async function fetchUpsellSuggestions(excludedProductIds: string[]) {
         .select('id, enabled, product_ids, max_items, product_overrides')
         .eq('id', 'default')
         .maybeSingle(),
-      supabase.from('categories').select('id, name, slug, display_order, created_at, updated_at'),
+      supabase.from('categories').select('id, name, slug, display_order, ingredient_customization_enabled, created_at, updated_at'),
     ])
 
     let settings = (settingsData as UpsellSettings | null) || null

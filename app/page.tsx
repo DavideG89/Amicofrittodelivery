@@ -9,6 +9,7 @@ import { Header } from '@/components/header'
 import { ProductCard } from '@/components/product-card'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { normalizeOrderNumber } from '@/lib/order-number'
+import { buildOrderTrackingPath, normalizeOrderPublicToken } from '@/lib/order-public-token'
 import { supabase, Category, Product, StoreInfo, OrderStatus } from '@/lib/supabase'
 import { Skeleton } from '@/components/ui/skeleton'
 import { extractOpeningHours, formatNextOpen, getOrderStatus } from '@/lib/order-schedule'
@@ -48,9 +49,10 @@ export default function Home() {
   const [loading, setLoading] = useState(true)
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
   const [lastOrderNumber, setLastOrderNumber] = useState<string | null>(null)
+  const [lastOrderPublicToken, setLastOrderPublicToken] = useState<string | null>(null)
   const [lastOrderStatus, setLastOrderStatus] = useState<OrderStatus | null>(null)
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
-  const cacheKey = 'af:home-cache:v4'
+  const cacheKey = 'af:home-cache:v5'
   const cacheTtlMs = 10 * 60 * 1000
   const sortCategories = (list: Category[]) => {
     const desiredOrder = ['hamburger', 'mini' ,'panini', 'kebab', 'fritti', 'salse', 'bevande']
@@ -91,12 +93,12 @@ export default function Home() {
     }
   }
 
-  const notifyTerminalStatus = (orderNumber: string, status: OrderStatus) => {
+  const notifyTerminalStatus = (orderNumber: string, status: OrderStatus, publicToken?: string | null) => {
     if (typeof window === 'undefined') return
     if (status !== 'completed' && status !== 'cancelled') return
     window.dispatchEvent(
       new CustomEvent(ORDER_TERMINAL_STATUS_EVENT, {
-        detail: { orderNumber, status },
+        detail: { orderNumber, publicToken, status },
       })
     )
   }
@@ -156,7 +158,7 @@ export default function Home() {
         // Fetch categories
         const { data: categoriesData, error: categoriesError } = await supabase
           .from('categories')
-          .select('id, name, slug, display_order, created_at, updated_at')
+          .select('id, name, slug, display_order, ingredient_customization_enabled, created_at, updated_at')
           .order('display_order', { ascending: true })
 
         if (categoriesError) {
@@ -249,7 +251,9 @@ export default function Home() {
   useEffect(() => {
     try {
       const number = normalizeOrderNumber(localStorage.getItem('lastOrderNumber'))
+      const publicToken = normalizeOrderPublicToken(localStorage.getItem('lastOrderPublicToken'))
       setLastOrderNumber(number || null)
+      setLastOrderPublicToken(publicToken || null)
     } catch {
       // ignore storage errors
     }
@@ -261,26 +265,28 @@ export default function Home() {
     const clearLastOrder = () => {
       try {
         localStorage.removeItem('lastOrderNumber')
+        localStorage.removeItem('lastOrderPublicToken')
         localStorage.removeItem('lastOrderActive')
       } catch {
         // ignore storage errors
       }
       if (cancelled) return
       setLastOrderNumber(null)
+      setLastOrderPublicToken(null)
       setLastOrderStatus(null)
     }
 
     const refreshStatus = async () => {
       setLastOrderLoading(true)
       try {
-        const data = await fetchPublicOrderLight(lastOrderNumber)
+        const data = await fetchPublicOrderLight(lastOrderNumber, lastOrderPublicToken)
         if (cancelled) return
         if (!data) {
           clearLastOrder()
           return
         }
         setLastOrderStatus(data.status as OrderStatus)
-        notifyTerminalStatus(data.order_number, data.status as OrderStatus)
+        notifyTerminalStatus(data.order_number, data.status as OrderStatus, lastOrderPublicToken)
       } catch {
         if (cancelled) return
         clearLastOrder()
@@ -295,7 +301,7 @@ export default function Home() {
     return () => {
       cancelled = true
     }
-  }, [lastOrderNumber])
+  }, [lastOrderNumber, lastOrderPublicToken])
 
   useEffect(() => {
     const onTerminalStatus = (event: Event) => {
@@ -315,7 +321,7 @@ export default function Home() {
 
   const handleViewLastOrder = () => {
     if (!lastOrderNumber) return
-    router.push(`/order/${encodeURIComponent(lastOrderNumber)}`)
+    router.push(buildOrderTrackingPath(lastOrderNumber, lastOrderPublicToken))
   }
 
 
@@ -496,6 +502,7 @@ export default function Home() {
                       saucesOnly={isFriedCategory}
                       forceFreeSingleSauce={isFriedCategory}
                       mobileBadgeLabel={mobileBadgeLabel}
+                      ingredientCustomizationEnabled={category.ingredient_customization_enabled}
                     />
                   ))}
                 </div>

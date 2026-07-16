@@ -8,8 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
-import { loginAdmin, requestAdminPasswordReset } from '@/lib/admin-auth'
-import { supabase } from '@/lib/supabase'
+import { loginAdmin, requestAdminPasswordReset, verifyAdminAccess } from '@/lib/admin-auth'
 import { toast } from 'sonner'
 
 export default function AdminLoginPage() {
@@ -20,9 +19,9 @@ export default function AdminLoginPage() {
 
   useEffect(() => {
     let mounted = true
-    supabase.auth.getSession().then(({ data }) => {
+    verifyAdminAccess().then((authorized) => {
       if (!mounted) return
-      if (data.session) {
+      if (authorized) {
         router.replace('/admin/dashboard')
       }
     })

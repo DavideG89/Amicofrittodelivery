@@ -55,7 +55,7 @@ async function ensureServiceWorker(config: typeof firebaseConfig) {
   return ready
 }
 
-export async function enableCustomerPush(orderNumber: string): Promise<PushResult> {
+export async function enableCustomerPush(orderNumber: string, publicToken?: string | null): Promise<PushResult> {
   if (typeof window === 'undefined' || !('Notification' in window) || !('serviceWorker' in navigator)) {
     return { ok: false, reason: 'unsupported' }
   }
@@ -104,7 +104,7 @@ export async function enableCustomerPush(orderNumber: string): Promise<PushResul
   const res = await fetch('/api/push/register', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ orderNumber, token }),
+    body: JSON.stringify({ orderNumber, publicToken, token }),
   })
 
   if (!res.ok) {
@@ -133,7 +133,7 @@ export async function enableCustomerPush(orderNumber: string): Promise<PushResul
   return { ok: true, token }
 }
 
-export async function disableCustomerPush(orderNumber: string) {
+export async function disableCustomerPush(orderNumber: string, publicToken?: string | null) {
   if (typeof window === 'undefined') return { ok: false, reason: 'unsupported' as const }
 
   let token = ''
@@ -158,7 +158,7 @@ export async function disableCustomerPush(orderNumber: string) {
     await fetch('/api/push/unregister', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ orderNumber, token }),
+      body: JSON.stringify({ orderNumber, publicToken, token }),
     }).catch(() => {})
   }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getSupabaseServerClient } from '@/lib/supabase-server'
 import { createRateLimiter } from '@/lib/rate-limit'
+import { normalizeOrderPublicToken } from '@/lib/order-public-token'
 
 const limiter = createRateLimiter({ windowMs: 10 * 60 * 1000, max: 30 })
 const orderNumberPattern = /^[A-Z0-9-]{4,32}$/
@@ -26,6 +27,7 @@ export async function POST(request: Request) {
     const body = await request.json()
     const orderNumber =
       typeof body?.orderNumber === 'string' ? body.orderNumber.trim().toUpperCase() : ''
+    const publicToken = normalizeOrderPublicToken(body?.publicToken)
     const token = typeof body?.token === 'string' ? body.token.trim() : ''
 
     if (!orderNumber || !token) {
@@ -39,11 +41,16 @@ export async function POST(request: Request) {
     }
 
     const supabase = getSupabaseServerClient()
-    const { data: orderExists, error: orderCheckError } = await supabase
+    const orderQuery = supabase
       .from('orders')
       .select('order_number')
       .eq('order_number', orderNumber)
       .limit(1)
+
+    const { data: orderExists, error: orderCheckError } = await (publicToken
+      ? orderQuery.eq('public_token', publicToken)
+      : orderQuery.is('public_token', null)
+    )
       .maybeSingle()
 
     if (orderCheckError) {

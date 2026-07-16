@@ -1,96 +1,141 @@
-# Setup Istruzioni - Amico Fritto
+# Setup di Amico Fritto
 
-## 1. Configurazione Database Supabase
+Questa guida descrive la configurazione riproducibile del progetto. Non inserire credenziali reali nei file versionati.
 
-Il tuo progetto Supabase è: **AmicoFritto** (ID: sghftuvrupaswqhdckvs)
+## 1. Prerequisiti
 
-### Esegui gli script SQL
+- Node.js compatibile con la versione Next.js installata
+- pnpm
+- progetto Supabase
+- accesso al SQL Editor e alla sezione Authentication di Supabase
 
-1. Vai su [https://supabase.com/dashboard/project/sghftuvrupaswqhdckvs](https://supabase.com/dashboard/project/sghftuvrupaswqhdckvs)
-2. Nel menu laterale, clicca su **SQL Editor**
-3. Clicca su **New query**
-4. Copia e incolla il contenuto di `scripts/01-create-tables.sql`
-5. Clicca su **Run** per eseguire lo script
-6. Ripeti i passaggi 3-5 con `scripts/02-seed-data.sql`
-7. Ripeti i passaggi 3-5 con `scripts/07-customer-push.sql`
-8. Ripeti i passaggi 3-5 con `scripts/08-add-order-additions.sql`
-9. Ripeti i passaggi 3-5 con `scripts/09-add-category-addition-rules.sql`
-10. Ripeti i passaggi 3-5 con `scripts/10-fix-security-advisor.sql`
-11. Ripeti i passaggi 3-5 con `scripts/11-fix-security-warnings.sql`
-12. Ripeti i passaggi 3-5 con `scripts/12-fix-function-search-path.sql`
-13. Ripeti i passaggi 3-5 con `scripts/13-add-print-jobs.sql`
+## 2. Installazione locale
 
-Gli script creano:
-- Tabelle: categories, products, store_info, discount_codes, orders, customer_push_tokens
-- Dati di esempio con categorie (Panini, Hamburgers, Fritti, Salse, Bevande)
-- Prodotti di esempio per ogni categoria
-- Codici sconto di esempio (BENVENUTO10, SCONTO5)
-- Informazioni del locale predefinite
+```bash
+pnpm install
+pnpm dev
+```
 
-## 2. Variabili d'Ambiente
+L'applicazione è normalmente disponibile su `http://localhost:3000`.
 
-Le variabili sono già configurate nel progetto v0:
-- `NEXT_PUBLIC_SUPABASE_URL` - URL del progetto Supabase
-- `NEXT_PUBLIC_SUPABASE_ANON_KEY` - Chiave anonima (public key)
-- `ADMIN_PASSWORD` - Password per accedere alla dashboard amministrativa
+## 3. Variabili d'ambiente
 
-## 3. Accesso alla Dashboard Amministrativa
+Creare `.env.local` nella root:
 
-1. Vai su `/admin/login`
-2. Inserisci la password configurata in `ADMIN_PASSWORD`
-3. Accedi alla dashboard per gestire:
-   - Menu e prodotti
-   - Ordini in tempo reale
-   - Codici sconto
-   - Informazioni del locale
-   - Generazione QR Code
+```env
+NEXT_PUBLIC_SUPABASE_URL=
+NEXT_PUBLIC_SUPABASE_ANON_KEY=
+SUPABASE_SERVICE_ROLE_KEY=
+NEXT_PUBLIC_ADMIN_EMAIL=
+NEXT_PUBLIC_SITE_URL=http://localhost:3000
+```
 
-## 4. Funzionalità Principali
+Regole:
 
-### Per i Clienti:
-- **Homepage** (`/`) - Menu completo con tutte le categorie
-- **Carrello** (`/cart`) - Gestione carrello con switch delivery/takeaway
-- **Checkout** (`/checkout`) - Form ordine con applicazione codici sconto
-- **Info** (`/info`) - Informazioni del locale (indirizzo, telefono, orari)
-- **QR Code** - I clienti possono scansionare il QR per ordinare
+- `NEXT_PUBLIC_SUPABASE_URL` e `NEXT_PUBLIC_SUPABASE_ANON_KEY` sono pubbliche per definizione.
+- `SUPABASE_SERVICE_ROLE_KEY` è un segreto server-side e non deve mai comparire nel browser, nei log o nei commit.
+- `NEXT_PUBLIC_ADMIN_EMAIL` identifica l'account usato dalla schermata di login; l'autorizzazione effettiva dipende anche da `public.admin_users`.
+- Firebase, reCAPTCHA e stampa richiedono variabili aggiuntive solo quando le rispettive integrazioni sono abilitate.
 
-### Per il Ristoratore:
-- **Dashboard** (`/admin/dashboard`) - Panoramica ordini e statistiche
-- **Menu** (`/admin/dashboard/menu`) - Gestione categorie e prodotti
-- **Ordini** (`/admin/dashboard/orders`) - Gestione ordini con cambio stato
-- **Sconti** (`/admin/dashboard/discounts`) - Creazione codici sconto
-- **Impostazioni** (`/admin/dashboard/settings`) - Modifica info locale
-- **QR Code** (`/admin/dashboard/qr-code`) - Generazione QR per ordinazioni
+## 4. Database
 
-## 5. Password Admin Predefinita
+### Nuovo database
 
-Assicurati di impostare una password sicura nella variabile `ADMIN_PASSWORD`.
-Esempio: `admin2024` (cambiala con una password sicura!)
+Gli script in `scripts/` sono numerati. Eseguirli in ordine, fermandosi dopo lo script 20 per configurare il primo amministratore. Lo script 05 crea soltanto la tabella dei token push admin: l'invio push è responsabilità dell'API ordini e non richiede URL o segreti dentro una migrazione.
 
-## 6. Primi Passi
+Lo script `02-seed-data.sql` inserisce dati dimostrativi: eseguirlo solo se desiderati.
 
-1. Esegui gli script SQL su Supabase
-2. Visita la homepage per vedere il menu
-3. Accedi alla dashboard admin per personalizzare:
-   - Prodotti e prezzi
-   - Informazioni del locale
-   - Codici sconto
-4. Genera il QR Code dalla dashboard per permettere ai clienti di ordinare
+### Database esistente
 
-## 7. Struttura Ordini
+Non rieseguire indiscriminatamente tutta la cronologia. Esportare prima schema, policy, grant, funzioni e trigger, quindi applicare soltanto le migrazioni mancanti.
 
-Gli ordini vengono salvati con:
-- Numero ordine univoco
-- Dati cliente (nome, telefono, indirizzo se delivery)
-- Tipo ordine (delivery/takeaway)
-- Prodotti ordinati
-- Applicazione sconto
-- Stato ordine (pending → confirmed → preparing → ready → completed)
+Nessun agente o comando locale deve applicare automaticamente migrazioni al database remoto.
 
-## 8. Note Importanti
+## 5. Configurazione amministratore
 
-- Il pagamento è **solo in contanti** (alla consegna o al ritiro)
-- Gli ordini delivery hanno una commissione configurabile
-- I clienti possono inserire note speciali negli ordini
-- Il ristoratore può cambiare lo stato degli ordini dalla dashboard
-- I prodotti mostrano ingredienti e allergeni
+L'unico sistema supportato è Supabase Auth con allowlist `public.admin_users`.
+
+1. Creare l'utente amministratore in Supabase Authentication.
+2. Eseguire `scripts/20-create-admin-authorization.sql`.
+3. Copiare l'UUID dell'utente da `auth.users`.
+4. Inserire esplicitamente l'UUID:
+
+```sql
+INSERT INTO public.admin_users (user_id)
+VALUES ('UUID-REALE-UTENTE')
+ON CONFLICT (user_id) DO NOTHING;
+```
+
+5. Verificare che la query restituisca una riga:
+
+```sql
+SELECT au.user_id, u.email
+FROM public.admin_users au
+JOIN auth.users u ON u.id = au.user_id;
+```
+
+6. Esportare le policy correnti come rollback.
+7. Eseguire `scripts/21-harden-row-level-security.sql`.
+8. Impostare `NEXT_PUBLIC_ADMIN_EMAIL` con l'email dello stesso utente.
+
+Lo script 21 si interrompe senza modifiche se non trova almeno un amministratore valido o una tabella richiesta.
+
+### Ordine di rilascio obbligatorio
+
+1. Creare un backup ed esportare policy e grant correnti.
+2. Applicare lo script 20, che è preparatorio e non revoca accessi esistenti.
+3. Verificare eventuali righe legacy incomplete e correggerle prima di proseguire:
+
+```sql
+SELECT COUNT(*) AS admin_rows_without_user_id
+FROM public.admin_users
+WHERE user_id IS NULL;
+```
+
+4. Inserire e verificare l'UUID amministratore.
+5. Applicare lo script 21 in staging e completare i test admin/non-admin.
+6. Applicare lo script 21 in produzione.
+7. Applicare `scripts/22-add-order-public-token.sql`.
+8. Distribuire il nuovo codice applicativo subito dopo, nella stessa finestra di manutenzione.
+
+Se il deploy applicativo deve essere annullato, ripristinare la versione precedente del codice; le nuove policy possono restare attive se i test della dashboard precedente sono verdi. In caso contrario, ripristinare l'esportazione esatta delle policy raccolta al punto 1.
+
+Tra lo script 21 e il nuovo deploy, la versione precedente della dashboard non può eseguire “Pulisci ordini vecchi”, perché chiamava direttamente la RPC ora riservata al service-role. Le altre operazioni restano coperte dalle policy; mantenere comunque questo intervallo il più breve possibile.
+
+Tra lo script 22 e il deploy, i vecchi link ordine continuano a funzionare perché gli ordini esistenti hanno `public_token = NULL`. Dopo il deploy, i nuovi ordini ricevono un token casuale e il link pubblico deve includere `?token=...`.
+
+## 6. Verifica dopo il rollout
+
+Verificare in staging:
+
+1. menu pubblico, prodotti, informazioni locale, salse e upsell;
+2. login e logout amministratore;
+3. rifiuto di un utente Supabase autenticato ma non presente in `admin_users`;
+4. checkout nuovo ordine e apertura del link `/order/NUMERO?token=...`;
+5. lettura ordini, ricavi e feedback dalla dashboard;
+6. CRUD di menu, impostazioni, sconti e upsell;
+7. cambio stato ordine, Realtime, push e coda stampa;
+8. checkout tramite API server con service-role.
+
+## 7. Comandi di verifica locale
+
+```bash
+pnpm exec next typegen
+pnpm exec tsc --noEmit --incremental false
+pnpm build
+```
+
+La build richiede accesso ai font remoti configurati tramite `next/font`.
+
+## 8. Rollback RLS
+
+Non usare `DISABLE ROW LEVEL SECURITY` come rollback.
+
+In caso di lockout:
+
+1. usare SQL Editor o service-role;
+2. verificare la riga in `admin_users`;
+3. verificare `SELECT public.is_admin()` in una sessione autenticata;
+4. ripristinare l'esportazione delle policy precedenti solo se necessario.
+
+La colonna `orders.payment_method` aggiunta dallo script 21 è additive e può restare presente.

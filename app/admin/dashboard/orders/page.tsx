@@ -70,6 +70,13 @@ const normalizeItems = (items: Order['items']) =>
     additions_unit_price: toNumber(item.additions_unit_price),
   }))
 
+const getRemovedIngredientNames = (item: Order['items'][number]) =>
+  Array.isArray(item.removed_ingredients)
+    ? item.removed_ingredients
+        .map((ingredient) => (typeof ingredient?.name === 'string' ? ingredient.name.trim() : ''))
+        .filter(Boolean)
+    : []
+
 const toItems = (value: unknown): Order['items'] => {
   if (Array.isArray(value)) {
     return normalizeItems(value as Order['items'])
@@ -818,6 +825,11 @@ export default function OrdersManagementPage() {
                             {item.additions && (
                               <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
                             )}
+                            {getRemovedIngredientNames(item).length > 0 && (
+                              <div className="text-xs font-semibold text-red-700">
+                                SENZA: {getRemovedIngredientNames(item).join(', ')}
+                              </div>
+                            )}
                           </div>
                           <span className="font-medium">
                             {((item.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
@@ -977,6 +989,11 @@ export default function OrdersManagementPage() {
                               )}
                               {item.additions && (
                                 <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
+                              )}
+                              {getRemovedIngredientNames(item).length > 0 && (
+                                <div className="text-xs font-semibold text-red-700">
+                                  SENZA: {getRemovedIngredientNames(item).join(', ')}
+                                </div>
                               )}
                             </div>
                             <span className="font-medium">

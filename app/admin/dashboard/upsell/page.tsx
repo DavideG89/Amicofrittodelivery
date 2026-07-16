@@ -71,7 +71,7 @@ export default function UpsellPage() {
               .select('id, enabled, product_ids, max_items, product_overrides')
               .eq('id', DEFAULT_UPSELL_ID)
               .maybeSingle(),
-            supabase.from('categories').select('id, name, slug, display_order, created_at, updated_at'),
+            supabase.from('categories').select('id, name, slug, display_order, ingredient_customization_enabled, created_at, updated_at'),
           ])
 
         if (productsError) throw productsError
