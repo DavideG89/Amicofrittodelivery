@@ -56,7 +56,7 @@ Impatto:
 
 - aggiunge la tabella `product_ingredients`, collegata ai singoli prodotti;
 - aggiunge a `categories` il flag `ingredient_customization_enabled`, con default `false`;
-- abilita inizialmente il flag per Hamburger/Hamburgers, Kebab, Mini hamburger/Mini e Panini tramite corrispondenza prudente su slug o nome normalizzati, senza rinominare gli slug;
+- abilita inizialmente il flag per Hamburger/Hamburgers, Kebab, Mini hamburger/Mini Burger/Mini e Panini tramite corrispondenza prudente su slug o nome normalizzati, senza rinominare gli slug;
 - espone in lettura pubblica soltanto gli ingredienti attivi;
 - rende univoci per prodotto i nomi ingrediente ignorando maiuscole e spazi esterni;
 - espone `replace_product_ingredients(p_product_id uuid, p_ingredients jsonb)` come unico comando di sostituzione atomica, eseguibile soltanto da utenti autenticati presenti in `admin_users`;
@@ -72,3 +72,20 @@ Rollback operativo:
 1. disabilitare prima la personalizzazione nel frontend e ripristinare il backend precedente;
 2. conservare la tabella finché configurazione amministrativa o ordini conservati dipendono dai relativi ID;
 3. rimuovere la tabella soltanto dopo la finestra di retention necessaria.
+
+## Migrazione 24
+
+`24-enable-mini-burger-ingredients.sql` corregge i database storici in cui la categoria concordata e presente come `Mini Burger`/`mini-burger`, denominazione non inclusa nella prima versione della migrazione 23.
+
+Impatto:
+
+- abilita soltanto `ingredient_customization_enabled` per i nomi o slug esatti `Mini Burger`/`mini-burger`, incluse le forme plurali;
+- non crea ingredienti a partire dal testo libero dei prodotti;
+- non modifica prodotti, prezzi, aggiunte o ordini.
+
+Gli ingredienti rimovibili dei singoli prodotti devono essere configurati dall'amministratore.
+
+Rollback operativo:
+
+1. disabilitare manualmente il flag della categoria soltanto se la personalizzazione Mini Burger non e piu desiderata;
+2. non eliminare gli ingredienti gia usati in ordini ancora conservati.
