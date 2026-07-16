@@ -337,7 +337,7 @@ export function ProductCard({
                         return next
                       })}
                     />
-                    <span>Senza {ingredient.name}</span>
+                    <span>{ingredient.name}</span>
                   </label>
                 )
               })}
