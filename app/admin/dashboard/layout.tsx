@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import Image from 'next/image'
-import { ChevronDown, Grid2X2, LayoutDashboard, MapPinned, Package, Settings, ShoppingCart, LogOut, Ticket, Sparkles, Bell, Star, Store } from 'lucide-react'
+import { ChevronDown, LayoutDashboard, MapPinned, Menu as MenuIcon, Package, Settings, ShoppingCart, LogOut, Ticket, Sparkles, Bell, Star, Store } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
+import { Sheet, SheetClose, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet'
 import { logoutAdmin, verifyAdminAccess } from '@/lib/admin-auth'
 import {
   disableAdminPush,
@@ -40,19 +40,6 @@ const navItems = [
   { href: '/admin/dashboard/settings', label: 'Impostazioni', icon: Settings },
 ]
 
-const mobilePrimaryNavItems = [
-  { href: '/admin/dashboard', label: 'Home', icon: LayoutDashboard },
-  { href: '/admin/dashboard/orders', label: 'Ordini', icon: ShoppingCart },
-  { href: '/admin/dashboard/menu', label: 'Menu', icon: Package },
-  { href: '/admin/dashboard/discounts', label: 'Sconti', icon: Ticket },
-]
-
-const mobileMoreItems = [
-  { href: '/admin/dashboard/upsell', label: 'Upsell', icon: Sparkles },
-  { href: '/admin/dashboard/delivery-area', label: 'Area Delivery', icon: MapPinned },
-  { href: '/admin/dashboard/settings', label: 'Impostazioni', icon: Settings },
-]
-
 export default function AdminDashboardLayout({
   children,
 }: {
@@ -64,6 +51,7 @@ export default function AdminDashboardLayout({
   const [pushStatus, setPushStatus] = useState<'idle' | 'enabled' | 'denied' | 'unsupported' | 'error' | 'missing'>('idle')
   const [pushErrorDetail, setPushErrorDetail] = useState('')
   const [showPushTooltip, setShowPushTooltip] = useState(false)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [pendingToneActive, setPendingToneActive] = useState(false)
   const [pendingOrdersCount, setPendingOrdersCount] = useState(0)
   const [storeInfo, setStoreInfo] = useState<StoreInfo | null>(null)
@@ -879,68 +867,6 @@ export default function AdminDashboardLayout({
     </div>
   )
 
-  const MobileBottomBar = () => (
-    <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-zinc-200 bg-white/95 px-2 pb-[calc(env(safe-area-inset-bottom)+0.35rem)] pt-2 shadow-[0_-10px_30px_rgba(15,23,42,0.10)] backdrop-blur md:hidden">
-      <div className="mx-auto grid max-w-md grid-cols-5 gap-1">
-        {mobilePrimaryNavItems.map((item) => {
-          const Icon = item.icon
-          const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
-          const showOrdersBadge = item.href === '/admin/dashboard/orders' && pendingOrdersCount > 0
-
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={cn(
-                'relative flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-2xl px-1 text-[11px] font-bold transition-colors',
-                isActive ? 'text-zinc-950' : 'text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950'
-              )}
-              style={isActive ? { backgroundColor: brandYellow } : undefined}
-            >
-              <span className="relative">
-                <Icon className="h-5 w-5" />
-                {showOrdersBadge && (
-                  <span className="absolute -right-2.5 -top-2 rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none text-white" style={{ backgroundColor: brandRed }}>
-                    {pendingOrdersCount}
-                  </span>
-                )}
-              </span>
-              <span className="leading-none">{item.label}</span>
-            </Link>
-          )
-        })}
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <button
-              type="button"
-              className="flex min-h-[58px] flex-col items-center justify-center gap-1 rounded-full px-1 text-[11px] font-bold text-zinc-500 transition-colors hover:bg-zinc-100 hover:text-zinc-950"
-              aria-label="Apri altre sezioni"
-            >
-              <Grid2X2 className="h-5 w-5" />
-              <span className="leading-none">Altro</span>
-            </button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" side="top" className="mb-2 w-56">
-            {mobileMoreItems.map((item) => {
-              const Icon = item.icon
-              return (
-                <DropdownMenuItem key={item.href} onClick={() => router.push(item.href)}>
-                  <Icon className="mr-2 h-4 w-4" />
-                  {item.label}
-                </DropdownMenuItem>
-              )
-            })}
-            <DropdownMenuItem onClick={handleLogout}>
-              <LogOut className="mr-2 h-4 w-4" />
-              Esci
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </div>
-    </nav>
-  )
-
   if (!authChecked) {
     return <div className="p-6">Verifica accesso...</div>
   }
@@ -992,11 +918,91 @@ export default function AdminDashboardLayout({
                   </div>
                 )}
               </div>
+              <Sheet open={mobileMenuOpen} onOpenChange={setMobileMenuOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    className="relative h-10 w-10 rounded-[10px] border"
+                    aria-label={pendingOrdersCount > 0
+                      ? `Apri menu dashboard, ${pendingOrdersCount} ordini in attesa`
+                      : 'Apri menu dashboard'}
+                  >
+                    <MenuIcon className="h-5 w-5" />
+                    {pendingOrdersCount > 0 && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute -right-1.5 -top-1.5 min-w-5 rounded-full px-1 py-0.5 text-[10px] font-black leading-none text-white"
+                        style={{ backgroundColor: brandRed }}
+                      >
+                        {pendingOrdersCount}
+                      </span>
+                    )}
+                  </Button>
+                </SheetTrigger>
+                <SheetContent
+                  side="right"
+                  className="flex !w-[80vw] !max-w-[80vw] flex-col gap-0 p-0 md:hidden"
+                  closeClassName="right-2 top-[calc(env(safe-area-inset-top)+0.5rem)] h-11 w-11"
+                  overlayClassName="bg-black/80"
+                >
+                  <SheetHeader className="shrink-0 border-b px-3 pb-4 pt-[calc(env(safe-area-inset-top)+1.5rem)] text-left">
+                    <SheetTitle>Menu</SheetTitle>
+                  </SheetHeader>
+                  <nav aria-label="Navigazione dashboard" className="flex min-h-0 flex-1 flex-col overflow-y-auto px-2 pb-[calc(env(safe-area-inset-bottom)+1rem)] pt-4">
+                    <ul className="space-y-1">
+                      {navItems.map((item) => {
+                        const Icon = item.icon
+                        const isActive = pathname === item.href || (item.href !== '/admin/dashboard' && pathname.startsWith(item.href))
+                        const showOrdersBadge = item.href === '/admin/dashboard/orders' && pendingOrdersCount > 0
+
+                        return (
+                          <li key={item.href}>
+                            <SheetClose asChild>
+                              <Link
+                                href={item.href}
+                                className={cn(
+                                  'flex min-h-11 items-center gap-2 rounded-[10px] px-2 py-2 text-xs font-bold leading-tight transition-colors',
+                                  isActive
+                                    ? 'text-zinc-950'
+                                    : 'text-zinc-600 hover:bg-muted hover:text-zinc-950'
+                                )}
+                                style={isActive ? { backgroundColor: brandYellow } : undefined}
+                              >
+                                <Icon className="h-4 w-4 shrink-0" />
+                                <span className="min-w-0 flex-1 break-words">{item.label}</span>
+                                {showOrdersBadge && (
+                                  <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none text-white" style={{ backgroundColor: brandRed }}>
+                                    {pendingOrdersCount}
+                                  </span>
+                                )}
+                              </Link>
+                            </SheetClose>
+                          </li>
+                        )
+                      })}
+                    </ul>
+                    <div className="mt-auto border-t pt-3">
+                      <SheetClose asChild>
+                        <button
+                          type="button"
+                          onClick={handleLogout}
+                          className="flex min-h-11 w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left text-xs font-bold text-destructive transition-colors hover:bg-destructive/10"
+                        >
+                          <LogOut className="h-4 w-4 shrink-0" />
+                          <span>Esci</span>
+                        </button>
+                      </SheetClose>
+                    </div>
+                  </nav>
+                </SheetContent>
+              </Sheet>
             </div>
           </header>
 
           {/* Main Content Area */}
-          <main className="min-h-0 flex-1 overflow-y-auto pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-0">
+          <main className="min-h-0 flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)] md:pb-0">
             {pushStatus !== 'enabled' && (
               <div className="border-b bg-card/60 px-4 py-3 flex items-center justify-between gap-3">
                 <div className="text-sm text-muted-foreground">
@@ -1023,7 +1029,6 @@ export default function AdminDashboardLayout({
             )}
             {children}
           </main>
-          <MobileBottomBar />
         </div>
       </div>
     </div>

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import { Plus, Edit, Trash2, Eye, EyeOff, ChevronDown } from 'lucide-react'
@@ -14,6 +14,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { ResponsiveEditorModal } from '@/components/admin/responsive-editor-modal'
 import { parseProductPieceOptionsInput, serializeProductPieceOptions } from '@/lib/product-piece-options'
 import { supabase, Category, Product, ProductIngredient, OrderAddition, OrderAdditionType, UpsellSettings } from '@/lib/supabase'
 import { toast } from 'sonner'
@@ -49,6 +50,7 @@ export default function MenuManagementPage() {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null)
   const [editingCategory, setEditingCategory] = useState<Category | null>(null)
   const [editingAddition, setEditingAddition] = useState<OrderAddition | null>(null)
+  const productEditorReturnFocusRef = useRef<HTMLButtonElement | null>(null)
 
   const [productForm, setProductForm] = useState({
     category_id: '',
@@ -247,7 +249,8 @@ export default function MenuManagementPage() {
     setEditingAddition(null)
   }
 
-  const handleEditProduct = (product: Product) => {
+  const handleEditProduct = (product: Product, trigger: HTMLButtonElement) => {
+    productEditorReturnFocusRef.current = trigger
     setEditingProduct(product)
     setProductForm({
       category_id: product.category_id,
@@ -589,12 +592,14 @@ export default function MenuManagementPage() {
           <h1 className="hidden md:block text-3xl font-bold">Gestione Menu</h1>
           <p className="text-muted-foreground">Gestisci categorie e prodotti</p>
         </div>
-        <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+        <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-row">
           <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" onClick={resetCategoryForm} className="w-full sm:w-auto">
-                <Plus className="mr-2 h-4 w-4" />
-                Nuova Categoria
+              <Button variant="outline" onClick={resetCategoryForm} className="h-14 min-w-0 flex-col gap-0 rounded-[10px] px-1 text-xs sm:h-10 sm:w-auto sm:flex-row sm:px-4 sm:text-sm">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="flex min-h-8 items-center whitespace-normal text-center leading-tight sm:min-h-0 sm:whitespace-nowrap">
+                  Nuova Categoria
+                </span>
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -653,9 +658,11 @@ export default function MenuManagementPage() {
 
           <Dialog open={additionDialogOpen} onOpenChange={setAdditionDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" onClick={resetAdditionForm} className="w-full sm:w-auto">
-                <Plus className="mr-2 h-4 w-4" />
-                Nuova Aggiunta
+              <Button variant="outline" onClick={resetAdditionForm} className="h-14 min-w-0 flex-col gap-0 rounded-[10px] px-1 text-xs sm:h-10 sm:w-auto sm:flex-row sm:px-4 sm:text-sm">
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="flex min-h-8 items-center whitespace-normal text-center leading-tight sm:min-h-0 sm:whitespace-nowrap">
+                  Nuova Aggiunta
+                </span>
               </Button>
             </DialogTrigger>
             <DialogContent>
@@ -721,22 +728,35 @@ export default function MenuManagementPage() {
             </DialogContent>
           </Dialog>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button onClick={resetProductForm} className="w-full sm:w-auto">
-                <Plus className="mr-2 h-4 w-4" />
-                Nuovo Prodotto
+          <ResponsiveEditorModal
+            open={dialogOpen}
+            onOpenChange={setDialogOpen}
+            title={editingProduct ? 'Modifica Prodotto' : 'Nuovo Prodotto'}
+            description="Aggiungi o modifica un prodotto del menu"
+            returnFocusRef={productEditorReturnFocusRef}
+            trigger={(
+              <Button
+                onClick={(event) => {
+                  productEditorReturnFocusRef.current = event.currentTarget
+                  resetProductForm()
+                }}
+                className="h-14 min-w-0 flex-col gap-0 rounded-[10px] px-1 text-xs sm:h-10 sm:w-auto sm:flex-row sm:px-4 sm:text-sm"
+              >
+                <Plus className="h-4 w-4 sm:mr-2" />
+                <span className="flex min-h-8 items-center whitespace-normal text-center leading-tight sm:min-h-0 sm:whitespace-nowrap">
+                  Nuovo Prodotto
+                </span>
               </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingProduct ? 'Modifica Prodotto' : 'Nuovo Prodotto'}
-                </DialogTitle>
-                <DialogDescription>
-                  Aggiungi o modifica un prodotto del menu
-                </DialogDescription>
-              </DialogHeader>
+            )}
+            footer={(
+              <div className="grid w-full grid-cols-2 gap-2 sm:flex sm:justify-end">
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>
+                  Annulla
+                </Button>
+                <Button onClick={handleSaveProduct}>Salva</Button>
+              </div>
+            )}
+          >
               <div className="space-y-4">
                 <div>
                   <Label htmlFor="category">Categoria *</Label>
@@ -943,14 +963,7 @@ export default function MenuManagementPage() {
                   </p>
                 </div>
               </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>
-                  Annulla
-                </Button>
-                <Button onClick={handleSaveProduct}>Salva</Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+          </ResponsiveEditorModal>
         </div>
       </div>
 
@@ -969,24 +982,25 @@ export default function MenuManagementPage() {
           const categoryProducts = getProductsByCategory(category.id)
           
           return (
-            <TabsContent key={category.id} value={category.id}>
-              <Card>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
+            <TabsContent key={category.id} value={category.id} className="mt-0">
+              <Card className="border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-sm">
+                <CardHeader className="px-0 pb-5 pt-2 md:p-6">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <CardTitle>{category.name}</CardTitle>
                       <CardDescription>
                         {categoryProducts.length} prodotti
                       </CardDescription>
                     </div>
-                    <div className="flex gap-2">
-                      <Button variant="outline" size="sm" onClick={() => handleEditCategory(category)}>
+                    <div className="grid grid-cols-2 gap-2 sm:flex">
+                      <Button variant="outline" size="sm" className="w-full sm:w-auto" onClick={() => handleEditCategory(category)}>
                         <Edit className="mr-2 h-4 w-4" />
                         Modifica
                       </Button>
                       <Button
                         variant="destructive"
                         size="sm"
+                        className="w-full sm:w-auto"
                         onClick={() => handleDeleteCategory(category.id)}
                       >
                         <Trash2 className="h-4 w-4 mr-2" />
@@ -995,16 +1009,16 @@ export default function MenuManagementPage() {
                     </div>
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-0 pb-0 md:px-6 md:pb-6">
                   {categoryProducts.length === 0 ? (
                     <p className="text-center text-muted-foreground py-8">
                       Nessun prodotto in questa categoria
                     </p>
                   ) : (
-                    <div className="space-y-3">
+                    <div className="space-y-4">
                       {categoryProducts.map((product) => (
-                        <Card key={product.id}>
-                          <CardContent className="p-3 sm:p-4">
+                        <Card key={product.id} className="w-full overflow-hidden">
+                          <CardContent className="p-4">
                             <div className="flex gap-3 sm:gap-4 items-stretch min-h-[96px] sm:min-h-[104px]">
                               <div className="relative w-28 sm:w-36 self-stretch min-h-[96px] sm:min-h-[104px] bg-muted rounded-md overflow-hidden flex-shrink-0">
                                 {product.image_url ? (
@@ -1021,8 +1035,8 @@ export default function MenuManagementPage() {
                                 )}
                               </div>
 
-                              <div className="flex-grow">
-                                <div>
+                              <div className="flex min-w-0 flex-grow flex-col justify-between">
+                                <div className="min-w-0">
                                   <div className="flex items-start justify-between">
                                     <div>
                                     <h3 className="font-semibold text-sm sm:text-base">{product.name}</h3>
@@ -1035,12 +1049,13 @@ export default function MenuManagementPage() {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-2 mt-2">
+                                  <div className="mt-3 flex items-center justify-between border-t pt-2 sm:justify-start sm:gap-2">
                                     <Button
                                       variant="ghost"
                                       size="icon"
                                       onClick={() => handleToggleAvailability(product)}
-                                      title={product.available ? 'Nascondi' : 'Mostra'}
+                                      title={`${product.available ? 'Nascondi' : 'Mostra'} ${product.name}`}
+                                      aria-label={`${product.available ? 'Nascondi' : 'Mostra'} ${product.name}`}
                                     >
                                       {product.available ? (
                                         <Eye className="h-4 w-4" />
@@ -1051,7 +1066,9 @@ export default function MenuManagementPage() {
                                     <Button
                                       variant="ghost"
                                       size="icon"
-                                      onClick={() => handleEditProduct(product)}
+                                      onClick={(event) => handleEditProduct(product, event.currentTarget)}
+                                      title={`Modifica ${product.name}`}
+                                      aria-label={`Modifica ${product.name}`}
                                     >
                                       <Edit className="h-4 w-4" />
                                     </Button>
@@ -1059,6 +1076,8 @@ export default function MenuManagementPage() {
                                       variant="ghost"
                                       size="icon"
                                       onClick={() => handleDeleteProduct(product.id)}
+                                      title={`Elimina ${product.name}`}
+                                      aria-label={`Elimina ${product.name}`}
                                     >
                                       <Trash2 className="h-4 w-4" />
                                     </Button>
@@ -1084,14 +1103,14 @@ export default function MenuManagementPage() {
         })}
       </Tabs>
 
-      <Card className="mt-8">
-        <CardHeader>
+      <Card className="mt-8 border-0 bg-transparent shadow-none md:border md:bg-card md:shadow-sm">
+        <CardHeader className="px-0 pb-5 md:p-6">
           <CardTitle>Aggiunte</CardTitle>
           <CardDescription>
             Configura le opzioni mostrate nel modale cliente: “Scegli una salsa” ed “Extra”.
           </CardDescription>
         </CardHeader>
-        <CardContent className="grid gap-6 md:grid-cols-2">
+        <CardContent className="grid gap-6 px-0 pb-0 md:grid-cols-2 md:px-6 md:pb-6">
           <div className="space-y-3">
             <h3 className="font-semibold">Salse ({sauceAdditions.length})</h3>
             {sauceAdditions.length === 0 ? (
