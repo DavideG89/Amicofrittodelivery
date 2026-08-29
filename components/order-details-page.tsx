@@ -83,7 +83,7 @@ export function OrderDetailsPage() {
     }
   }
 
-  const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
+const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve, ms))
 
   const fetchOrder = async (light = false) => {
     try {

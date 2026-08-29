@@ -70,6 +70,7 @@ export default function MenuManagementPage() {
   const [categoryForm, setCategoryForm] = useState({
     name: '',
     slug: '',
+    display_order: '',
     ingredient_customization_enabled: false,
   })
 
@@ -224,6 +225,7 @@ export default function MenuManagementPage() {
     setCategoryForm({
       name: '',
       slug: '',
+      display_order: String(Math.max(-1, ...categories.map((category) => category.display_order ?? 0)) + 1),
       ingredient_customization_enabled: false,
     })
     setEditingCategory(null)
@@ -234,6 +236,7 @@ export default function MenuManagementPage() {
     setCategoryForm({
       name: category.name,
       slug: category.slug,
+      display_order: String(category.display_order ?? 0),
       ingredient_customization_enabled: category.ingredient_customization_enabled,
     })
     setCategoryDialogOpen(true)
@@ -399,40 +402,36 @@ export default function MenuManagementPage() {
       return
     }
 
+    if (!categoryForm.display_order.trim()) {
+      toast.error('Inserisci una posizione nel menu')
+      return
+    }
+
+    const requestedDisplayOrder = Number(categoryForm.display_order)
+    if (!Number.isInteger(requestedDisplayOrder) || requestedDisplayOrder < 0) {
+      toast.error('Inserisci una posizione intera maggiore o uguale a zero')
+      return
+    }
+
     try {
-      const slug = categoryForm.slug || categoryForm.name.toLowerCase().replace(/\s+/g, '-')
-      
-      
-      if (editingCategory) {
-        const { error } = await supabase
-          .from('categories')
-          .update({
+      const { data: savedCategoryId, error: saveCategoryError } = await supabase.rpc(
+        'save_category_with_order',
+        {
+          p_category_id: editingCategory?.id || null,
+          p_category: {
             name: categoryForm.name,
-            slug,
+            slug: categoryForm.slug || categoryForm.name.toLowerCase().replace(/\s+/g, '-'),
             ingredient_customization_enabled: categoryForm.ingredient_customization_enabled,
-          })
-          .eq('id', editingCategory.id)
-
-        if (error) {
-          console.error('[v0] Category update error:', error)
-          throw error
-        }
-        toast.success('Categoria aggiornata')
-      } else {
-        const { error } = await supabase
-          .from('categories')
-          .insert({
-            name: categoryForm.name,
-            slug,
-            ingredient_customization_enabled: categoryForm.ingredient_customization_enabled,
-          })
-
-        if (error) {
-          console.error('[v0] Category insert error:', error)
-          throw error
-        }
-        toast.success('Categoria creata')
+          },
+          p_requested_display_order: requestedDisplayOrder,
+        },
+      )
+      if (saveCategoryError) throw saveCategoryError
+      if (typeof savedCategoryId !== 'string' || !savedCategoryId) {
+        throw new Error('ID categoria mancante dopo il salvataggio')
       }
+
+      toast.success(editingCategory ? 'Categoria aggiornata' : 'Categoria creata')
 
       setCategoryDialogOpen(false)
       resetCategoryForm()
@@ -629,6 +628,22 @@ export default function MenuManagementPage() {
                     onChange={(e) => setCategoryForm({ ...categoryForm, slug: e.target.value })}
                     placeholder="Es: panini"
                   />
+                </div>
+                <div>
+                  <Label htmlFor="category-display-order">Posizione nel menu *</Label>
+                  <Input
+                    id="category-display-order"
+                    type="number"
+                    min="0"
+                    step="1"
+                    inputMode="numeric"
+                    required
+                    value={categoryForm.display_order}
+                    onChange={(e) => setCategoryForm({ ...categoryForm, display_order: e.target.value })}
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Le categorie con un numero più basso vengono mostrate per prime.
+                  </p>
                 </div>
                 <div className="flex items-center justify-between rounded-md border p-3">
                   <div className="space-y-1">

@@ -41,7 +41,7 @@ Regole:
 
 ### Nuovo database
 
-Gli script in `scripts/` sono numerati. Eseguirli in ordine, fermandosi dopo lo script 20 per configurare il primo amministratore. Lo script 05 crea soltanto la tabella dei token push admin: l'invio push è responsabilità dell'API ordini e non richiede URL o segreti dentro una migrazione.
+Gli script in `scripts/` sono numerati. Eseguirli in ordine, fermandosi dopo lo script 20 per configurare il primo amministratore. Lo script 05 crea soltanto la tabella dei token push admin: l'invio push è responsabilità dell'API ordini e non richiede URL o segreti dentro una migrazione. Lo script 25 aggiunge il salvataggio transazionale delle categorie con riordino e va applicato prima della versione dell'app che lo usa.
 
 Lo script `02-seed-data.sql` inserisce dati dimostrativi: eseguirlo solo se desiderati.
 

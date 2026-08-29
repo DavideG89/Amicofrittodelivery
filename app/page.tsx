@@ -22,6 +22,7 @@ const CATEGORY_ICONS = {
   mini: '/icons/cheeseburger-v2.png',
   hamburger: '/icons/Products_Hamburger.png',
   panini: '/icons/Products_Sandwich.png',
+  piadine:'/icons/Products_Sandwich.png',
   kebab: '/icons/Products_Kebab.png',
   fritti: '/icons/Products_Fritti.png',
   salse: '/icons/Products_Salse.png',
@@ -34,6 +35,7 @@ function getCategoryIconPath(category: Category): string | null {
   if (text.includes('mini')) return CATEGORY_ICONS.mini
   if (text.includes('hamburger') || text.includes('burger')) return CATEGORY_ICONS.hamburger
   if (text.includes('panini') || text.includes('sandwich')) return CATEGORY_ICONS.panini
+  if (text.includes('piadine')) return CATEGORY_ICONS.piadine
   if (text.includes('kebab')) return CATEGORY_ICONS.kebab
   if (text.includes('fritti')) return CATEGORY_ICONS.fritti
   if (text.includes('salse')) return CATEGORY_ICONS.salse
