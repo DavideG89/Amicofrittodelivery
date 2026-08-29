@@ -22,7 +22,7 @@ const CATEGORY_ICONS = {
   mini: '/icons/cheeseburger-v2.png',
   hamburger: '/icons/Products_Hamburger.png',
   panini: '/icons/Products_Sandwich.png',
-  piadine:'/icons/Products_Sandwich.png',
+  piadine:'/icons/Products_Piadine.png',
   kebab: '/icons/Products_Kebab.png',
   fritti: '/icons/Products_Fritti.png',
   salse: '/icons/Products_Salse.png',
