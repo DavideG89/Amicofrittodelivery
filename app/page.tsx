@@ -22,7 +22,7 @@ const CATEGORY_ICONS = {
   mini: '/icons/cheeseburger-v2.png',
   hamburger: '/icons/Products_Hamburger.png',
   panini: '/icons/Products_Sandwich.png',
-  piadine:'/icons/Products_Piadine.png',
+  piadine: '/icons/Products_Piadine.png',
   kebab: '/icons/Products_Kebab.png',
   fritti: '/icons/Products_Fritti.png',
   salse: '/icons/Products_Salse.png',
@@ -35,7 +35,7 @@ function getCategoryIconPath(category: Category): string | null {
   if (text.includes('mini')) return CATEGORY_ICONS.mini
   if (text.includes('hamburger') || text.includes('burger')) return CATEGORY_ICONS.hamburger
   if (text.includes('panini') || text.includes('sandwich')) return CATEGORY_ICONS.panini
-  if (text.includes('piadine')) return CATEGORY_ICONS.piadine
+  if (text.includes('piadine') || text.includes('piadina')) return CATEGORY_ICONS.piadine
   if (text.includes('kebab')) return CATEGORY_ICONS.kebab
   if (text.includes('fritti')) return CATEGORY_ICONS.fritti
   if (text.includes('salse')) return CATEGORY_ICONS.salse
@@ -56,25 +56,12 @@ export default function Home() {
   const [lastOrderLoading, setLastOrderLoading] = useState(false)
   const cacheKey = 'af:home-cache:v5'
   const cacheTtlMs = 10 * 60 * 1000
-  const sortCategories = (list: Category[]) => {
-    const desiredOrder = ['hamburger', 'mini' ,'panini', 'kebab', 'fritti', 'salse', 'bevande']
-    const getSortKey = (category: Category) => {
-      const slug = (category.slug || '').toLowerCase()
-      const name = (category.name || '').toLowerCase()
-      const idx =
-        desiredOrder.indexOf(slug) !== -1
-          ? desiredOrder.indexOf(slug)
-          : desiredOrder.findIndex((key) => name.includes(key))
-      return idx === -1 ? Number.MAX_SAFE_INTEGER : idx
-    }
-
-    return [...list].sort((a, b) => {
-      const aKey = getSortKey(a)
-      const bKey = getSortKey(b)
-      if (aKey !== bKey) return aKey - bKey
-      return (a.display_order ?? 0) - (b.display_order ?? 0)
-    })
-  }
+  const sortCategories = (list: Category[]) =>
+    [...list].sort(
+      (a, b) =>
+        (a.display_order ?? 0) - (b.display_order ?? 0) ||
+        a.name.localeCompare(b.name, 'it'),
+    )
 
   const getOrderStatusLabel = (status: OrderStatus | null) => {
     switch (status) {
