@@ -82,7 +82,7 @@ export default function AdminLoginPage() {
               priority
             />
           </div>
-          <CardTitle className="text-2xl">Area Amministrativa</CardTitle>
+          <CardTitle className="text-body-lg">Area Amministrativa</CardTitle>
           <CardDescription>Inserisci la password per accedere</CardDescription>
         </CardHeader>
         <CardContent>
@@ -116,7 +116,7 @@ export default function AdminLoginPage() {
             </Button>
             <Button
               type="button"
-              variant="ghost"
+              variant="link"
               className="w-full"
               onClick={handleResetPassword}
               disabled={resetLoading}

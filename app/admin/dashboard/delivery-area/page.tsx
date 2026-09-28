@@ -24,7 +24,7 @@ import { supabase, type StoreInfo } from '@/lib/supabase'
 const DeliveryAreaMap = dynamic(() => import('./delivery-area-map'), {
   ssr: false,
   loading: () => (
-    <div className="flex h-[260px] w-full items-center justify-center rounded-lg border text-sm text-muted-foreground sm:h-[420px]">
+    <div className="flex h-[260px] w-full items-center justify-center rounded-lg border text-label text-muted-foreground sm:h-[420px]">
       Caricamento mappa...
     </div>
   ),
@@ -245,7 +245,7 @@ export default function DeliveryAreaPage() {
         <div className="md:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger className="text-left">
-              <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+              <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                 Area Delivery
                 <ChevronDown className="h-5 w-5 text-muted-foreground" />
               </h1>
@@ -259,7 +259,7 @@ export default function DeliveryAreaPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <h1 className="hidden md:block text-3xl font-bold">Area Delivery</h1>
+        <h1 className="hidden md:block text-body-xl font-bold">Area Delivery</h1>
         <p className="text-muted-foreground">Configura il perimetro di consegna per applicare il blocco ordini fuori zona.</p>
       </div>
 
@@ -313,10 +313,10 @@ export default function DeliveryAreaPage() {
               </Button>
             </div>
 
-            <p className="text-xs text-muted-foreground sm:text-sm">Vertici attuali: {mapPoints.length}</p>
+            <p className="text-caption text-muted-foreground sm:text-label">Vertici attuali: {mapPoints.length}</p>
           </div>
 
-          <div className="text-sm">
+          <div className="text-label">
             {parsed.error ? (
               <div className="flex items-center gap-2 text-destructive">
                 <AlertTriangle className="h-4 w-4" />
@@ -372,7 +372,7 @@ export default function DeliveryAreaPage() {
               ) : (
                 <Badge variant="destructive">Errore verifica</Badge>
               )}
-              {testMessage && <p className="mt-2 text-sm text-muted-foreground">{testMessage}</p>}
+              {testMessage && <p className="mt-2 text-label text-muted-foreground">{testMessage}</p>}
             </div>
           )}
         </CardContent>

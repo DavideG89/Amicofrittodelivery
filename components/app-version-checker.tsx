@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useRef, useState } from 'react'
+import { Button } from '@/components/ui/button'
 
 declare global {
   // eslint-disable-next-line no-var
@@ -87,21 +88,23 @@ export function AppVersionChecker() {
 
   return (
     <div className="fixed bottom-3 left-3 right-3 z-[100] rounded-md border bg-background/95 p-3 shadow-lg backdrop-blur supports-[backdrop-filter]:bg-background/80 md:left-auto md:right-4 md:w-[420px]">
-      <p className="text-sm font-medium">Nuova versione disponibile</p>
-      <p className="mt-1 text-xs text-muted-foreground">
+      <p className="text-label font-medium">Nuova versione disponibile</p>
+      <p className="mt-1 text-caption text-muted-foreground">
         Aggiorna la pagina per applicare le ultime modifiche.
       </p>
       <div className="mt-3 flex justify-end gap-2">
-        <button
+        <Button
           type="button"
-          className="rounded-full border px-3 py-1.5 text-xs hover:bg-muted"
+          variant="outline"
+          size="sm"
+          className="hover:bg-muted"
           onClick={() => setHasUpdate(false)}
         >
           Dopo
-        </button>
-        <button
+        </Button>
+        <Button
           type="button"
-          className="rounded-full bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+          size="sm"
           onClick={() => {
             if (latestVersion) {
               safeSetItem(VERSION_KEY, latestVersion)
@@ -111,7 +114,7 @@ export function AppVersionChecker() {
           }}
         >
           Aggiorna ora
-        </button>
+        </Button>
       </div>
     </div>
   )

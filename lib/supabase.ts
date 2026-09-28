@@ -47,6 +47,7 @@ export type Category = {
   slug: string
   display_order: number
   ingredient_customization_enabled: boolean
+  show_as_offers: boolean
   created_at: string
   updated_at: string
 }

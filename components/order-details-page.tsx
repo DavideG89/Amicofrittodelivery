@@ -229,7 +229,7 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
       <Header />
       <main className="container py-4 sm:py-8 px-4 max-w-3xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4 sm:mb-6">
-          <Button variant="ghost" asChild className="-ml-3 hidden md:inline-flex w-fit">
+          <Button variant="link" asChild className="-ml-3 hidden md:inline-flex w-fit">
             <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Torna in Home
@@ -259,8 +259,8 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
                 <Badge className={`${currentStatus.color} text-white border-none`}>{currentStatus.label}</Badge>
               </div>
               <div className="min-w-0">
-                <CardTitle className="text-xl sm:text-2xl truncate">Ordine {order.order_number}</CardTitle>
-                <p className="text-xs sm:text-sm text-muted-foreground mt-1">
+                <CardTitle className="text-xl sm:text-body-lg truncate">Ordine {order.order_number}</CardTitle>
+                <p className="text-caption sm:text-label text-muted-foreground mt-1">
                   Aggiornato il{' '}
                   {new Date(statusTimestamp).toLocaleDateString('it-IT', {
                     day: 'numeric',
@@ -274,13 +274,13 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-sm text-muted-foreground text-center">{currentStatus.description}</p>
+            <p className="text-label text-muted-foreground text-center">{currentStatus.description}</p>
           </CardContent>
         </Card>
 
         <Card className="mb-4 sm:mb-6">
           <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">Stato ordine</CardTitle>
+            <CardTitle className="text-body sm:text-xl">Stato ordine</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -306,17 +306,17 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
 
         <Card className="mb-4 sm:mb-6">
           <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">Dettagli ordine</CardTitle>
+            <CardTitle className="text-body sm:text-xl">Dettagli ordine</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <p className="text-sm text-muted-foreground">Tipo ordine</p>
+                <p className="text-label text-muted-foreground">Tipo ordine</p>
                 <p className="font-medium">{order.order_type === 'delivery' ? 'Consegna a domicilio' : 'Ritiro in negozio'}</p>
               </div>
               {order.payment_method && (
                 <div>
-                  <p className="text-sm text-muted-foreground">Pagamento</p>
+                  <p className="text-label text-muted-foreground">Pagamento</p>
                   <p className="font-medium">{order.payment_method === 'cash' ? 'Contanti' : 'Carta (POS)'}</p>
                 </div>
               )}
@@ -326,17 +326,17 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
               <h4 className="font-semibold mb-3">Articoli</h4>
               <div className="space-y-2">
                 {order.items.map((item: any, index: number) => (
-                  <div key={index} className="flex justify-between gap-3 text-sm">
+                  <div key={index} className="flex justify-between gap-3 text-label">
                     <span>
                       {item.quantity}x {item.name}
                       {Number(item.additions_unit_price || 0) > 0 && (
-                        <span className="block text-xs text-muted-foreground">
+                        <span className="block text-caption text-muted-foreground">
                           Extra: +{Number(item.additions_unit_price).toFixed(2)} euro cad.
                         </span>
                       )}
-                      {item.additions && <span className="block text-xs text-muted-foreground">Aggiunte: {item.additions}</span>}
+                      {item.additions && <span className="block text-caption text-muted-foreground">Aggiunte: {item.additions}</span>}
                       {Array.isArray(item.removed_ingredients) && item.removed_ingredients.length > 0 && (
-                        <span className="block text-xs font-semibold text-red-700">
+                        <span className="block text-caption font-semibold text-red-700">
                           SENZA:{' '}
                           {item.removed_ingredients
                             .map((ingredient: { name?: unknown }) =>
@@ -356,23 +356,23 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
             </div>
 
             <div className="border-t pt-4 space-y-1">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-label">
                 <span>Subtotale</span>
                 <span>{order.subtotal.toFixed(2)} euro</span>
               </div>
               {order.delivery_fee > 0 && (
-                <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-label">
                   <span>Consegna</span>
                   <span>{order.delivery_fee.toFixed(2)} euro</span>
                 </div>
               )}
               {order.discount_amount > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
+                <div className="flex justify-between text-label text-green-600">
                   <span>Sconto {order.discount_code ? `(${order.discount_code})` : ''}</span>
                   <span>-{order.discount_amount.toFixed(2)} euro</span>
                 </div>
               )}
-              <div className="flex justify-between font-bold text-lg pt-2 border-t">
+              <div className="flex justify-between font-bold text-body pt-2 border-t">
                 <span>Totale</span>
                 <span>{order.total.toFixed(2)} euro</span>
               </div>
@@ -380,11 +380,11 @@ const wait = (ms: number) => new Promise((resolve) => window.setTimeout(resolve,
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs sm:text-sm text-muted-foreground">Aggiornamento automatico ogni 10 secondi.</p>
+        <p className="text-center text-caption sm:text-label text-muted-foreground">Aggiornamento automatico ogni 10 secondi.</p>
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur md:hidden">
-        <Button asChild variant="ghost" className="w-full border-0 bg-white/50 text-black shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white/60 hover:text-black">
+        <Button asChild variant="link" className="w-full border-0 bg-white/50 text-black shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white/60 hover:text-black">
           <Link href="/">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Torna in Home

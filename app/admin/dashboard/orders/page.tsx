@@ -573,8 +573,8 @@ export default function OrdersManagementPage() {
         <CardContent className="p-4">
           <div className="flex items-start justify-between mb-3">
             <div>
-              <h3 className="font-bold text-lg">{order.order_number}</h3>
-              <p className="text-sm text-muted-foreground">
+              <h3 className="font-bold text-body">{order.order_number}</h3>
+              <p className="text-label text-muted-foreground">
                 {formatOrderDate(order.created_at, 'PPp')}
               </p>
             </div>
@@ -584,7 +584,7 @@ export default function OrdersManagementPage() {
             </Badge>
           </div>
 
-          <div className="space-y-1 text-sm mb-3">
+          <div className="space-y-1 text-label mb-3">
             <p><span className="font-medium">Cliente:</span> {order.customer_name}</p>
             <p><span className="font-medium">Telefono:</span> {order.customer_phone}</p>
             <div>
@@ -604,10 +604,10 @@ export default function OrdersManagementPage() {
           </div>
 
           <div className="flex items-center justify-between pt-3 border-t">
-            <span className="text-sm text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               {order.items.length} articoli
             </span>
-            <span className="font-bold text-lg">{order.total.toFixed(2)}€</span>
+            <span className="font-bold text-body">{order.total.toFixed(2)}€</span>
           </div>
         </CardContent>
       </Card>
@@ -638,7 +638,7 @@ export default function OrdersManagementPage() {
     <div className="p-6 h-full flex flex-col min-h-0">
       <div className="mb-6 space-y-3">
         {realtimeStatus === 'polling' && (
-          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          <div className="rounded-md border border-amber-200 bg-amber-50 px-4 py-3 text-label text-amber-900">
             Realtime non disponibile su questo dispositivo. Aggiornamento automatico ogni 20 secondi.
           </div>
         )}
@@ -646,7 +646,7 @@ export default function OrdersManagementPage() {
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger className="text-left">
-                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                   Gestione Ordini
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 </h1>
@@ -660,7 +660,7 @@ export default function OrdersManagementPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <h1 className="hidden md:block text-3xl font-bold">Gestione Ordini</h1>
+          <h1 className="hidden md:block text-body-xl font-bold">Gestione Ordini</h1>
           <p className="text-muted-foreground">Visualizza e gestisci gli ordini in tempo reale</p>
         </div>
       </div>
@@ -775,7 +775,7 @@ export default function OrdersManagementPage() {
                 <div className="min-h-0 flex-1 space-y-6 overflow-y-auto pt-4 pb-6">
                   <div>
                     <h3 className="font-semibold mb-3">Informazioni cliente</h3>
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-2 text-label">
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Nome:</span>
                         <span className="font-medium">{selectedOrder.customer_name}</span>
@@ -811,22 +811,22 @@ export default function OrdersManagementPage() {
                     <h3 className="font-semibold mb-3">Articoli ordinati</h3>
                     <div className="space-y-2">
                       {selectedOrder.items.map((item, index) => (
-                        <div key={index} className="flex justify-between text-sm py-2 border-b">
+                        <div key={index} className="flex justify-between text-label py-2 border-b">
                           <div>
                             <span className="font-medium">{item.quantity}x</span> {item.name}
-                            <div className="text-xs text-muted-foreground">
+                            <div className="text-caption text-muted-foreground">
                               {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
                             </div>
                             {item.additions_unit_price && item.additions_unit_price > 0 && (
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-caption text-muted-foreground">
                                 Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
                               </div>
                             )}
                             {item.additions && (
-                              <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
+                              <div className="text-caption text-muted-foreground">Aggiunte: {item.additions}</div>
                             )}
                             {getRemovedIngredientNames(item).length > 0 && (
-                              <div className="text-xs font-semibold text-red-700">
+                              <div className="text-caption font-semibold text-red-700">
                                 SENZA: {getRemovedIngredientNames(item).join(', ')}
                               </div>
                             )}
@@ -841,7 +841,7 @@ export default function OrdersManagementPage() {
 
                   <div>
                     <h3 className="font-semibold mb-3">Riepilogo</h3>
-                    <div className="space-y-2 text-sm">
+                    <div className="space-y-2 text-label">
                       <div className="flex justify-between">
                         <span>Subtotale:</span>
                         <span>{selectedOrder.subtotal.toFixed(2)}€</span>
@@ -858,7 +858,7 @@ export default function OrdersManagementPage() {
                           <span>-{selectedOrder.discount_amount.toFixed(2)}€</span>
                         </div>
                       )}
-                      <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                      <div className="flex justify-between font-bold text-body pt-2 border-t">
                         <span>Totale:</span>
                         <span>{selectedOrder.total.toFixed(2)}€</span>
                       </div>
@@ -868,7 +868,7 @@ export default function OrdersManagementPage() {
                   {selectedOrder.notes && (
                     <div>
                       <h3 className="font-semibold mb-2">Note:</h3>
-                      <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                      <p className="text-label text-muted-foreground bg-muted p-3 rounded-md">
                         {selectedOrder.notes}
                       </p>
                     </div>
@@ -940,7 +940,7 @@ export default function OrdersManagementPage() {
                   <div className="space-y-6">
                     <div>
                       <h3 className="font-semibold mb-3">Informazioni cliente</h3>
-                      <div className="space-y-2 text-sm">
+                      <div className="space-y-2 text-label">
                         <div className="flex justify-between">
                           <span className="text-muted-foreground">Nome:</span>
                           <span className="font-medium">{selectedOrder.customer_name}</span>
@@ -976,22 +976,22 @@ export default function OrdersManagementPage() {
                       <h3 className="font-semibold mb-3">Articoli ordinati</h3>
                       <div className="space-y-2">
                         {selectedOrder.items.map((item, index) => (
-                          <div key={index} className="flex justify-between text-sm py-2 border-b">
+                          <div key={index} className="flex justify-between text-label py-2 border-b">
                             <div>
                               <span className="font-medium">{item.quantity}x</span> {item.name}
-                              <div className="text-xs text-muted-foreground">
+                              <div className="text-caption text-muted-foreground">
                                 {(item.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
                               </div>
                               {item.additions_unit_price && item.additions_unit_price > 0 && (
-                                <div className="text-xs text-muted-foreground">
+                                <div className="text-caption text-muted-foreground">
                                   Extra: +{item.additions_unit_price.toFixed(2)}€ cad.
                                 </div>
                               )}
                               {item.additions && (
-                                <div className="text-xs text-muted-foreground">Aggiunte: {item.additions}</div>
+                                <div className="text-caption text-muted-foreground">Aggiunte: {item.additions}</div>
                               )}
                               {getRemovedIngredientNames(item).length > 0 && (
-                                <div className="text-xs font-semibold text-red-700">
+                                <div className="text-caption font-semibold text-red-700">
                                   SENZA: {getRemovedIngredientNames(item).join(', ')}
                                 </div>
                               )}
@@ -1006,7 +1006,7 @@ export default function OrdersManagementPage() {
 
                     <div>
                       <h3 className="font-semibold mb-3">Riepilogo</h3>
-                      <div className="space-y-2 text-sm">
+                      <div className="space-y-2 text-label">
                         <div className="flex justify-between">
                           <span>Subtotale:</span>
                           <span>{selectedOrder.subtotal.toFixed(2)}€</span>
@@ -1023,7 +1023,7 @@ export default function OrdersManagementPage() {
                             <span>-{selectedOrder.discount_amount.toFixed(2)}€</span>
                           </div>
                         )}
-                        <div className="flex justify-between font-bold text-lg pt-2 border-t">
+                        <div className="flex justify-between font-bold text-body pt-2 border-t">
                           <span>Totale:</span>
                           <span>{selectedOrder.total.toFixed(2)}€</span>
                         </div>
@@ -1033,7 +1033,7 @@ export default function OrdersManagementPage() {
                     {selectedOrder.notes && (
                       <div>
                         <h3 className="font-semibold mb-2">Note:</h3>
-                        <p className="text-sm text-muted-foreground bg-muted p-3 rounded-md">
+                        <p className="text-label text-muted-foreground bg-muted p-3 rounded-md">
                           {selectedOrder.notes}
                         </p>
                       </div>

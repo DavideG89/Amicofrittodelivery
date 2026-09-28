@@ -171,7 +171,7 @@ export default function DemoOrderPage() {
       <Header />
       <main className="container mx-auto max-w-3xl px-4 py-4 sm:py-8">
         <div className="mb-4 flex flex-col justify-between gap-3 sm:mb-6 sm:flex-row sm:items-center">
-          <Button variant="ghost" asChild className="-ml-3 hidden w-fit md:inline-flex">
+          <Button variant="link" asChild className="-ml-3 hidden w-fit md:inline-flex">
             <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Torna in Home
@@ -204,8 +204,8 @@ export default function DemoOrderPage() {
                 <div className="mb-2">
                   <Badge variant="outline">Demo</Badge>
                 </div>
-                <CardTitle className="truncate text-xl sm:text-2xl">Ordine {order.order_number}</CardTitle>
-                <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
+                <CardTitle className="truncate text-xl sm:text-body-lg">Ordine {order.order_number}</CardTitle>
+                <p className="mt-1 text-caption text-muted-foreground sm:text-label">
                   Aggiornato il{' '}
                   {new Date(statusTimestamp).toLocaleDateString('it-IT', {
                     day: 'numeric',
@@ -219,14 +219,14 @@ export default function DemoOrderPage() {
             </div>
           </CardHeader>
           <CardContent>
-            <p className="text-center text-sm text-muted-foreground">{currentStatus.description}</p>
+            <p className="text-center text-label text-muted-foreground">{currentStatus.description}</p>
           </CardContent>
         </Card>
 
         {process.env.NODE_ENV === 'development' && (
           <Card className="mb-4 border-dashed sm:mb-6">
             <CardHeader>
-              <CardTitle className="text-lg sm:text-xl">Test Drawer</CardTitle>
+              <CardTitle className="text-body sm:text-xl">Test Drawer</CardTitle>
             </CardHeader>
             <CardContent className="grid gap-2 sm:grid-cols-2">
               <Button type="button" onClick={() => simulateTerminalStatus('completed')}>
@@ -241,7 +241,7 @@ export default function DemoOrderPage() {
 
         <Card className="mb-4 sm:mb-6">
           <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">Stato ordine</CardTitle>
+            <CardTitle className="text-body sm:text-xl">Stato ordine</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
@@ -266,16 +266,16 @@ export default function DemoOrderPage() {
 
         <Card className="mb-4 sm:mb-6">
           <CardHeader>
-            <CardTitle className="text-lg sm:text-xl">Dettagli ordine</CardTitle>
+            <CardTitle className="text-body sm:text-xl">Dettagli ordine</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <p className="text-sm text-muted-foreground">Tipo ordine</p>
+                <p className="text-label text-muted-foreground">Tipo ordine</p>
                 <p className="font-medium">Ritiro in negozio</p>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Pagamento</p>
+                <p className="text-label text-muted-foreground">Pagamento</p>
                 <p className="font-medium">Contanti</p>
               </div>
             </div>
@@ -284,15 +284,15 @@ export default function DemoOrderPage() {
               <h4 className="mb-3 font-semibold">Articoli</h4>
               <div className="space-y-2">
                 {order.items.map((item, index) => (
-                  <div key={`${item.product_id}-${index}`} className="flex justify-between gap-3 text-sm">
+                  <div key={`${item.product_id}-${index}`} className="flex justify-between gap-3 text-label">
                     <span>
                       {item.quantity}x {item.name}
                       {Number(item.additions_unit_price || 0) > 0 && (
-                        <span className="block text-xs text-muted-foreground">
+                        <span className="block text-caption text-muted-foreground">
                           Extra: +{Number(item.additions_unit_price).toFixed(2)} euro cad.
                         </span>
                       )}
-                      {item.additions && <span className="block text-xs text-muted-foreground">Aggiunte: {item.additions}</span>}
+                      {item.additions && <span className="block text-caption text-muted-foreground">Aggiunte: {item.additions}</span>}
                     </span>
                     <span className="font-medium">
                       {((Number(item.price || 0) + Number(item.additions_unit_price || 0)) * Number(item.quantity || 0)).toFixed(2)} euro
@@ -303,11 +303,11 @@ export default function DemoOrderPage() {
             </div>
 
             <div className="space-y-1 border-t pt-4">
-              <div className="flex justify-between text-sm">
+              <div className="flex justify-between text-label">
                 <span>Subtotale</span>
                 <span>{order.subtotal.toFixed(2)} euro</span>
               </div>
-              <div className="flex justify-between border-t pt-2 text-lg font-bold">
+              <div className="flex justify-between border-t pt-2 text-body font-bold">
                 <span>Totale</span>
                 <span>{order.total.toFixed(2)} euro</span>
               </div>
@@ -315,11 +315,11 @@ export default function DemoOrderPage() {
           </CardContent>
         </Card>
 
-        <p className="text-center text-xs text-muted-foreground sm:text-sm">Aggiornamento automatico ogni pochi secondi.</p>
+        <p className="text-center text-caption text-muted-foreground sm:text-label">Aggiornamento automatico ogni pochi secondi.</p>
       </main>
 
       <div className="fixed inset-x-0 bottom-0 z-50 border-t bg-background/95 px-4 pb-[calc(env(safe-area-inset-bottom)+0.75rem)] pt-3 backdrop-blur md:hidden">
-        <Button asChild variant="ghost" className="w-full border-0 bg-white/50 text-black shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white/60 hover:text-black">
+        <Button asChild variant="link" className="w-full border-0 bg-white/50 text-black shadow-[0_4px_14px_rgba(0,0,0,0.08)] backdrop-blur-sm hover:bg-white/60 hover:text-black">
           <Link href="/">
             <Home className="mr-2 h-4 w-4" />
             Torna in Home

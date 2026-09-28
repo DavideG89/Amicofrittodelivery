@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { Search, Star, Trash2, Clock } from 'lucide-react'
 import Image from 'next/image'
 import { Header } from '@/components/header'
@@ -132,8 +133,8 @@ export default function UserPage() {
                               />
             </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">Utente Amico</h1>
-          <p className="text-muted-foreground text-sm sm:text-base max-w-xl mx-auto">
+          <h1 className="text-body-lg sm:text-body-xl md:text-section-title font-bold mb-2">Utente Amico</h1>
+          <p className="text-muted-foreground text-label sm:text-base max-w-xl mx-auto">
             Inserisci il numero del tuo ordine per vedere lo stato in tempo reale
           </p>
         </div>
@@ -157,20 +158,20 @@ export default function UserPage() {
                     key={order.orderNumber}
                     className="flex items-center justify-between p-3 sm:p-4 border rounded-lg hover:bg-muted/50 transition-colors"
                   >
-                    <button
-                      onClick={() => router.push(buildOrderTrackingPath(order.orderNumber, order.publicToken))}
+                    <Link
+                      href={buildOrderTrackingPath(order.orderNumber, order.publicToken)}
                       className="flex-1 rounded-full text-left"
                       aria-label={`Visualizza ordine ${order.orderNumber}`}
                     >
                       <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                        <p className="font-mono font-semibold text-sm sm:text-base">
+                        <p className="font-mono font-semibold text-label sm:text-base">
                           {order.orderNumber}
                         </p>
                         <div className="flex items-center gap-2">
-                          <Badge variant="outline" className="text-xs">
+                          <Badge variant="outline" className="text-caption">
                             {order.type === 'delivery' ? 'Consegna' : 'Ritiro'}
                           </Badge>
-                          <span className="text-xs text-muted-foreground">
+                          <span className="text-caption text-muted-foreground">
                             {new Date(order.createdAt).toLocaleDateString('it-IT', {
                               day: 'numeric',
                               month: 'short',
@@ -180,9 +181,9 @@ export default function UserPage() {
                           </span>
                         </div>
                       </div>
-                    </button>
+                    </Link>
                     <Button
-                      variant="ghost"
+                      variant="link"
                       size="sm"
                       onClick={() => handleRemoveOrder(order.orderNumber)}
                       aria-label={`Rimuovi ordine ${order.orderNumber}`}
@@ -193,7 +194,7 @@ export default function UserPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground mt-4 text-center">
+              <p className="text-caption text-muted-foreground mt-4 text-center">
                 Gli ordini vengono salvati solo su questo dispositivo per 7 giorni
               </p>
             </CardContent>
@@ -203,7 +204,7 @@ export default function UserPage() {
           <Card className="mb-6 border-primary/30">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Star className="h-5 w-5 fill-[#ffc400] text-[#ffc400]" />
+                <Star className="h-5 w-5 fill-ds-buttons text-ds-buttons" />
                 Lascia un feedback
               </CardTitle>
               <CardDescription>
@@ -239,7 +240,7 @@ export default function UserPage() {
                   placeholder="es: https://.../order/AF00012?token=..."
                   value={orderNumber}
                   onChange={(e) => setOrderNumber(e.target.value)}
-                  className="text-base sm:text-lg font-mono"
+                  className="text-base sm:text-body font-mono"
                   required
                   aria-label="Numero ordine"
                 />
@@ -255,8 +256,8 @@ export default function UserPage() {
 
 
         <div className="p-4 bg-muted/50 rounded-lg border">
-          <h3 className="font-semibold mb-2 text-sm">Hai bisogno di aiuto?</h3>
-          <p className="text-sm text-muted-foreground">
+          <h3 className="font-semibold mb-2 text-label">Hai bisogno di aiuto?</h3>
+          <p className="text-label text-muted-foreground">
             Se non trovi il numero ordine contattaci su WhatsApp:{' '}
             <a
               href="https://wa.me/393382012533"

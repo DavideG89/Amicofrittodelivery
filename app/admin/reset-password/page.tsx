@@ -66,7 +66,7 @@ export default function AdminResetPasswordPage() {
         <Card className="w-full max-w-md">
           <CardContent className="py-10 text-center">
             <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
-            <p className="text-sm text-muted-foreground">Verifica sessione in corso...</p>
+            <p className="text-label text-muted-foreground">Verifica sessione in corso...</p>
           </CardContent>
         </Card>
       </div>
@@ -77,7 +77,7 @@ export default function AdminResetPasswordPage() {
     <div className="min-h-screen bg-background flex items-center justify-center p-4">
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl">Reimposta password</CardTitle>
+          <CardTitle className="text-body-lg">Reimposta password</CardTitle>
           <CardDescription>Inserisci una nuova password per l’account admin</CardDescription>
         </CardHeader>
         <CardContent>
@@ -93,14 +93,16 @@ export default function AdminResetPasswordPage() {
                   onChange={(e) => setPassword(e.target.value)}
                   required
                 />
-                <button
+                <Button
                   type="button"
-                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground"
+                  variant="link"
+                  size="icon"
+                  className="absolute right-3 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground"
                   onClick={() => setShowPassword((prev) => !prev)}
                   aria-label={showPassword ? 'Nascondi password' : 'Mostra password'}
                 >
                   {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -115,14 +117,16 @@ export default function AdminResetPasswordPage() {
                   onChange={(e) => setConfirmPassword(e.target.value)}
                   required
                 />
-                <button
+                <Button
                   type="button"
-                  className="absolute right-3 top-1/2 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full text-muted-foreground"
+                  variant="link"
+                  size="icon"
+                  className="absolute right-3 top-1/2 h-8 w-8 -translate-y-1/2 text-muted-foreground"
                   onClick={() => setShowConfirm((prev) => !prev)}
                   aria-label={showConfirm ? 'Nascondi password' : 'Mostra password'}
                 >
                   {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                </button>
+                </Button>
               </div>
             </div>
 
@@ -137,7 +141,7 @@ export default function AdminResetPasswordPage() {
               )}
             </Button>
 
-            <Button variant="ghost" asChild className="w-full">
+            <Button variant="link" asChild className="w-full">
               <Link href="/admin/login">Torna al login</Link>
             </Button>
           </form>

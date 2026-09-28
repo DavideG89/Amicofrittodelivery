@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from 'next'
-import { Oswald, Geist_Mono } from 'next/font/google'
+import { Inter, Oswald, Geist_Mono } from 'next/font/google'
 import { RootProviders } from '@/components/root-providers'
 
 import './globals.css'
@@ -9,6 +9,11 @@ const oswald = Oswald({
   weight: ['200', '300', '400', '500', '600', '700'],
   display: 'swap',
   variable: '--font-oswald',
+})
+const inter = Inter({
+  subsets: ['latin'],
+  display: 'swap',
+  variable: '--font-inter',
 })
 const geistMono = Geist_Mono({
   subsets: ['latin'],
@@ -67,7 +72,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="it" suppressHydrationWarning>
-      <body className={`${oswald.variable} ${geistMono.variable} font-sans antialiased overflow-x-hidden overscroll-x-none`} suppressHydrationWarning>
+      <body className={`${oswald.variable} ${inter.variable} ${geistMono.variable} font-sans antialiased overflow-x-hidden overscroll-x-none`} suppressHydrationWarning>
         <RootProviders>{children}</RootProviders>
       </body>
     </html>

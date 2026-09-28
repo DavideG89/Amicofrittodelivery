@@ -251,7 +251,7 @@ export default function DiscountsPage() {
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger className="text-left">
-                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                   Codici Sconto
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 </h1>
@@ -265,7 +265,7 @@ export default function DiscountsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <h1 className="hidden md:block text-3xl font-bold">Codici Sconto</h1>
+          <h1 className="hidden md:block text-body-xl font-bold">Codici Sconto</h1>
           <p className="text-muted-foreground">Caricamento...</p>
         </div>
       </div>
@@ -279,7 +279,7 @@ export default function DiscountsPage() {
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger className="text-left">
-                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                   Codici Sconto
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 </h1>
@@ -293,7 +293,7 @@ export default function DiscountsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <h1 className="hidden md:block text-3xl font-bold">Codici Sconto</h1>
+          <h1 className="hidden md:block text-body-xl font-bold">Codici Sconto</h1>
           <p className="text-muted-foreground">
             Gestisci i codici sconto per i tuoi clienti
           </p>
@@ -389,7 +389,7 @@ export default function DiscountsPage() {
               <p className="text-muted-foreground">
                 Nessun codice sconto disponibile.
               </p>
-              <p className="text-sm text-muted-foreground mt-1">
+              <p className="text-label text-muted-foreground mt-1">
                 Crea il primo codice per iniziare.
               </p>
             </div>
@@ -440,7 +440,7 @@ export default function DiscountsPage() {
                     </TableCell>
                     <TableCell className="text-right">
                       <Button
-                        variant="ghost"
+                        variant="link"
                         size="icon"
                         onClick={() => handleDeleteDiscount(discount.id)}
                       >

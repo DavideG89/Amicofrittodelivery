@@ -48,10 +48,10 @@ export default function InfoPage() {
                 priority
               />
             </div>
-            <h1 className="text-4xl font-bold text-balance">
+            <h1 className="text-section-title font-bold text-balance">
               {storeInfo?.name || 'Amico Fritto'}
             </h1>
-            <p className="text-lg text-muted-foreground">
+            <p className="text-body text-muted-foreground">
               I migliori fritti della città
             </p>
           </div>
@@ -74,7 +74,7 @@ export default function InfoPage() {
                     </CardTitle>
                   </CardHeader>
                   <CardContent>
-                    <p className="text-lg">{storeInfo.address}</p>
+                    <p className="text-body">{storeInfo.address}</p>
                   </CardContent>
                 </Card>
               )}
@@ -91,7 +91,7 @@ export default function InfoPage() {
                   <CardContent>
                     <a 
                       href={`tel:${storeInfo.phone.replace(/\s/g, '')}`}
-                      className="text-lg hover:text-primary transition-colors"
+                      className="text-body hover:text-primary transition-colors"
                     >
                       {storeInfo.phone}
                     </a>
@@ -115,7 +115,7 @@ export default function InfoPage() {
                       return (
                     <div className="space-y-2">
                       {typeof display === 'string' ? (
-                        <div className="whitespace-pre-line text-lg">
+                        <div className="whitespace-pre-line text-body">
                           {display}
                         </div>
                       ) : (
@@ -143,25 +143,25 @@ export default function InfoPage() {
                 </CardHeader>
                 <CardContent className="space-y-2">
                   <div className="flex items-start gap-3">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-label font-bold flex-shrink-0">
                       1
                     </div>
                     <p>Sfoglia il nostro menu e aggiungi i prodotti al carrello</p>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-label font-bold flex-shrink-0">
                       2
                     </div>
                     <p>Scegli se vuoi il delivery a domicilio o il takeaway in negozio</p>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-label font-bold flex-shrink-0">
                       3
                     </div>
                     <p>Inserisci i tuoi dati e completa l&apos;ordine</p>
                   </div>
                   <div className="flex items-start gap-3">
-                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0">
+                    <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-label font-bold flex-shrink-0">
                       4
                     </div>
                     <p>Pagamento in contanti o carta (POS), sia al ritiro che alla consegna</p>

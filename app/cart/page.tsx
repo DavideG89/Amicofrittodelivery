@@ -268,12 +268,12 @@ export default function CartPage() {
         <div className="mb-6 space-y-3">
           <Link
             href="/"
-            className="inline-flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:hidden"
+            className="inline-flex items-center text-label font-medium text-muted-foreground transition-colors hover:text-foreground md:hidden"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Torna al menu
           </Link>
-          <Button variant="ghost" asChild className="-ml-3 hidden md:inline-flex">
+          <Button variant="link" asChild className="-ml-3 hidden md:inline-flex">
             <Link href="/">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Torna al menu
@@ -282,9 +282,9 @@ export default function CartPage() {
           
           <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
             <div>
-              <h1 className="text-2xl sm:text-3xl font-bold">Il tuo carrello</h1>
+              <h1 className="text-body-lg sm:text-body-xl font-bold">Il tuo carrello</h1>
               {items.length > 0 && (
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-label text-muted-foreground">
                   {items.length} {items.length === 1 ? 'articolo' : 'articoli'}
                 </p>
               )}
@@ -334,7 +334,7 @@ export default function CartPage() {
               )}
             </div>
             {lastOrderLoading && (
-              <p className="text-sm text-amber-800 mt-1">Verifica ordine in corso...</p>
+              <p className="text-label text-amber-800 mt-1">Verifica ordine in corso...</p>
             )}
           </div>
         )}
@@ -367,27 +367,27 @@ export default function CartPage() {
                             sizes="(max-width: 640px) 80px, 96px"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                          <div className="w-full h-full flex items-center justify-center text-caption text-muted-foreground">
                             No img
                           </div>
                         )}
                       </div>
 
                       <div className="flex-grow min-w-0">
-                        <h3 className="font-semibold text-base sm:text-lg truncate">{item.product.name}</h3>
-                        <p className="text-xs sm:text-sm text-muted-foreground">
+                        <h3 className="font-semibold text-base sm:text-body truncate">{item.product.name}</h3>
+                        <p className="text-caption sm:text-label text-muted-foreground">
                           {(item.product.price + (item.additions_unit_price || 0)).toFixed(2)}€ cad.
                           {(item.additions_unit_price || 0) > 0 && (
                             <span> (base {item.product.price.toFixed(2)}€ + extra {(item.additions_unit_price || 0).toFixed(2)}€)</span>
                           )}
                         </p>
                         {item.additions && (
-                          <p className="text-xs text-muted-foreground mt-1">
+                          <p className="text-caption text-muted-foreground mt-1">
                             {item.additions}
                           </p>
                         )}
                         {Array.isArray(item.removed_ingredients) && item.removed_ingredients.length > 0 ? (
-                          <p className="mt-1 text-xs font-medium text-destructive">
+                          <p className="mt-1 text-caption font-medium text-destructive">
                             Senza: {item.removed_ingredients.map((ingredient) => ingredient.name).join(', ')}
                           </p>
                         ) : null}
@@ -395,16 +395,16 @@ export default function CartPage() {
                         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-3">
                           <div className="flex items-center border rounded-md bg-background">
                             <Button
-                              variant="ghost"
+                              variant="link"
                               size="icon"
                               className="h-8 w-8 sm:h-9 sm:w-9"
                               onClick={() => updateQuantity(getCartItemKey(item), item.quantity - 1)}
                             >
                               <Minus className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
                             </Button>
-                            <span className="w-10 text-center font-medium text-sm">{item.quantity}</span>
+                            <span className="w-10 text-center font-medium text-label">{item.quantity}</span>
                             <Button
-                              variant="ghost"
+                              variant="link"
                               size="icon"
                               className="h-8 w-8 sm:h-9 sm:w-9"
                               onClick={() => updateQuantity(getCartItemKey(item), item.quantity + 1)}
@@ -419,7 +419,7 @@ export default function CartPage() {
                               (item.removed_ingredient_ids?.length || 0) > 0
                             ) ? (
                               <Button
-                                variant="ghost"
+                                variant="link"
                                 size="icon"
                                 className="h-8 w-8 sm:h-9 sm:w-9"
                                 onClick={() => setEditingItem(item)}
@@ -428,11 +428,11 @@ export default function CartPage() {
                                 <Pencil className="h-4 w-4" />
                               </Button>
                             ) : null}
-                            <span className="font-bold text-lg sm:text-xl text-primary">
+                            <span className="font-bold text-body sm:text-xl text-primary">
                               {((item.product.price + (item.additions_unit_price || 0)) * item.quantity).toFixed(2)}€
                             </span>
                             <Button
-                              variant="ghost"
+                              variant="link"
                               size="icon"
                               className="h-8 w-8 sm:h-9 sm:w-9 text-destructive hover:bg-destructive/10"
                               onClick={() => removeItem(getCartItemKey(item))}
@@ -451,13 +451,13 @@ export default function CartPage() {
             <div className="lg:col-span-1">
               <Card className="sticky top-20 shadow-lg">
                 <CardHeader className="pb-4">
-                  <CardTitle className="text-lg sm:text-xl">Riepilogo ordine</CardTitle>
+                  <CardTitle className="text-body sm:text-xl">Riepilogo ordine</CardTitle>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <div className="space-y-3 rounded-lg border bg-muted/50 p-3">
                     <div className="space-y-1">
-                      <Label className="font-medium text-sm">Modalità ordine</Label>
-                      <p className="text-xs text-muted-foreground">
+                      <Label className="font-medium text-label">Modalità ordine</Label>
+                      <p className="text-caption text-muted-foreground">
                         {isDelivery ? 'Consegna a domicilio' : 'Ritiro in negozio'}
                       </p>
                     </div>
@@ -474,13 +474,13 @@ export default function CartPage() {
                   </div>
 
                   {isDelivery && storeInfo && subtotal < storeInfo.min_order_delivery && (
-                    <div className="text-xs sm:text-sm text-destructive bg-destructive/10 p-3 rounded-md leading-relaxed">
+                    <div className="text-caption sm:text-label text-destructive bg-destructive/10 p-3 rounded-md leading-relaxed">
                       Ordine minimo per la consegna: <strong>{storeInfo.min_order_delivery.toFixed(2)}€</strong>
                     </div>
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="cart-discount-code" className="text-sm">
+                    <Label htmlFor="cart-discount-code" className="text-label">
                       Codice sconto
                     </Label>
                     <div className="flex gap-2">
@@ -518,32 +518,32 @@ export default function CartPage() {
                       </Button>
                     </div>
                     {discountCode.trim() && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-caption text-muted-foreground">
                         Ordine minimo per usare lo sconto: {DISCOUNT_MIN_ORDER.toFixed(2)}€
                       </p>
                     )}
                     {discountError && (
-                      <p className="text-xs sm:text-sm text-red-600 font-medium">{discountError}</p>
+                      <p className="text-caption sm:text-label text-red-600 font-medium">{discountError}</p>
                     )}
                   </div>
 
                   <Separator />
 
                   <div className="space-y-3">
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-label">
                       <span className="text-muted-foreground">Subtotale</span>
                       <span className="font-medium">{subtotal.toFixed(2)}€</span>
                     </div>
                     
                     {isDelivery && (
-                      <div className="flex justify-between text-sm">
+                      <div className="flex justify-between text-label">
                         <span className="text-muted-foreground">Costo consegna</span>
                         <span className="font-medium">{deliveryFee.toFixed(2)}€</span>
                       </div>
                     )}
 
                     {discountAmount > 0 && (
-                      <div className="flex justify-between text-sm text-green-600 font-medium">
+                      <div className="flex justify-between text-label text-green-600 font-medium">
                         <span>Sconto ({discountCode.trim().toUpperCase()})</span>
                         <span>-{discountAmount.toFixed(2)}€</span>
                       </div>
@@ -551,7 +551,7 @@ export default function CartPage() {
 
                     <Separator />
 
-                    <div className="flex justify-between font-bold text-lg sm:text-xl">
+                    <div className="flex justify-between font-bold text-body sm:text-xl">
                       <span>Totale</span>
                       <span className="text-primary">{total.toFixed(2)}€</span>
                     </div>
@@ -590,7 +590,7 @@ export default function CartPage() {
           <DrawerFooter className="pb-[calc(env(safe-area-inset-bottom)+1rem)]">
             <Button
               type="button"
-              variant="destructive"
+              variant="error"
               onClick={handleConfirmClearCart}
             >
               Sono sicuro

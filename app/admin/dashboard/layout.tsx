@@ -26,9 +26,9 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { extractOpeningHours, formatNextOpen, getCurrentOrderScheduleClock, getOrderStatus } from '@/lib/order-schedule'
 
-const brandYellow = '#ffc400'
-const brandRed = '#ff2d20'
-const brandGreen = '#1aa33b'
+const brandYellow = 'hsl(var(--ds-buttons))'
+const brandRed = 'hsl(var(--ds-error))'
+const brandGreen = 'hsl(var(--ds-confirm))'
 
 const navItems = [
   { href: '/admin/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -388,7 +388,7 @@ export default function AdminDashboardLayout({
         toast(title, {
           description: body,
           duration: 8000,
-          icon: <Star className="h-4 w-4 text-[#ff7900]" />,
+          icon: <Star className="h-4 w-4 text-ds-cheddar" />,
         })
         playNotificationSound()
       },
@@ -414,7 +414,7 @@ export default function AdminDashboardLayout({
         toast(title, {
           description: body,
           duration: 8000,
-          icon: <Star className="h-4 w-4 text-[#ff7900]" />,
+          icon: <Star className="h-4 w-4 text-ds-cheddar" />,
         })
         playNotificationSound()
       })
@@ -762,7 +762,7 @@ export default function AdminDashboardLayout({
   }
 
   const Sidebar = () => (
-    <div className="flex h-full flex-col bg-[#020a0f] text-white">
+    <div className="flex h-full flex-col bg-slate-950 text-white">
       <div className="px-7 pb-5 pt-6">
         <Image 
           src="/logo-bianco.png" 
@@ -796,7 +796,7 @@ export default function AdminDashboardLayout({
                   <Icon className="h-5 w-5" />
                   <span className="flex-1">{item.label}</span>
                   {showOrdersBadge && (
-                    <span className="rounded-full px-2 py-0.5 text-xs font-black text-white" style={{ backgroundColor: brandRed }}>
+                    <span className="rounded-full px-2 py-0.5 text-caption font-black text-destructive-foreground" style={{ backgroundColor: brandRed }}>
                       {pendingOrdersCount}
                     </span>
                   )}
@@ -811,11 +811,11 @@ export default function AdminDashboardLayout({
         <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <p className="text-xs font-black uppercase text-white/75">Stato locale</p>
-              <p className="mt-1.5 text-lg font-black" style={{ color: orderStatus.isOpen ? brandGreen : brandRed }}>
+              <p className="text-caption font-black uppercase text-white/75">Stato locale</p>
+              <p className="mt-1.5 text-body font-black" style={{ color: orderStatus.isOpen ? brandGreen : brandRed }}>
                 {orderStatus.isOpen ? 'APERTO' : 'CHIUSO'}
               </p>
-              <p className="mt-1 text-sm text-white/70">
+              <p className="mt-1 text-label text-white/70">
                 {orderStatus.isOpen ? getActiveOpenLabel() : nextOpenLabel ? `Apre ${nextOpenLabel}` : 'Ordinazioni chiuse'}
               </p>
             </div>
@@ -833,18 +833,18 @@ export default function AdminDashboardLayout({
 
         <div className="rounded-lg border border-white/10 bg-white/[0.03] p-3">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-black text-zinc-950" style={{ backgroundColor: brandYellow }}>
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-label font-black text-zinc-950" style={{ backgroundColor: brandYellow }}>
               AF
             </div>
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold leading-tight text-white">Amico Fritto</p>
-              <p className="text-xs leading-tight text-white/60">Staff</p>
+              <p className="truncate text-label font-bold leading-tight text-white">Amico Fritto</p>
+              <p className="text-caption leading-tight text-white/60">Staff</p>
             </div>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button
                   type="button"
-                  variant="ghost"
+                  variant="link"
                   size="icon"
                   className="h-8 w-8 shrink-0 text-white/70 hover:bg-white/10 hover:text-white"
                   aria-label="Apri menu profilo"
@@ -875,7 +875,7 @@ export default function AdminDashboardLayout({
     <div className="h-dvh overflow-hidden bg-background">
       <div className="flex h-full min-h-0">
         {/* Desktop Sidebar */}
-        <aside className="hidden w-64 flex-col border-r border-black bg-[#020a0f] md:flex">
+        <aside className="hidden w-64 flex-col border-r border-black bg-slate-950 md:flex">
           <Sidebar />
         </aside>
 
@@ -894,7 +894,7 @@ export default function AdminDashboardLayout({
             <div className="flex items-center gap-2">
               <div className="relative">
                 <Button
-                  variant="ghost"
+                  variant="link"
                   size="sm"
                   onClick={handlePushToggle}
                   className={cn(
@@ -913,7 +913,7 @@ export default function AdminDashboardLayout({
                   <span>{pushStatus === 'enabled' ? 'On' : 'Off'}</span>
                 </Button>
                 {showPushTooltip && (
-                  <div className="absolute left-0 top-9 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-xs text-muted-foreground shadow-sm">
+                  <div className="absolute left-0 top-9 whitespace-nowrap rounded-md border bg-background px-2 py-1 text-caption text-muted-foreground shadow-sm">
                     Notifiche disattivate
                   </div>
                 )}
@@ -922,7 +922,7 @@ export default function AdminDashboardLayout({
                 <SheetTrigger asChild>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="link"
                     size="icon"
                     className="relative h-10 w-10 rounded-[10px] border"
                     aria-label={pendingOrdersCount > 0
@@ -963,7 +963,7 @@ export default function AdminDashboardLayout({
                               <Link
                                 href={item.href}
                                 className={cn(
-                                  'flex min-h-11 items-center gap-2 rounded-[10px] px-2 py-2 text-xs font-bold leading-tight transition-colors',
+                                  'flex min-h-11 items-center gap-2 rounded-[10px] px-2 py-2 text-caption font-bold leading-tight transition-colors',
                                   isActive
                                     ? 'text-zinc-950'
                                     : 'text-zinc-600 hover:bg-muted hover:text-zinc-950'
@@ -973,7 +973,7 @@ export default function AdminDashboardLayout({
                                 <Icon className="h-4 w-4 shrink-0" />
                                 <span className="min-w-0 flex-1 break-words">{item.label}</span>
                                 {showOrdersBadge && (
-                                  <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none text-white" style={{ backgroundColor: brandRed }}>
+                                  <span className="shrink-0 rounded-full px-1.5 py-0.5 text-[10px] font-black leading-none text-destructive-foreground" style={{ backgroundColor: brandRed }}>
                                     {pendingOrdersCount}
                                   </span>
                                 )}
@@ -985,14 +985,16 @@ export default function AdminDashboardLayout({
                     </ul>
                     <div className="mt-auto border-t pt-3">
                       <SheetClose asChild>
-                        <button
+                        <Button
                           type="button"
+                          variant="link"
+                          size="sm"
                           onClick={handleLogout}
-                          className="flex min-h-11 w-full items-center gap-2 rounded-[10px] px-2 py-2 text-left text-xs font-bold text-destructive transition-colors hover:bg-destructive/10"
+                          className="min-h-11 w-full justify-start px-2 text-left text-caption text-destructive hover:bg-destructive/10"
                         >
                           <LogOut className="h-4 w-4 shrink-0" />
                           <span>Esci</span>
-                        </button>
+                        </Button>
                       </SheetClose>
                     </div>
                   </nav>
@@ -1005,7 +1007,7 @@ export default function AdminDashboardLayout({
           <main className="min-h-0 flex-1 overflow-y-auto pb-[env(safe-area-inset-bottom)] md:pb-0">
             {pushStatus !== 'enabled' && (
               <div className="border-b bg-card/60 px-4 py-3 flex items-center justify-between gap-3">
-                <div className="text-sm text-muted-foreground">
+                <div className="text-label text-muted-foreground">
                   {pushStatus === 'denied' &&
                     (isNativeAndroidPushSupported()
                       ? 'Notifiche bloccate per l app. Vai su Android: Impostazioni -> App -> Amico Fritto Ristoratore -> Notifiche -> Consenti.'
@@ -1015,7 +1017,7 @@ export default function AdminDashboardLayout({
                   {pushStatus === 'error' && 'Errore durante l’attivazione delle notifiche.'}
                   {pushStatus === 'idle' && 'Abilita le notifiche per ricevere i nuovi ordini.'}
                   {pushErrorDetail && (
-                    <span className="block mt-1 text-xs text-foreground/80">
+                    <span className="block mt-1 text-caption text-foreground/80">
                       Dettaglio: {pushErrorDetail}
                     </span>
                   )}

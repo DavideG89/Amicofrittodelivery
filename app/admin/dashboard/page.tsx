@@ -51,10 +51,10 @@ type OrderFeedback = {
 const orderSelect =
   'id, order_number, customer_name, customer_phone, customer_address, order_type, payment_method, items, subtotal, discount_code, discount_amount, delivery_fee, total, status, notes, created_at, updated_at'
 
-const brandYellow = '#ffc400'
-const brandYellowSoft = '#fff6d7'
-const brandRed = '#ff2d20'
-const brandGreen = '#1aa33b'
+const brandYellow = 'hsl(var(--ds-buttons))'
+const brandYellowSoft = 'hsl(var(--ds-background-second))'
+const brandRed = 'hsl(var(--ds-error))'
+const brandGreen = 'hsl(var(--ds-confirm))'
 
 function toLocalDayKey(date: Date) {
   const year = date.getFullYear()
@@ -156,7 +156,7 @@ function RevenueChart({ points }: { points: RevenuePoint[] }) {
       </defs>
       {[0, 0.33, 0.66, 1].map((ratio) => {
         const y = padding.top + chartHeight * ratio
-        return <line key={ratio} x1={padding.left} x2={padding.left + chartWidth} y1={y} y2={y} stroke="#e5e7eb" />
+        return <line key={ratio} x1={padding.left} x2={padding.left + chartWidth} y1={y} y2={y} stroke="hsl(var(--ds-card-border))" />
       })}
       {coordinates
         .filter((_, index) => index === 0 || index === coordinates.length - 1 || index % Math.max(1, Math.ceil(coordinates.length / 4)) === 0)
@@ -178,7 +178,7 @@ function RevenueChart({ points }: { points: RevenuePoint[] }) {
       <path d={areaPath} fill="url(#revenueFill)" />
       <path d={path} fill="none" stroke={brandYellow} strokeWidth="4" strokeLinejoin="round" strokeLinecap="round" />
       {lastPoint && lastPoint.total > 0 && (
-        <circle cx={lastPoint.x} cy={lastPoint.y} r="6" fill={brandYellow} stroke="#fff7d6" strokeWidth="4" />
+        <circle cx={lastPoint.x} cy={lastPoint.y} r="6" fill={brandYellow} stroke="hsl(var(--ds-background-second))" strokeWidth="4" />
       )}
     </svg>
   )
@@ -527,17 +527,17 @@ export default function AdminDashboardPage() {
   ]
 
   return (
-    <div className="min-h-full bg-[#f6f5f2] p-4 sm:p-6 lg:p-8">
+    <div className="min-h-full bg-background p-4 sm:p-6 lg:p-8">
       <div className="mb-8 flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
         <div>
           <div className="flex items-center justify-between gap-3 md:hidden">
-            <h1 className="text-2xl font-black text-zinc-950">Dashboard</h1>
-            <div className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-xs font-bold text-zinc-700 shadow-sm">
+            <h1 className="text-body-lg font-black text-zinc-950">Dashboard</h1>
+            <div className="inline-flex h-10 shrink-0 items-center gap-2 rounded-full border border-zinc-200 bg-white px-3 text-caption font-bold text-zinc-700 shadow-sm">
               <CalendarDays className="h-4 w-4" />
               <span>{new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'short' }).format(new Date())}</span>
             </div>
           </div>
-          <h1 className="hidden text-3xl font-black tracking-normal text-zinc-950 md:block">Dashboard</h1>
+          <h1 className="hidden text-body-xl font-black tracking-normal text-zinc-950 md:block">Dashboard</h1>
           <p className="mt-1 text-base text-zinc-600">Panoramica del tuo ristorante</p>
         </div>
 
@@ -546,7 +546,7 @@ export default function AdminDashboardPage() {
             <Bell className="h-4 w-4" />
             <span>Notifiche</span>
             {displayedPendingCount > 0 && (
-              <span className="ml-1 rounded-full px-1.5 py-0.5 text-xs font-bold text-white" style={{ backgroundColor: brandRed }}>
+              <span className="ml-1 rounded-full px-1.5 py-0.5 text-caption font-bold text-destructive-foreground" style={{ backgroundColor: brandRed }}>
                 {displayedPendingCount}
               </span>
             )}
@@ -570,12 +570,12 @@ export default function AdminDashboardPage() {
               <CardContent className="p-4 sm:p-5 lg:p-6">
                 <div className="flex items-start justify-between gap-2 sm:gap-4">
                   <div className="min-w-0">
-                    <p className="text-[11px] font-black uppercase leading-tight text-zinc-900 sm:text-sm">{stat.title}</p>
-                    <div className="mt-3 text-3xl font-black tracking-normal text-zinc-950 sm:mt-4 sm:text-4xl">
+                    <p className="text-[11px] font-black uppercase leading-tight text-zinc-900 sm:text-label">{stat.title}</p>
+                    <div className="mt-3 text-body-xl font-black tracking-normal text-zinc-950 sm:mt-4 sm:text-section-title">
                       {stat.value}
                     </div>
                     <p
-                      className={`mt-2 text-xs font-medium leading-tight sm:mt-3 sm:text-sm ${stat.tone === 'yellow' ? '' : 'text-zinc-500'}`}
+                      className={`mt-2 text-caption font-medium leading-tight sm:mt-3 sm:text-label ${stat.tone === 'yellow' ? '' : 'text-zinc-500'}`}
                       style={stat.tone === 'yellow' ? { color: brandRed } : undefined}
                     >
                       {stat.description}
@@ -583,19 +583,19 @@ export default function AdminDashboardPage() {
                   </div>
                   <div className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full sm:h-12 sm:w-12 ${
                     stat.tone === 'green'
-                      ? 'bg-[#d9f7de] text-[#1aa33b]'
+                      ? 'bg-ds-confirm/10 text-ds-confirm'
                       : stat.tone === 'purple'
-                        ? 'bg-[#eee5ff] text-[#7c3aed]'
+                        ? 'bg-violet-100 text-violet-600'
                         : stat.tone === 'blue'
-                          ? 'bg-[#dceaff] text-[#2563eb]'
-                      : 'bg-[#ffdf73] text-zinc-950'
+                          ? 'bg-blue-100 text-blue-600'
+                      : 'bg-amber-200 text-zinc-950'
                   }`}>
                     <Icon className="h-4 w-4 sm:h-6 sm:w-6" />
                   </div>
                 </div>
               </CardContent>
               {stat.tone === 'yellow' && (
-                <div className="border-t px-3 py-2.5 text-center text-xs font-bold text-zinc-950 sm:px-6 sm:py-4 sm:text-sm" style={{ borderColor: '#e7b000', backgroundColor: brandYellow }}>
+                <div className="border-t border-amber-600 bg-ds-buttons px-3 py-2.5 text-center text-caption font-bold text-zinc-950 sm:px-6 sm:py-4 sm:text-label">
                   Vai agli ordini <ArrowRight className="ml-2 inline h-4 w-4" />
                 </div>
               )}
@@ -624,10 +624,10 @@ export default function AdminDashboardPage() {
             <div>
               <CardTitle className="flex items-center gap-3 text-xl font-black">
                 Nuovi ordini
-                <Badge className="rounded-full px-2 text-white" style={{ backgroundColor: brandRed }}>{displayedPendingCount}</Badge>
+                <Badge className="rounded-full px-2 text-destructive-foreground" style={{ backgroundColor: brandRed }}>{displayedPendingCount}</Badge>
               </CardTitle>
             </div>
-            <Button asChild variant="ghost" size="sm" className="gap-2 text-blue-700">
+            <Button asChild variant="link" size="sm" className="gap-2 text-blue-700">
               <Link href="/admin/dashboard/orders?tab=pending">
                 Vedi tutti gli ordini <ArrowRight className="h-4 w-4" />
               </Link>
@@ -635,7 +635,7 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent className="p-0">
             {pendingOrders.length === 0 ? (
-              <div className="px-6 py-12 text-center text-sm text-zinc-500">Nessun nuovo ordine da accettare.</div>
+              <div className="px-6 py-12 text-center text-label text-zinc-500">Nessun nuovo ordine da accettare.</div>
             ) : (
               <div className="divide-y">
                 {pendingOrders.map((order) => {
@@ -656,19 +656,19 @@ export default function AdminDashboardPage() {
                       style={{ borderLeftColor: brandRed }}
                     >
                       <div className="sm:border-r sm:border-zinc-200 sm:pr-4">
-                        <div className="text-lg font-black" style={{ color: brandRed }}>{timeLabel}</div>
-                        <div className="mt-1 text-xs text-zinc-500">{distanceLabel}</div>
+                        <div className="text-body font-black" style={{ color: brandRed }}>{timeLabel}</div>
+                        <div className="mt-1 text-caption text-zinc-500">{distanceLabel}</div>
                       </div>
                       <div className="min-w-0">
                         <div className="flex flex-wrap items-center gap-3">
                           <div className="text-xl font-black text-zinc-950">#{order.order_number}</div>
-                          <Badge className="rounded-full bg-[#ffe6a1] text-[#7a5200] hover:bg-[#ffe6a1]">
+                          <Badge className="rounded-full bg-amber-100 text-amber-900 hover:bg-amber-100">
                             NUOVO
                           </Badge>
                           <Badge variant="outline">{order.order_type === 'delivery' ? 'Consegna' : 'Ritiro'}</Badge>
                         </div>
-                        <p className="mt-2 text-sm font-semibold text-zinc-700">{order.customer_name}</p>
-                        <p className="mt-1 truncate text-sm text-zinc-500">{compactItems(order) || 'Articoli ordine non disponibili'}</p>
+                        <p className="mt-2 text-label font-semibold text-zinc-700">{order.customer_name}</p>
+                        <p className="mt-1 truncate text-label text-zinc-500">{compactItems(order) || 'Articoli ordine non disponibili'}</p>
                       </div>
                       <div className="flex flex-col justify-between gap-4 sm:min-w-[250px]">
                         <div className="text-left text-xl font-black text-zinc-950 sm:text-right">{formatCurrency(order.total)}</div>
@@ -677,7 +677,7 @@ export default function AdminDashboardPage() {
                             type="button"
                             variant="outline"
                             className="hover:bg-red-50"
-                            style={{ borderColor: '#ff9b94', color: brandRed }}
+                            style={{ borderColor: 'hsl(var(--ds-error) / 0.5)', color: brandRed }}
                             disabled={isBusy}
                             onClick={() => handleStatusChange(order, 'cancelled')}
                           >
@@ -723,12 +723,12 @@ export default function AdminDashboardPage() {
               <Badge variant="outline">{currentMonthLabel}</Badge>
             </CardHeader>
             <CardContent>
-              <div className="text-3xl font-black text-zinc-950">{formatCurrency(currentMonthRevenueTotal)}</div>
-              <p className="mt-1 text-sm font-medium" style={{ color: brandGreen }}>Include l'incasso live di oggi</p>
+              <div className="text-body-xl font-black text-zinc-950">{formatCurrency(currentMonthRevenueTotal)}</div>
+              <p className="mt-1 text-label font-medium" style={{ color: brandGreen }}>Include l'incasso live di oggi</p>
               {monthlyRevenue.length > 0 ? (
                 <RevenueChart points={monthlyRevenue} />
               ) : (
-                <div className="flex h-48 items-center justify-center text-sm text-zinc-500">
+                <div className="flex h-48 items-center justify-center text-label text-zinc-500">
                   Nessun incasso nel mese corrente.
                 </div>
               )}
@@ -741,14 +741,14 @@ export default function AdminDashboardPage() {
                 <CardTitle className="text-base font-black">Feedback ricevuti</CardTitle>
                 <CardDescription>Ultime recensioni dagli ordini completati</CardDescription>
               </div>
-              <div className="flex shrink-0 items-center gap-1 rounded-full bg-[#fff6d7] px-3 py-1 text-sm font-black text-zinc-950">
-                <Star className="h-4 w-4 fill-[#ffc400] text-[#ffc400]" />
+              <div className="flex shrink-0 items-center gap-1 rounded-full bg-ds-background-second px-3 py-1 text-label font-black text-zinc-950">
+                <Star className="h-4 w-4 fill-ds-buttons text-ds-buttons" />
                 {feedbackSummary.count > 0 ? feedbackSummary.average.toFixed(1) : '--'}
               </div>
             </CardHeader>
             <CardContent>
               {feedbackRows.length === 0 ? (
-                <div className="rounded-lg border border-dashed border-zinc-200 px-4 py-8 text-center text-sm text-zinc-500">
+                <div className="rounded-lg border border-dashed border-zinc-200 px-4 py-8 text-center text-label text-zinc-500">
                   Nessun feedback ricevuto.
                 </div>
               ) : (
@@ -762,14 +762,14 @@ export default function AdminDashboardPage() {
                       <div key={feedback.id} className="rounded-lg border border-zinc-200 p-3">
                         <div className="flex items-start justify-between gap-3">
                           <div className="min-w-0">
-                            <div className="font-mono text-sm font-black text-zinc-950">#{feedback.order_number}</div>
-                            <div className="mt-1 text-xs text-zinc-500">{dateLabel}</div>
+                            <div className="font-mono text-label font-black text-zinc-950">#{feedback.order_number}</div>
+                            <div className="mt-1 text-caption text-zinc-500">{dateLabel}</div>
                           </div>
                           <div className="flex shrink-0 items-center gap-0.5" aria-label={`${feedback.rating} stelle`}>
                             {[1, 2, 3, 4, 5].map((value) => (
                               <Star
                                 key={value}
-                                className={`h-4 w-4 ${value <= feedback.rating ? 'fill-[#ffc400] text-[#ffc400]' : 'fill-transparent text-zinc-300'}`}
+                                className={`h-4 w-4 ${value <= feedback.rating ? 'fill-ds-buttons text-ds-buttons' : 'fill-transparent text-zinc-300'}`}
                               />
                             ))}
                           </div>
@@ -794,19 +794,19 @@ export default function AdminDashboardPage() {
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-[120px_1fr]">
-        <div className="pt-2 text-lg font-black text-zinc-950">Azioni rapide</div>
+        <div className="pt-2 text-body font-black text-zinc-950">Azioni rapide</div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
           {quickActions.map((action) => {
             const Icon = action.icon
             return (
-              <Link key={action.href} href={action.href} className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm transition-colors hover:border-[#ffc400]">
+              <Link key={action.href} href={action.href} className="rounded-lg border border-zinc-200 bg-white p-4 shadow-sm transition-colors hover:border-ds-buttons">
                 <div className="flex items-center gap-4">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-[#ffe6a1] text-zinc-950">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-full bg-amber-100 text-zinc-950">
                     <Icon className="h-5 w-5" />
                   </div>
                   <div>
                     <div className="font-black text-zinc-950">{action.title}</div>
-                    <div className="text-sm text-zinc-500">{action.description}</div>
+                    <div className="text-label text-zinc-500">{action.description}</div>
                   </div>
                 </div>
               </Link>
@@ -820,7 +820,7 @@ export default function AdminDashboardPage() {
           <CardHeader className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
               <CardTitle className="text-xl font-black">Incassi giornalieri</CardTitle>
-              <p className="mt-1 text-sm font-semibold">Totale: {dailyRevenueTotal.toFixed(2)}€</p>
+              <p className="mt-1 text-label font-semibold">Totale: {dailyRevenueTotal.toFixed(2)}€</p>
               <CardDescription>
                 {showAllDailyRevenue ? 'Riepilogo di tutti gli incassi salvati' : `Riepilogo mese corrente (${currentMonthLabel})`}
               </CardDescription>
@@ -836,7 +836,7 @@ export default function AdminDashboardPage() {
           </CardHeader>
           <CardContent>
             {dailyRevenue.length === 0 ? (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-label text-muted-foreground">
                 {showAllDailyRevenue ? 'Nessun incasso disponibile.' : 'Nessun incasso nel mese corrente.'}
               </p>
             ) : (

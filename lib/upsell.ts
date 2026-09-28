@@ -1,3 +1,4 @@
+import { fetchCategories } from '@/lib/categories'
 import { supabase, type Category, type Product, type UpsellSettings } from '@/lib/supabase'
 import { applyUpsellOverrideToProduct, normalizeUpsellProductOverrides } from '@/lib/upsell-overrides'
 
@@ -34,7 +35,7 @@ export async function fetchUpsellSuggestions(excludedProductIds: string[]) {
         .select('id, enabled, product_ids, max_items, product_overrides')
         .eq('id', 'default')
         .maybeSingle(),
-      supabase.from('categories').select('id, name, slug, display_order, ingredient_customization_enabled, created_at, updated_at'),
+      fetchCategories(),
     ])
 
     let settings = (settingsData as UpsellSettings | null) || null

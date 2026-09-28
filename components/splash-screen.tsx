@@ -66,7 +66,7 @@ export function SplashScreen({ waitForHomeReady = false }: SplashScreenProps) {
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-white">
       <div className="flex flex-col items-center gap-3">
         <Image src="/logo.png" alt="Amico Fritto" width={240} height={96} priority />
-        <p className="text-sm font-medium tracking-wide text-slate-600">Delivery app</p>
+        <p className="text-label font-medium tracking-wide text-slate-600">Delivery app</p>
       </div>
     </div>
   )

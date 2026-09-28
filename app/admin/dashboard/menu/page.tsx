@@ -16,6 +16,7 @@ import { Switch } from '@/components/ui/switch'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
 import { ResponsiveEditorModal } from '@/components/admin/responsive-editor-modal'
 import { parseProductPieceOptionsInput, serializeProductPieceOptions } from '@/lib/product-piece-options'
+import { fetchCategories } from '@/lib/categories'
 import { supabase, Category, Product, ProductIngredient, OrderAddition, OrderAdditionType, UpsellSettings } from '@/lib/supabase'
 import { toast } from 'sonner'
 
@@ -24,6 +25,7 @@ const DEFAULT_UPSELL_MAX_ITEMS = 6
 
 export default function MenuManagementPage() {
   const router = useRouter()
+  const [offersSupported, setOffersSupported] = useState(false)
   const [categories, setCategories] = useState<Category[]>([])
   const [products, setProducts] = useState<Product[]>([])
   const [additions, setAdditions] = useState<OrderAddition[]>([])
@@ -72,6 +74,7 @@ export default function MenuManagementPage() {
     slug: '',
     display_order: '',
     ingredient_customization_enabled: false,
+    show_as_offers: false,
   })
 
   const [additionForm, setAdditionForm] = useState({
@@ -149,10 +152,10 @@ export default function MenuManagementPage() {
 
   async function fetchData() {
     try {
-      const { data: categoriesData } = await supabase
-        .from('categories')
-        .select('id, name, slug, display_order, ingredient_customization_enabled, created_at, updated_at')
-        .order('display_order', { ascending: true })
+      const { data: categoriesData, error: categoriesError, offersSupported: supportsOffers } = await fetchCategories()
+
+      if (categoriesError) throw categoriesError
+      setOffersSupported(supportsOffers)
 
       const { data: productsData } = await supabase
         .from('products')
@@ -227,6 +230,7 @@ export default function MenuManagementPage() {
       slug: '',
       display_order: String(Math.max(-1, ...categories.map((category) => category.display_order ?? 0)) + 1),
       ingredient_customization_enabled: false,
+      show_as_offers: false,
     })
     setEditingCategory(null)
   }
@@ -238,6 +242,7 @@ export default function MenuManagementPage() {
       slug: category.slug,
       display_order: String(category.display_order ?? 0),
       ingredient_customization_enabled: category.ingredient_customization_enabled,
+      show_as_offers: category.show_as_offers === true,
     })
     setCategoryDialogOpen(true)
   }
@@ -422,6 +427,7 @@ export default function MenuManagementPage() {
             name: categoryForm.name,
             slug: categoryForm.slug || categoryForm.name.toLowerCase().replace(/\s+/g, '-'),
             ingredient_customization_enabled: categoryForm.ingredient_customization_enabled,
+            ...(offersSupported ? { show_as_offers: categoryForm.show_as_offers } : {}),
           },
           p_requested_display_order: requestedDisplayOrder,
         },
@@ -574,7 +580,7 @@ export default function MenuManagementPage() {
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger className="text-left">
-                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                   Gestione Menu
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 </h1>
@@ -588,13 +594,13 @@ export default function MenuManagementPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <h1 className="hidden md:block text-3xl font-bold">Gestione Menu</h1>
+          <h1 className="hidden md:block text-body-xl font-bold">Gestione Menu</h1>
           <p className="text-muted-foreground">Gestisci categorie e prodotti</p>
         </div>
         <div className="grid w-full grid-cols-3 gap-2 sm:flex sm:w-auto sm:flex-row">
           <Dialog open={categoryDialogOpen} onOpenChange={setCategoryDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" onClick={resetCategoryForm} className="h-14 min-w-0 flex-col gap-0 rounded-[10px] px-1 text-xs sm:h-10 sm:w-auto sm:flex-row sm:px-4 sm:text-sm">
+              <Button variant="outline" onClick={resetCategoryForm} className="h-14 min-w-0 flex-col gap-0 rounded-[10px] px-1 text-caption sm:h-10 sm:w-auto sm:flex-row sm:px-4 sm:text-label">
                 <Plus className="h-4 w-4 sm:mr-2" />
                 <span className="flex min-h-8 items-center whitespace-normal text-center leading-tight sm:min-h-0 sm:whitespace-nowrap">
                   Nuova Categoria
@@ -641,14 +647,34 @@ export default function MenuManagementPage() {
                     value={categoryForm.display_order}
                     onChange={(e) => setCategoryForm({ ...categoryForm, display_order: e.target.value })}
                   />
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="mt-1 text-caption text-muted-foreground">
                     Le categorie con un numero più basso vengono mostrate per prime.
                   </p>
+                </div>
+                <div className="flex items-center justify-between gap-3 rounded-md border p-3">
+                  <div className="space-y-1">
+                    <Label htmlFor="category-offers">Mostra come sezione offerte</Label>
+                    <p id="category-offers-description" className="text-caption text-muted-foreground">
+                      {offersSupported
+                        ? 'Mostra i prodotti in “Offerte del momento” con le card dedicate, al posto della categoria nel menu standard.'
+                        : 'La sezione offerte richiede un aggiornamento del database. Le categorie standard restano disponibili.'}
+                    </p>
+                  </div>
+                  <Switch
+                    id="category-offers"
+                    aria-describedby="category-offers-description"
+                    disabled={!offersSupported}
+                    checked={offersSupported && categoryForm.show_as_offers}
+                    onCheckedChange={(checked) => setCategoryForm((current) => ({
+                      ...current,
+                      show_as_offers: checked,
+                    }))}
+                  />
                 </div>
                 <div className="flex items-center justify-between rounded-md border p-3">
                   <div className="space-y-1">
                     <Label htmlFor="category-ingredient-customization">Personalizzazione ingredienti</Label>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-caption text-muted-foreground">
                       Abilita la configurazione manuale degli ingredienti rimovibili per i prodotti della categoria.
                     </p>
                   </div>
@@ -673,7 +699,7 @@ export default function MenuManagementPage() {
 
           <Dialog open={additionDialogOpen} onOpenChange={setAdditionDialogOpen}>
             <DialogTrigger asChild>
-              <Button variant="outline" onClick={resetAdditionForm} className="h-14 min-w-0 flex-col gap-0 rounded-[10px] px-1 text-xs sm:h-10 sm:w-auto sm:flex-row sm:px-4 sm:text-sm">
+              <Button variant="outline" onClick={resetAdditionForm} className="h-14 min-w-0 flex-col gap-0 rounded-[10px] px-1 text-caption sm:h-10 sm:w-auto sm:flex-row sm:px-4 sm:text-label">
                 <Plus className="h-4 w-4 sm:mr-2" />
                 <span className="flex min-h-8 items-center whitespace-normal text-center leading-tight sm:min-h-0 sm:whitespace-nowrap">
                   Nuova Aggiunta
@@ -755,7 +781,7 @@ export default function MenuManagementPage() {
                   productEditorReturnFocusRef.current = event.currentTarget
                   resetProductForm()
                 }}
-                className="h-14 min-w-0 flex-col gap-0 rounded-[10px] px-1 text-xs sm:h-10 sm:w-auto sm:flex-row sm:px-4 sm:text-sm"
+                className="h-14 min-w-0 flex-col gap-0 rounded-[10px] px-1 text-caption sm:h-10 sm:w-auto sm:flex-row sm:px-4 sm:text-label"
               >
                 <Plus className="h-4 w-4 sm:mr-2" />
                 <span className="flex min-h-8 items-center whitespace-normal text-center leading-tight sm:min-h-0 sm:whitespace-nowrap">
@@ -797,6 +823,13 @@ export default function MenuManagementPage() {
                     </SelectContent>
                   </Select>
                 </div>
+
+                {getCategoryById(productForm.category_id)?.show_as_offers && (
+                  <p className="rounded-md bg-muted p-3 text-label text-muted-foreground">
+                    Per creare un bundle fisso, inserisci nome, immagine, contenuto nella descrizione e prezzo complessivo.
+                    Sarà acquistato come un unico prodotto nella sezione offerte.
+                  </p>
+                )}
 
                 <div>
                   <Label htmlFor="name">Nome *</Label>
@@ -848,7 +881,7 @@ export default function MenuManagementPage() {
                       }
                     }}
                   />
-                  <p className="text-xs text-muted-foreground mt-1">
+                  <p className="text-caption text-muted-foreground mt-1">
                     Oppure inserisci un percorso locale come: /burgers/amico-burger.png
                   </p>
                   <Input
@@ -891,7 +924,7 @@ export default function MenuManagementPage() {
                       }))}
                       placeholder={'Cipolla\nPomodoro\nInsalata'}
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-caption text-muted-foreground">
                       Un ingrediente per riga. Questa lista alimenta il configuratore e non modifica il testo descrittivo sopra.
                     </p>
                   </div>
@@ -916,7 +949,7 @@ export default function MenuManagementPage() {
                       onChange={(e) => setProductForm({ ...productForm, piece_options_text: e.target.value })}
                       placeholder={`3:4.50\n6:8.50`}
                     />
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-caption text-muted-foreground">
                       Solo per fritti. Una riga per opzione: `pezzi:prezzo`. Esempio: `3:4.50`, `6:8.50`.
                     </p>
                   </div>
@@ -935,7 +968,7 @@ export default function MenuManagementPage() {
                   <div className="flex items-center justify-between rounded-md border p-3">
                     <div className="space-y-1">
                       <Label htmlFor="show-in-upsell">Mostra in upsell</Label>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-caption text-muted-foreground">
                         Aggiunge o rimuove questo prodotto dalla selezione upsell.
                       </p>
                     </div>
@@ -952,7 +985,7 @@ export default function MenuManagementPage() {
                     />
                   </div>
                   {!selectedCategorySupportsUpsell ? (
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-caption text-muted-foreground">
                       Upsell disponibile solo per categorie Bevande e Fritti.
                     </p>
                   ) : null}
@@ -973,7 +1006,7 @@ export default function MenuManagementPage() {
                       <SelectItem value="novita">Novità</SelectItem>
                     </SelectContent>
                   </Select>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-caption text-muted-foreground">
                     Mostra un badge sulla card del prodotto
                   </p>
                 </div>
@@ -1003,6 +1036,7 @@ export default function MenuManagementPage() {
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                     <div>
                       <CardTitle>{category.name}</CardTitle>
+                      {category.show_as_offers && <p className="text-label text-muted-foreground">Sezione offerte</p>}
                       <CardDescription>
                         {categoryProducts.length} prodotti
                       </CardDescription>
@@ -1013,7 +1047,7 @@ export default function MenuManagementPage() {
                         Modifica
                       </Button>
                       <Button
-                        variant="destructive"
+                        variant="error"
                         size="sm"
                         className="w-full sm:w-auto"
                         onClick={() => handleDeleteCategory(category.id)}
@@ -1044,7 +1078,7 @@ export default function MenuManagementPage() {
                                     className="object-cover"
                                   />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-xs text-muted-foreground">
+                                  <div className="w-full h-full flex items-center justify-center text-caption text-muted-foreground">
                                     No img
                                   </div>
                                 )}
@@ -1054,19 +1088,26 @@ export default function MenuManagementPage() {
                                 <div className="min-w-0">
                                   <div className="flex items-start justify-between">
                                     <div>
-                                    <h3 className="font-semibold text-sm sm:text-base">{product.name}</h3>
+                                    <h3 className="font-semibold text-label sm:text-base">{product.name}</h3>
                                     {product.description && (
-                                      <p className="text-xs sm:text-sm text-muted-foreground line-clamp-1">
+                                      <p className="text-caption sm:text-label text-muted-foreground line-clamp-1">
                                         {product.description}
                                       </p>
                                     )}
-                                    <p className="font-bold mt-1 text-sm sm:text-base">{product.price.toFixed(2)}€</p>
+                                    <p className="font-bold mt-1 text-label sm:text-base">{product.price.toFixed(2)}€</p>
                                     </div>
                                   </div>
 
                                   <div className="mt-3 flex items-center justify-between border-t pt-2 sm:justify-start sm:gap-2">
+                                    {category.show_as_offers ? (
+                                      <Switch
+                                        checked={product.available}
+                                        onCheckedChange={() => void handleToggleAvailability(product)}
+                                        aria-label={`Disponibilità di ${product.name}`}
+                                      />
+                                    ) : (
                                     <Button
-                                      variant="ghost"
+                                      variant="link"
                                       size="icon"
                                       onClick={() => handleToggleAvailability(product)}
                                       title={`${product.available ? 'Nascondi' : 'Mostra'} ${product.name}`}
@@ -1078,8 +1119,9 @@ export default function MenuManagementPage() {
                                         <EyeOff className="h-4 w-4" />
                                       )}
                                     </Button>
+                                    )}
                                     <Button
-                                      variant="ghost"
+                                      variant="link"
                                       size="icon"
                                       onClick={(event) => handleEditProduct(product, event.currentTarget)}
                                       title={`Modifica ${product.name}`}
@@ -1088,7 +1130,7 @@ export default function MenuManagementPage() {
                                       <Edit className="h-4 w-4" />
                                     </Button>
                                     <Button
-                                      variant="ghost"
+                                      variant="link"
                                       size="icon"
                                       onClick={() => handleDeleteProduct(product.id)}
                                       title={`Elimina ${product.name}`}
@@ -1100,7 +1142,7 @@ export default function MenuManagementPage() {
                                 </div>
 
                                 {!product.available && (
-                                  <span className="inline-block mt-2 text-xs bg-destructive/10 text-destructive px-2 py-1 rounded">
+                                  <span className="inline-block mt-2 text-caption bg-destructive/10 text-destructive px-2 py-1 rounded">
                                     Non disponibile
                                   </span>
                                 )}
@@ -1129,25 +1171,25 @@ export default function MenuManagementPage() {
           <div className="space-y-3">
             <h3 className="font-semibold">Salse ({sauceAdditions.length})</h3>
             {sauceAdditions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nessuna salsa configurata.</p>
+              <p className="text-label text-muted-foreground">Nessuna salsa configurata.</p>
             ) : (
               <div className="space-y-2">
                 {sauceAdditions.map((addition) => (
                   <div key={addition.id} className="flex items-center justify-between rounded-md border p-3">
                     <div>
-                      <p className="font-medium text-sm">{addition.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="font-medium text-label">{addition.name}</p>
+                      <p className="text-caption text-muted-foreground">
                         {Number(addition.price || 0).toFixed(2)}€ {addition.active ? '• Attiva' : '• Disattiva'}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleToggleAddition(addition)}>
+                      <Button variant="link" size="icon" onClick={() => handleToggleAddition(addition)}>
                         {addition.active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEditAddition(addition)}>
+                      <Button variant="link" size="icon" onClick={() => handleEditAddition(addition)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAddition(addition.id)}>
+                      <Button variant="link" size="icon" onClick={() => handleDeleteAddition(addition.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>
@@ -1160,25 +1202,25 @@ export default function MenuManagementPage() {
           <div className="space-y-3">
             <h3 className="font-semibold">Extra ({extraAdditions.length})</h3>
             {extraAdditions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Nessun extra configurato.</p>
+              <p className="text-label text-muted-foreground">Nessun extra configurato.</p>
             ) : (
               <div className="space-y-2">
                 {extraAdditions.map((addition) => (
                   <div key={addition.id} className="flex items-center justify-between rounded-md border p-3">
                     <div>
-                      <p className="font-medium text-sm">{addition.name}</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="font-medium text-label">{addition.name}</p>
+                      <p className="text-caption text-muted-foreground">
                         {Number(addition.price || 0).toFixed(2)}€ {addition.active ? '• Attiva' : '• Disattiva'}
                       </p>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => handleToggleAddition(addition)}>
+                      <Button variant="link" size="icon" onClick={() => handleToggleAddition(addition)}>
                         {addition.active ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleEditAddition(addition)}>
+                      <Button variant="link" size="icon" onClick={() => handleEditAddition(addition)}>
                         <Edit className="h-4 w-4" />
                       </Button>
-                      <Button variant="ghost" size="icon" onClick={() => handleDeleteAddition(addition.id)}>
+                      <Button variant="link" size="icon" onClick={() => handleDeleteAddition(addition.id)}>
                         <Trash2 className="h-4 w-4" />
                       </Button>
                     </div>

@@ -73,7 +73,7 @@ export default function QRCodePage() {
         <div className="md:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger className="text-left">
-              <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+              <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                 QR Code
                 <ChevronDown className="h-5 w-5 text-muted-foreground" />
               </h1>
@@ -87,7 +87,7 @@ export default function QRCodePage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <h1 className="hidden md:block text-3xl font-bold">QR Code</h1>
+        <h1 className="hidden md:block text-body-xl font-bold">QR Code</h1>
         <p className="text-muted-foreground">
           Genera e scarica il QR code per il tuo ristorante
         </p>
@@ -132,48 +132,48 @@ export default function QRCodePage() {
           <CardContent className="space-y-4">
             <div className="space-y-4">
               <div className="flex items-start gap-3">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0 mt-1">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-label font-bold flex-shrink-0 mt-1">
                   1
                 </div>
                 <div>
                   <p className="font-medium">Scarica il QR Code</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     Clicca sul pulsante per scaricare l&apos;immagine del QR code
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0 mt-1">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-label font-bold flex-shrink-0 mt-1">
                   2
                 </div>
                 <div>
                   <p className="font-medium">Stampa il QR Code</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     Stampa il QR code su carta o cartoncino resistente
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0 mt-1">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-label font-bold flex-shrink-0 mt-1">
                   3
                 </div>
                 <div>
                   <p className="font-medium">Posiziona nei Punti Strategici</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     Metti il QR code sui tavoli, alla cassa, in vetrina o all&apos;ingresso
                   </p>
                 </div>
               </div>
 
               <div className="flex items-start gap-3">
-                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-sm font-bold flex-shrink-0 mt-1">
+                <div className="flex h-6 w-6 items-center justify-center rounded-full bg-primary text-primary-foreground text-label font-bold flex-shrink-0 mt-1">
                   4
                 </div>
                 <div>
                   <p className="font-medium">I Clienti Scannerizzano</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-label text-muted-foreground">
                     I clienti usano la fotocamera del telefono per scansionare e ordinare
                   </p>
                 </div>
@@ -184,8 +184,8 @@ export default function QRCodePage() {
               <div className="flex items-start gap-2">
                 <QrCodeIcon className="h-5 w-5 text-primary mt-0.5 flex-shrink-0" />
                 <div className="space-y-1">
-                  <p className="text-sm font-medium">Suggerimento</p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-label font-medium">Suggerimento</p>
+                  <p className="text-label text-muted-foreground">
                     Assicurati che il QR code sia abbastanza grande (almeno 5x5 cm) e ben visibile per una scansione facile
                   </p>
                 </div>
@@ -204,7 +204,7 @@ export default function QRCodePage() {
         </CardHeader>
         <CardContent>
           <div className="flex items-center gap-2">
-            <code className="flex-1 bg-muted px-4 py-2 rounded text-sm">
+            <code className="flex-1 bg-muted px-4 py-2 rounded text-label">
               {typeof window !== 'undefined' ? window.location.origin : ''}
             </code>
             <Button

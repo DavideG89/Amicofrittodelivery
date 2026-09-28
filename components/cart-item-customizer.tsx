@@ -123,16 +123,16 @@ export function CartItemCustomizer({ item, open, onOpenChange }: CartItemCustomi
   const content = (
     <>
       <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
-        {loading ? <p className="text-sm text-muted-foreground">Caricamento...</p> : null}
+        {loading ? <p className="text-label text-muted-foreground">Caricamento...</p> : null}
         {loadError ? (
-          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
+          <p role="alert" className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-label text-destructive">
             {loadError}
           </p>
         ) : null}
         {loadReady && ingredientCustomizationEnabled && ingredients.length > 0 ? (
           <>
             <div className="space-y-2">
-              <h3 className="text-lg font-semibold">Rimuovi ingredienti</h3>
+              <h3 className="text-body font-semibold">Rimuovi ingredienti</h3>
               {ingredients.map((ingredient) => (
                 <label key={ingredient.id} className="flex items-center gap-2 rounded-md border p-2.5">
                   <Checkbox checked={removedIds.has(ingredient.id)} onCheckedChange={(checked) => {
@@ -151,9 +151,9 @@ export function CartItemCustomizer({ item, open, onOpenChange }: CartItemCustomi
           </>
         ) : null}
         <div className="space-y-2">
-          <h3 className="text-lg font-semibold">Aggiunte</h3>
+          <h3 className="text-body font-semibold">Aggiunte</h3>
           {loadReady && additions.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nessuna aggiunta disponibile.</p>
+            <p className="text-label text-muted-foreground">Nessuna aggiunta disponibile.</p>
           ) : loadReady ? additions.map((addition) => (
             <label key={addition.id} className="flex items-center justify-between gap-2 rounded-md border p-2.5">
               <span className="flex items-center gap-2">

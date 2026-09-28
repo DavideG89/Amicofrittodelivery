@@ -605,12 +605,12 @@ function CheckoutForm() {
         <div className="mb-6 space-y-3">
           <Link
             href="/cart"
-            className="inline-flex items-center text-sm font-medium text-muted-foreground transition-colors hover:text-foreground md:hidden"
+            className="inline-flex items-center text-label font-medium text-muted-foreground transition-colors hover:text-foreground md:hidden"
           >
             <ArrowLeft className="mr-2 h-4 w-4" />
             Torna al carrello
           </Link>
-          <Button variant="ghost" asChild className="-ml-3 hidden md:inline-flex">
+          <Button variant="link" asChild className="-ml-3 hidden md:inline-flex">
             <Link href="/cart">
               <ArrowLeft className="mr-2 h-4 w-4" />
               Torna al carrello
@@ -618,8 +618,8 @@ function CheckoutForm() {
           </Button>
           
           <div>
-            <h1 className="text-2xl sm:text-3xl font-bold">Checkout</h1>
-            <p className="text-sm sm:text-base text-muted-foreground mt-1">
+            <h1 className="text-body-lg sm:text-body-xl font-bold">Checkout</h1>
+            <p className="text-label sm:text-base text-muted-foreground mt-1">
               {isDelivery ? 'Consegna a domicilio' : 'Ritiro in negozio'}
             </p>
           </div>
@@ -637,8 +637,8 @@ function CheckoutForm() {
           <div className="lg:col-span-3 space-y-4 sm:space-y-6">
             <Card>
               <CardHeader className="space-y-1">
-                <CardTitle className="text-lg sm:text-xl">Dati del cliente</CardTitle>
-                <CardDescription className="text-sm">Inserisci i tuoi dati per completare l'ordine</CardDescription>
+                <CardTitle className="text-body sm:text-xl">Dati del cliente</CardTitle>
+                <CardDescription className="text-label">Inserisci i tuoi dati per completare l'ordine</CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-2">
@@ -712,7 +712,7 @@ function CheckoutForm() {
                           required={isDelivery}
                         />
                         {(deliveryCheckState === 'checking' || Boolean(deliveryCheckMessage)) && (
-                          <p className={`text-xs ${deliveryCheckMessageClass}`}>
+                          <p className={`text-caption ${deliveryCheckMessageClass}`}>
                             {deliveryCheckState === 'checking' ? 'Verifica indirizzo in corso...' : deliveryCheckMessage}
                           </p>
                         )}
@@ -728,7 +728,7 @@ function CheckoutForm() {
                       </div>
                     </div>
                     {deliveryAddress && (
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-caption text-muted-foreground">
                         Indirizzo completo: {deliveryAddress}
                       </p>
                     )}
@@ -744,14 +744,14 @@ function CheckoutForm() {
                   >
                     <label
                       htmlFor="timing-asap"
-                      className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
+                      className="flex items-center gap-2 rounded-lg border p-3 text-label font-medium hover:border-primary cursor-pointer"
                     >
                       <RadioGroupItem id="timing-asap" value="asap" />
                       Prima possibile
                     </label>
                     <label
                       htmlFor="timing-scheduled"
-                      className="flex items-center gap-2 rounded-lg border p-3 text-sm font-medium hover:border-primary cursor-pointer"
+                      className="flex items-center gap-2 rounded-lg border p-3 text-label font-medium hover:border-primary cursor-pointer"
                     >
                       <RadioGroupItem id="timing-scheduled" value="scheduled" />
                       Programma orario
@@ -772,11 +772,11 @@ function CheckoutForm() {
                           ))}
                         </SelectContent>
                       </Select>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-caption text-muted-foreground">
                         Slot da 15 minuti ({`00, 15, 30, 45`}) · minimo: {minScheduledTime}
                       </p>
                       {scheduledTimeOptions.length === 0 && (
-                        <p className="text-xs text-destructive">Nessuno slot disponibile oggi.</p>
+                        <p className="text-caption text-destructive">Nessuno slot disponibile oggi.</p>
                       )}
                     </div>
                   )}
@@ -794,7 +794,7 @@ function CheckoutForm() {
                   >
                     <label
                       htmlFor="payment-cash"
-                      className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-sm font-medium cursor-pointer transition-colors ${
+                      className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-label font-medium cursor-pointer transition-colors ${
                         formData.paymentMethod === 'cash'
                           ? 'border-primary bg-primary/15 text-foreground'
                           : 'hover:border-primary'
@@ -828,7 +828,7 @@ function CheckoutForm() {
                     {!isDelivery && (
                       <label
                         htmlFor="payment-card"
-                        className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-sm font-medium cursor-pointer transition-colors ${
+                        className={`flex flex-col items-center justify-center gap-2 rounded-lg border p-3 text-center text-label font-medium cursor-pointer transition-colors ${
                           formData.paymentMethod === 'card'
                             ? 'border-primary bg-primary/15 text-foreground'
                             : 'hover:border-primary'
@@ -875,7 +875,7 @@ function CheckoutForm() {
                       value={formData.changeAmount}
                       onChange={(e) => setFormData({ ...formData, changeAmount: e.target.value })}
                     />
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-caption text-muted-foreground">
                       Inserisci l'importo che darai {isDelivery ? 'al fattorino' : 'in cassa'} per ricevere il resto esatto.
                     </p>
                   </div>
@@ -898,30 +898,30 @@ function CheckoutForm() {
           <div className="lg:col-span-2">
             <Card className="sticky top-20 shadow-lg">
               <CardHeader className="pb-4">
-                <CardTitle className="text-lg sm:text-xl">Riepilogo</CardTitle>
+                <CardTitle className="text-body sm:text-xl">Riepilogo</CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="space-y-3">
                   {timingSummaryLabel && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-label">
                       <span className="text-muted-foreground">Orario</span>
                       <span className="font-medium">{timingSummaryLabel}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm">
+                  <div className="flex justify-between text-label">
                     <span className="text-muted-foreground">Subtotale</span>
                     <span className="font-medium">{subtotal.toFixed(2)}€</span>
                   </div>
                   
                   {isDelivery && (
-                    <div className="flex justify-between text-sm">
+                    <div className="flex justify-between text-label">
                       <span className="text-muted-foreground">Consegna</span>
                       <span className="font-medium">{deliveryFee.toFixed(2)}€</span>
                     </div>
                   )}
 
                   {discountAmount > 0 && (
-                    <div className="flex justify-between text-sm text-green-600 font-medium">
+                    <div className="flex justify-between text-label text-green-600 font-medium">
                       <span>Sconto applicato</span>
                       <span>-{discountAmount.toFixed(2)}€</span>
                     </div>
@@ -929,13 +929,13 @@ function CheckoutForm() {
 
                   <Separator />
 
-                  <div className="flex justify-between font-bold text-lg sm:text-xl">
+                  <div className="flex justify-between font-bold text-body sm:text-xl">
                     <span>Totale</span>
                     <span className="text-primary">{total.toFixed(2)}€</span>
                   </div>
                 </div>
 
-                <div className="text-xs sm:text-sm text-muted-foreground bg-muted p-3 rounded-md leading-relaxed">
+                <div className="text-caption sm:text-label text-muted-foreground bg-muted p-3 rounded-md leading-relaxed">
                   {isDelivery
                     ? 'Pagamento alla consegna: solo contanti'
                     : 'Pagamento al ritiro: contanti o carta (POS)'}
@@ -950,12 +950,12 @@ function CheckoutForm() {
                         <div className="mt-2 max-w-full overflow-hidden">
                           <div ref={recaptchaRef} className="min-h-[78px] origin-left scale-95 transform" />
                         </div>
-                        <p className="text-xs text-muted-foreground mt-2">
+                        <p className="text-caption text-muted-foreground mt-2">
                           Completa la verifica per abilitare la conferma.
                         </p>
                       </>
                     ) : (
-                      <p className="text-xs text-destructive mt-2">
+                      <p className="text-caption text-destructive mt-2">
                         Verifica non configurata. Aggiungi `NEXT_PUBLIC_RECAPTCHA_SITE_KEY` nelle env.
                       </p>
                     )}

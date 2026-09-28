@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
+import { fetchCategories } from '@/lib/categories'
 import { supabase, type Product, type UpsellSettings, type Category, type UpsellProductOverrides } from '@/lib/supabase'
 import { Button } from '@/components/ui/button'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
@@ -71,7 +72,7 @@ export default function UpsellPage() {
               .select('id, enabled, product_ids, max_items, product_overrides')
               .eq('id', DEFAULT_UPSELL_ID)
               .maybeSingle(),
-            supabase.from('categories').select('id, name, slug, display_order, ingredient_customization_enabled, created_at, updated_at'),
+            fetchCategories(),
           ])
 
         if (productsError) throw productsError
@@ -280,7 +281,7 @@ export default function UpsellPage() {
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger className="text-left">
-                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                   Upsell
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 </h1>
@@ -294,7 +295,7 @@ export default function UpsellPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <h1 className="hidden md:block text-3xl font-bold">Upsell</h1>
+          <h1 className="hidden md:block text-body-xl font-bold">Upsell</h1>
           <p className="text-muted-foreground">Caricamento...</p>
         </div>
       </div>
@@ -308,7 +309,7 @@ export default function UpsellPage() {
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger className="text-left">
-                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                   Upsell
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 </h1>
@@ -322,7 +323,7 @@ export default function UpsellPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <h1 className="hidden md:block text-3xl font-bold">Upsell</h1>
+          <h1 className="hidden md:block text-body-xl font-bold">Upsell</h1>
           <p className="text-muted-foreground">
             Scegli quali prodotti mostrare nel modale upsell e personalizzali senza toccare il menu
           </p>
@@ -395,7 +396,7 @@ export default function UpsellPage() {
           </div>
 
           {filteredProducts.length === 0 ? (
-            <p className="text-sm text-muted-foreground">Nessun prodotto trovato.</p>
+            <p className="text-label text-muted-foreground">Nessun prodotto trovato.</p>
           ) : (
             <div className="grid gap-3">
               {filteredProducts.map((product) => {
@@ -424,8 +425,8 @@ export default function UpsellPage() {
                       )}
                     </div>
                     <div className="flex-1">
-                      <div className="font-medium text-sm sm:text-base">{product.name}</div>
-                      <div className="text-xs text-muted-foreground">
+                      <div className="font-medium text-label sm:text-base">{product.name}</div>
+                      <div className="text-caption text-muted-foreground">
                         {product.price.toFixed(2)}€ {product.available ? '• Disponibile' : '• Non disponibile'}
                       </div>
                     </div>

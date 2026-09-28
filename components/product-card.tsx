@@ -2,8 +2,9 @@
 
 import { useState } from 'react'
 import Image from 'next/image'
-import { Plus, Minus, Info } from 'lucide-react'
-import { Card, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
+import { Info } from 'lucide-react'
+import { OfferProductCard } from '@/components/offer-product-card'
+import { Card, CardFooter, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { Drawer, DrawerContent, DrawerDescription, DrawerHeader, DrawerTitle } from '@/components/ui/drawer'
@@ -11,36 +12,37 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Checkbox } from '@/components/ui/checkbox'
 import { Separator } from '@/components/ui/separator'
 import { useIsMobile } from '@/components/ui/use-mobile'
-import { getCartItemKey, useCart } from '@/lib/cart-context'
+import { useCart } from '@/lib/cart-context'
 import { buildProductNameWithPieceOption, normalizeProductPieceOptions } from '@/lib/product-piece-options'
 import { Product, supabase, OrderAddition, ProductIngredient } from '@/lib/supabase'
 import { DEFAULT_SAUCE_RULE, getFallbackSauceRuleByCategorySlug, normalizeSauceRule, SauceRule } from '@/lib/sauce-rules'
 import { toast } from 'sonner'
+import { cn } from '@/lib/utils'
 
 type ProductCardProps = {
   product: Product
+  variant?: 'default' | 'offer'
   onAddToCart?: (product: Product, quantity: number) => void
   imageFit?: 'cover' | 'contain'
   skipAdditions?: boolean
   categorySlug?: string | null
   saucesOnly?: boolean
   forceFreeSingleSauce?: boolean
-  mobileBadgeLabel?: string
   ingredientCustomizationEnabled?: boolean
 }
 
 export function ProductCard({
   product,
+  variant = 'default',
   onAddToCart,
   imageFit = 'cover',
   skipAdditions = false,
   categorySlug,
   saucesOnly = false,
   forceFreeSingleSauce = false,
-  mobileBadgeLabel,
   ingredientCustomizationEnabled = false,
 }: ProductCardProps) {
-  const { addItem, items, updateQuantity } = useCart()
+  const { addItem, items } = useCart()
   const isMobile = useIsMobile()
   const [details, setDetails] = useState<{
     description?: string | null
@@ -147,6 +149,7 @@ export function ProductCard({
   }
 
   const handleOpenAdditions = async () => {
+    if (!product.available) return
     if (skipAdditions && !hasPieceOptions && !ingredientCustomizationEnabled) {
       addItem(product)
       if (onAddToCart) onAddToCart(product, 1)
@@ -261,19 +264,7 @@ export function ProductCard({
     .reduce((sum, item) => sum + Number(item.price || 0), 0)
   const additionsTotalLabel = (selectedSaucesPrice + selectedExtrasPrice).toFixed(2).replace('.', ',')
 
-  const handleDecrementInCart = () => {
-    const firstItem = productCartItems[0]
-    if (!firstItem) return
-    updateQuantity(getCartItemKey(firstItem), firstItem.quantity - 1)
-  }
   const hasDetails = Boolean(details?.description || details?.ingredients || details?.allergens)
-  const mobileBadge = mobileBadgeLabel?.trim()
-  const mobileBadgeClassName =
-    mobileBadge?.toLowerCase() === 'carne'
-      ? 'bg-red-600 text-white shadow-md'
-      : mobileBadge?.toLowerCase() === 'pollo'
-        ? 'bg-amber-500 text-black shadow-md'
-        : 'bg-primary text-primary-foreground shadow-md'
 
   const openDetails = () => {
     setDetailsOpen(true)
@@ -285,28 +276,27 @@ export function ProductCard({
 
     return (
       <div className="space-y-3">
-        <p className="text-lg font-semibold">Scegli quantita</p>
+        <p className="text-body font-semibold">Scegli quantita</p>
         <div className="flex flex-wrap gap-3">
           {pieceOptions.map((option) => {
             const selected = selectedPieceOptionId === option.id
             return (
-              <button
+              <Button
                 key={option.id}
                 type="button"
+                variant="outline"
                 onClick={() => setSelectedPieceOptionId(option.id)}
-                className={`flex min-w-[88px] flex-col items-center gap-2 rounded-full border px-3 py-3 transition-colors ${
-                  selected ? 'border-primary bg-primary/10' : 'border-border bg-background'
-                }`}
+                className={cn('h-auto min-w-24 flex-col rounded-full px-3 py-3 font-normal', selected && 'border-primary bg-primary/10 hover:bg-primary/10')}
                 aria-pressed={selected}
               >
-                <span className={`flex h-12 w-12 items-center justify-center rounded-full border text-lg font-bold ${
+                <span className={`flex h-12 w-12 items-center justify-center rounded-full border text-body font-bold ${
                   selected ? 'border-primary bg-primary text-primary-foreground' : 'border-border'
                 }`}>
                   {option.pieces}
                 </span>
-                <span className="text-xs font-medium uppercase tracking-wide text-muted-foreground">pezzi</span>
-                <span className="text-sm font-semibold">{option.price.toFixed(2)}€</span>
-              </button>
+                <span className="text-caption font-medium uppercase tracking-wide text-muted-foreground">pezzi</span>
+                <span className="text-label font-semibold">{option.price.toFixed(2)}€</span>
+              </Button>
             )
           })}
         </div>
@@ -319,9 +309,9 @@ export function ProductCard({
     return (
       <>
         <div className="space-y-2">
-          <p className="text-lg font-semibold">Rimuovi ingredienti</p>
+          <p className="text-body font-semibold">Rimuovi ingredienti</p>
           {ingredientsLoading ? (
-            <p className="text-xs text-muted-foreground">Caricamento ingredienti...</p>
+            <p className="text-caption text-muted-foreground">Caricamento ingredienti...</p>
           ) : (
             <div className="grid gap-2">
               {removableIngredients.map((ingredient) => {
@@ -375,8 +365,18 @@ export function ProductCard({
   }
 
   return (
-    <Card className="overflow-hidden flex flex-col h-full hover:shadow-lg transition-shadow duration-300">
-      <div className="relative aspect-[16/10] sm:aspect-[4/3] bg-white">
+    <Card className={variant === 'offer'
+      ? 'h-full overflow-hidden rounded-lg border-0 bg-offer-section text-offer-foreground shadow-none'
+      : 'flex h-full flex-col overflow-hidden bg-card hover:shadow-lg transition-shadow duration-300'}>
+      {variant === 'offer' ? (
+        <OfferProductCard
+          product={product}
+          onAdd={() => void handleOpenAdditions()}
+          onDetails={openDetails}
+        />
+      ) : (
+        <>
+      <div className="relative mx-6 mt-4 aspect-[16/10] bg-card lg:mx-8 lg:mt-8">
         {product.image_url ? (
           imageFit === 'contain' ? (
             <div className="absolute inset-3 sm:inset-4">
@@ -385,7 +385,7 @@ export function ProductCard({
                 alt={product.name}
                 fill
                 className="object-contain"
-                sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                sizes="(max-width: 640px) 100vw, (max-width: 1152px) 50vw, 520px"
               />
             </div>
           ) : (
@@ -394,17 +394,17 @@ export function ProductCard({
               alt={product.name}
               fill
               className="object-cover"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+              sizes="(max-width: 640px) 100vw, (max-width: 1152px) 50vw, 520px"
             />
           )
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-sm">
+          <div className="w-full h-full flex items-center justify-center text-muted-foreground text-label">
             Nessuna immagine
           </div>
         )}
         {!product.available && (
           <div className="absolute inset-0 bg-black/60 flex items-center justify-center backdrop-blur-sm">
-            <Badge variant="destructive" className="text-sm">Non disponibile</Badge>
+            <Badge variant="destructive" className="text-label">Non disponibile</Badge>
           </div>
         )}
         {inCartQuantity > 0 && (
@@ -414,18 +414,11 @@ export function ProductCard({
             </Badge>
           </div>
         )}
-        {mobileBadge && (
-          <div className="absolute top-2 left-2">
-            <Badge className={`${mobileBadgeClassName} uppercase`}>
-              {mobileBadge}
-            </Badge>
-          </div>
-        )}
         {product.label && (
-          <div className={mobileBadge ? 'absolute top-10 left-2' : 'absolute top-2 left-2'}>
+          <div className="absolute top-2 left-2">
             <Badge 
               className={product.label === 'sconto' 
-                ? 'bg-red-500 text-white shadow-md' 
+                ? 'bg-destructive text-destructive-foreground shadow-md'
                 : 'bg-green-500 text-white shadow-md'
               }
             >
@@ -435,74 +428,26 @@ export function ProductCard({
         )}
       </div>
       
-      <CardHeader className="flex-grow space-y-1.5 p-3 sm:space-y-2 sm:p-4">
-        <div className="flex items-start justify-between gap-2">
-          <div className="flex min-w-0 items-start gap-1.5">
-            <CardTitle className="min-w-0 line-clamp-2 break-words text-[20px] leading-tight text-pretty sm:text-xl">
-              {product.name}
-            </CardTitle>
-            <Button variant="ghost" size="icon" className="h-6 w-6 sm:h-7 sm:w-7 shrink-0 -mt-1" onClick={openDetails}>
-              <Info className="h-3 w-3 sm:h-3.5 sm:w-3.5" />
-              <span className="sr-only">Informazioni prodotto</span>
-            </Button>
-          </div>
-
-          {product.available && !hasPieceOptions && (
-            <div className="flex items-center border rounded-md bg-background shrink-0" role="group" aria-label="Selettore quantità">
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 sm:h-9 sm:w-9"
-                onClick={handleDecrementInCart}
-                disabled={inCartQuantity <= 0}
-                aria-label="Diminuisci quantità"
-              >
-                <Minus className="h-4 w-4" aria-hidden="true" />
-              </Button>
-              <span className="w-8 sm:w-10 text-center font-medium text-xs sm:text-sm" aria-live="polite" aria-atomic="true">
-                {inCartQuantity}
-              </span>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-8 w-8 sm:h-9 sm:w-9"
-                onClick={handleOpenAdditions}
-                aria-label={`Aggiungi ${product.name}`}
-              >
-                <Plus className="h-4 w-4" aria-hidden="true" />
-              </Button>
-            </div>
-          )}
-          {product.available && hasPieceOptions && (
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-8 w-8 sm:h-9 sm:w-9 shrink-0"
-              onClick={handleOpenAdditions}
-              aria-label={`Scegli porzione per ${product.name}`}
-            >
-              <Plus className="h-4 w-4" aria-hidden="true" />
-            </Button>
-          )}
+      <CardHeader className="flex-grow px-4 pb-0 pt-0 lg:px-8">
+        <div className="flex min-w-0 items-start gap-1.5">
+          <CardTitle className="min-w-0 line-clamp-2 break-words text-pretty text-body-xl leading-tight sm:text-body-lg lg:text-section-title">
+            {product.name}
+          </CardTitle>
+          <Button variant="link" size="icon" className="-mr-2 -mt-2 h-11 w-11 shrink-0" onClick={openDetails} aria-label={`Informazioni su ${product.name}`}>
+            <Info className="h-4 w-4" aria-hidden="true" />
+          </Button>
         </div>
-        {details?.description && (
-          <CardDescription className="line-clamp-2 text-[13px] leading-snug sm:text-sm sm:leading-relaxed">
-            {details.description}
-          </CardDescription>
-        )}
       </CardHeader>
 
-      <CardFooter className="flex items-center justify-between gap-3 p-3 pt-0 sm:p-4 sm:pt-0">
-        <div className="flex items-baseline gap-1">
-          <span className="text-2xl sm:text-2xl font-bold text-primary leading-none">
-            {product.price.toFixed(2)}€
-          </span>
-        </div>
+      <CardFooter className="flex flex-wrap items-end justify-between gap-2 px-4 pb-4 pt-2 lg:px-8 lg:pb-8 lg:pt-4">
+        <span className="font-sans text-title font-extrabold leading-none text-primary sm:text-body-xl lg:text-display lg:font-bold">
+          {product.price.toFixed(2)}€
+        </span>
 
         {product.available && (
-          <Button 
+          <Button
             onClick={handleOpenAdditions} 
-            className="h-9 min-w-[130px] rounded-full bg-[#ffc400] px-6 text-sm font-black uppercase text-black hover:bg-[#f5b700] sm:h-10 sm:min-w-[150px] sm:px-7" 
+            className="min-w-28 sm:min-w-24 lg:min-w-40"
             size="default"
             aria-label={`Aggiungi ${product.name} al carrello`}
           >
@@ -510,6 +455,8 @@ export function ProductCard({
           </Button>
         )}
       </CardFooter>
+        </>
+      )}
 
       <Drawer
         open={detailsOpen}
@@ -529,7 +476,7 @@ export function ProductCard({
                 sizes="(max-width: 640px) 90vw, 384px"
               />
             ) : (
-              <div className="flex h-full w-full items-center justify-center text-sm text-muted-foreground">
+              <div className="flex h-full w-full items-center justify-center text-label text-muted-foreground">
                 Nessuna immagine
               </div>
             )}
@@ -542,25 +489,25 @@ export function ProductCard({
           </DrawerHeader>
           <div className="space-y-4">
             {detailsLoading && (
-              <p className="text-sm text-muted-foreground">Recupero informazioni...</p>
+              <p className="text-label text-muted-foreground">Recupero informazioni...</p>
             )}
             {!detailsLoading && !hasDetails && (
-              <p className="text-sm text-muted-foreground">Nessun dettaglio disponibile.</p>
+              <p className="text-label text-muted-foreground">Nessun dettaglio disponibile.</p>
             )}
             {details?.ingredients && (
               <div>
-                <h4 className="font-semibold mb-2 text-sm">Ingredienti:</h4>
-                <p className="text-sm text-muted-foreground leading-relaxed">
+                <h4 className="font-semibold mb-2 text-label">Ingredienti:</h4>
+                <p className="text-label text-muted-foreground leading-relaxed">
                   {details.ingredients}
                 </p>
               </div>
             )}
             {details?.allergens && (
               <div className='text-center'>
-                <h4 className="font-semibold mb-2 text-sm">Allergeni:</h4>
+                <h4 className="font-semibold mb-2 text-label">Allergeni:</h4>
                 <div className="flex flex-wrap gap-2 justify-center">
                   {details.allergens.split(',').map((allergen, i) => (
-                    <Badge key={i} variant="secondary" className="text-xs">
+                    <Badge key={i} variant="secondary" className="text-caption">
                       {allergen.trim()}
                     </Badge>
                   ))}
@@ -588,20 +535,20 @@ export function ProductCard({
                 {renderPieceOptionsSection()}
                 {renderRemovedIngredientsSection()}
 
-                <p className="text-lg font-semibold">Aggiunte</p>
+                <p className="text-body font-semibold">Aggiunte</p>
 
                 <div className="space-y-2">
-                  <p className="sticky top-0 z-10 bg-background/95 py-1 text-lg font-semibold backdrop-blur">
+                  <p className="sticky top-0 z-10 bg-background/95 py-1 text-body font-semibold backdrop-blur">
                     Salse
                     {effectiveSauceRule.sauce_mode === 'paid_multi' && ` (${selectedSauceIds.size}/${effectiveSauceRule.max_sauces})`}
                     {effectiveSauceRule.sauce_mode === 'free_single' && ' (max 1 gratuita)'}
                   </p>
                   {effectiveSauceRule.sauce_mode === 'none' ? (
-                    <p className="text-xs text-muted-foreground">Salse non disponibili per questa categoria.</p>
+                    <p className="text-caption text-muted-foreground">Salse non disponibili per questa categoria.</p>
                   ) : (
                     <div className="grid gap-2">
                       {saucesLoading && (
-                        <p className="text-xs text-muted-foreground">Caricamento salse...</p>
+                        <p className="text-caption text-muted-foreground">Caricamento salse...</p>
                       )}
                       {!saucesLoading &&
                         sauceOptions.map((sauce) => {
@@ -629,7 +576,7 @@ export function ProductCard({
                           )
                         })}
                       {!saucesLoading && sauceOptions.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Nessuna salsa disponibile.</p>
+                        <p className="text-caption text-muted-foreground">Nessuna salsa disponibile.</p>
                       )}
                     </div>
                   )}
@@ -637,7 +584,7 @@ export function ProductCard({
 
                 {!saucesOnly && (
                   <div className="space-y-2">
-                    <p className="sticky top-0 z-10 bg-background/95 py-1 text-lg font-semibold backdrop-blur">Extra</p>
+                    <p className="sticky top-0 z-10 bg-background/95 py-1 text-body font-semibold backdrop-blur">Extra</p>
                     <div className="grid gap-2">
                       {extraOptions.map((extra) => {
                         const checked = selectedExtras.has(extra.id)
@@ -655,7 +602,7 @@ export function ProductCard({
                         )
                       })}
                       {!saucesLoading && extraOptions.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Nessun extra disponibile.</p>
+                        <p className="text-caption text-muted-foreground">Nessun extra disponibile.</p>
                       )}
                     </div>
                   </div>
@@ -664,10 +611,10 @@ export function ProductCard({
             </div>
 
             <div className="border-t bg-background/95 backdrop-blur px-6 py-3 space-y-3 pb-8">
-              <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
+              <div className="rounded-md bg-muted px-3 py-2 text-label font-medium">
                 Totale aggiunte: +{additionsTotalLabel}€
               </div>
-              <div className="flex gap-2 ">
+              <div className="flex flex-col gap-2 sm:flex-row">
                 <Button variant="outline" className="flex-1" onClick={() => setAdditionsOpen(false)}>
                   Annulla
                 </Button>
@@ -695,20 +642,20 @@ export function ProductCard({
                 {renderPieceOptionsSection()}
                 {renderRemovedIngredientsSection()}
 
-                <p className="text-lg font-semibold">Aggiunte</p>
+                <p className="text-body font-semibold">Aggiunte</p>
 
                 <div className="space-y-2">
-                  <p className="text-lg font-semibold">
+                  <p className="text-body font-semibold">
                     Salse
                     {effectiveSauceRule.sauce_mode === 'paid_multi' && ` (${selectedSauceIds.size}/${effectiveSauceRule.max_sauces})`}
                     {effectiveSauceRule.sauce_mode === 'free_single' && ' (max 1 gratuita)'}
                   </p>
                   {effectiveSauceRule.sauce_mode === 'none' ? (
-                    <p className="text-xs text-muted-foreground">Salse non disponibili per questa categoria.</p>
+                    <p className="text-caption text-muted-foreground">Salse non disponibili per questa categoria.</p>
                   ) : (
                     <div className="grid gap-2">
                       {saucesLoading && (
-                        <p className="text-xs text-muted-foreground">Caricamento salse...</p>
+                        <p className="text-caption text-muted-foreground">Caricamento salse...</p>
                       )}
                       {!saucesLoading &&
                         sauceOptions.map((sauce) => {
@@ -736,7 +683,7 @@ export function ProductCard({
                           )
                         })}
                       {!saucesLoading && sauceOptions.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Nessuna salsa disponibile.</p>
+                        <p className="text-caption text-muted-foreground">Nessuna salsa disponibile.</p>
                       )}
                     </div>
                   )}
@@ -744,7 +691,7 @@ export function ProductCard({
 
                 {!saucesOnly && (
                   <div className="space-y-2">
-                    <p className="text-lg font-semibold">Extra</p>
+                    <p className="text-body font-semibold">Extra</p>
                     <div className="grid gap-2">
                       {extraOptions.map((extra) => {
                         const checked = selectedExtras.has(extra.id)
@@ -762,7 +709,7 @@ export function ProductCard({
                         )
                       })}
                       {!saucesLoading && extraOptions.length === 0 && (
-                        <p className="text-xs text-muted-foreground">Nessun extra disponibile.</p>
+                        <p className="text-caption text-muted-foreground">Nessun extra disponibile.</p>
                       )}
                     </div>
                   </div>
@@ -771,7 +718,7 @@ export function ProductCard({
             </div>
 
             <div className="sticky bottom-0 z-10 shrink-0 border-t bg-background px-6 py-3 space-y-3">
-              <div className="rounded-md bg-muted px-3 py-2 text-sm font-medium">
+              <div className="rounded-md bg-muted px-3 py-2 text-label font-medium">
                 Totale aggiunte: +{additionsTotalLabel}€
               </div>
               <div className="flex gap-2">

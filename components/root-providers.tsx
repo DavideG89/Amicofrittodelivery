@@ -108,7 +108,7 @@ export function RootProviders({ children }: { children: ReactNode }) {
             {children}
           </div>
           <footer className="border-t border-border/60 bg-background">
-            <div className="container mx-auto max-w-7xl px-4 py-4 text-center text-xs text-muted-foreground sm:px-6 lg:px-8">
+            <div className="container mx-auto max-w-7xl px-4 py-4 text-center text-caption text-muted-foreground sm:px-6 lg:px-8">
               <span>Created by </span>
               <Link
                 href={creatorSiteUrl}

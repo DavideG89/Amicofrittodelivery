@@ -308,31 +308,34 @@ export function GlobalOrderTerminalDialog() {
                     {[1, 2, 3, 4, 5].map((value) => {
                       const active = rating !== null && value <= rating
                       return (
-                        <button
+                        <Button
                           key={value}
                           type="button"
-                          className="rounded-full p-1.5 transition-transform active:scale-95"
+                          variant="link"
+                          size="icon"
+                          className="h-12 w-12 rounded-full p-1.5 transition-transform active:scale-95"
                           onClick={() => handleRatingClick(value)}
                           aria-label={`${value} stelle`}
+                          aria-pressed={rating === value}
                         >
                           <Star
                             className={cn(
-                              'h-9 w-9 stroke-[#ffc400]',
-                              active ? 'fill-[#ffc400] text-[#ffc400]' : 'fill-transparent text-[#ffc400]'
+                              '!size-9 stroke-ds-buttons',
+                              active ? 'fill-ds-buttons text-ds-buttons' : 'fill-transparent text-ds-buttons'
                             )}
                           />
-                        </button>
+                        </Button>
                       )
                     })}
                   </div>
 
                   {rating !== null && rating >= 4 && (
-                    <p className="mt-5 text-center text-sm font-medium text-zinc-700">
+                    <p className="mt-5 text-center text-label font-medium text-zinc-700">
                       Grazie, abbiamo registrato la tua recensione.
                     </p>
                   )}
                   {feedbackState === 'error' && rating !== null && rating >= 4 && (
-                    <p className="mt-4 text-center text-sm font-medium text-red-600">
+                    <p className="mt-4 text-center text-label font-medium text-red-600">
                       Non siamo riusciti a salvare. Riprova tra poco.
                     </p>
                   )}
@@ -356,21 +359,24 @@ export function GlobalOrderTerminalDialog() {
                           )
                           const disabled = !selected && selectedReasons.length >= 3
                           return (
-                            <button
+                            <Button
                               key={label}
                               type="button"
+                              variant="outline"
+                              size="sm"
                               disabled={disabled || feedbackState === 'saving'}
                               onClick={() => handleReasonClick({ category: group.category, label })}
+                              aria-pressed={selected}
                               className={cn(
-                                'rounded-full border px-3 py-1.5 text-sm font-medium transition-colors',
+                                'h-auto rounded-full px-3 py-1.5 text-label font-medium',
                                 selected
-                                  ? 'border-zinc-950 bg-zinc-950 text-white'
+                                  ? 'border-zinc-950 bg-zinc-950 text-white hover:bg-zinc-950 hover:text-white'
                                   : 'border-zinc-200 bg-white text-zinc-800',
                                 disabled && 'cursor-not-allowed opacity-45'
                               )}
                             >
                               {label}
-                            </button>
+                            </Button>
                           )
                         })}
                       </div>
@@ -379,12 +385,12 @@ export function GlobalOrderTerminalDialog() {
                 </div>
 
                 {feedbackState === 'saved' && selectedReasons.length > 0 && (
-                  <p className="mt-4 text-center text-sm font-medium text-zinc-700">
+                  <p className="mt-4 text-center text-label font-medium text-zinc-700">
                     Grazie, abbiamo registrato il tuo feedback.
                   </p>
                 )}
                 {feedbackState === 'error' && (
-                  <p className="mt-4 text-center text-sm font-medium text-red-600">
+                  <p className="mt-4 text-center text-label font-medium text-red-600">
                     Non siamo riusciti a salvare. Riprova tra poco.
                   </p>
                 )}

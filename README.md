@@ -96,6 +96,47 @@ android/              Progetto Android Capacitor
 
 Le responsabilità degli agenti e le regole di collaborazione sono definite in [`AGENTS.md`](./AGENTS.md).
 
+### Design system
+
+I token di colore della collezione Figma “Colors” sono definiti una sola volta in
+`app/globals.css` con prefisso `--ds-` ed esposti in `tailwind.config.ts` come
+`ds.*`. Gli alias condivisi (`background`, `card`, `primary`, `muted`, `border`,
+`destructive` e colori delle offerte) puntano agli stessi token, anche nella
+dashboard. Per i colori non presenti nel DS usare le utility Tailwind.
+
+La collezione Figma “Typo” usa Oswald per titoli e label, Inter per il testo
+generale. `app/layout.tsx` carica i font; `tailwind.config.ts` espone
+`font-heading`, `font-label` e le classi `text-display`, `text-title`,
+`text-section-title`, `text-body-xl`, `text-body-lg`, `text-body`, `text-label`,
+`text-caption`. Le dimensioni sono approssimate alla scala Tailwind esistente:
+60, 48, 36, 30, 24, 18, 14 e 12 px. Per le misure non previste dal DS restano
+disponibili le classi Tailwind standard. I pesi Regular, Bold e Light del DS
+corrispondono direttamente a `font-normal`, `font-bold` e `font-light`.
+
+### Offerte e bundle fissi
+
+In **Dashboard → Menu → Nuova/Modifica categoria**, “Mostra come sezione offerte” salva
+`categories.show_as_offers` (booleano, predefinito `false`). Le categorie attive alimentano
+il carosello “Offerte del momento” in homepage e non compaiono anche nei tab standard.
+Disattivando l'opzione tornano nei tab; prodotti e prezzi rimangono salvati.
+
+Il ristoratore crea un bundle come prodotto della categoria: nome, immagine, contenuto
+nella descrizione e prezzo complessivo. È una singola voce di carrello e ordine, senza
+collegamenti alle disponibilità dei singoli componenti e senza sconti automatici.
+La card riusa azioni e dettagli di `ProductCard`: aggiunta diretta per i prodotti fissi;
+eventuali porzioni o personalizzazioni ingredienti già configurate restano disponibili.
+Il toggle di disponibilità nella lista prodotti impedisce l'acquisto e nasconde la card
+dal carosello delle offerte quando il prodotto non è disponibile.
+
+**Prerequisito prima del deploy:** applicare manualmente
+[`scripts/26-category-offers.sql`](./scripts/26-category-offers.sql), dopo le migrazioni 20–25.
+Prima della migrazione il menu continua a caricare le categorie standard e il toggle offerte
+è disabilitato; il salvataggio categorie usa il contratto precedente.
+La migrazione aggiunge il campo e aggiorna `save_category_with_order`, mantenendo il controllo
+amministratore e il riordino atomico. Non viene eseguita dall'applicazione.
+La homepage aggiorna i dati a ogni visita, mostrando intanto la cache locale; una pagina
+rimasta aperta richiede un ricaricamento per recepire le modifiche del ristoratore.
+
 ## 5. Avvio locale
 
 ### Prerequisiti

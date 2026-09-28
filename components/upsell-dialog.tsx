@@ -105,15 +105,17 @@ export function UpsellDialog({
     const isSelected = selectedProducts.has(product.id)
 
     return (
-      <button
+      <Button
         key={product.id}
+        type="button"
+        variant="outline"
         onClick={() => toggleProduct(product.id)}
         className={cn(
-          'relative flex flex-col border-2 text-left transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2',
+          'relative h-auto min-w-0 flex-col items-stretch justify-start gap-0 whitespace-normal border-2 p-0 text-left font-normal transition-all focus:ring-primary',
           mobileLayout
             ? 'w-[66vw] max-w-[270px] shrink-0 snap-start rounded-xl'
             : 'rounded-lg',
-          isSelected ? 'border-primary bg-primary/5 shadow-md' : 'border-border hover:border-primary/50',
+          isSelected ? 'border-primary bg-primary/5 shadow-md hover:bg-primary/5' : 'border-border hover:border-primary/50 hover:bg-background',
         )}
         aria-pressed={isSelected}
         aria-label={`${isSelected ? 'Rimuovi' : 'Aggiungi'} ${product.name} al carrello`}
@@ -134,23 +136,23 @@ export function UpsellDialog({
               sizes={mobileLayout ? '66vw' : '(max-width: 640px) 50vw, 33vw'}
             />
           ) : (
-            <div className="flex h-full w-full items-center justify-center text-xs text-muted-foreground">
+            <div className="flex h-full w-full items-center justify-center text-caption text-muted-foreground">
               Nessuna immagine
             </div>
           )}
         </div>
 
         <div className={cn('text-left', mobileLayout ? 'p-3' : 'p-2 sm:p-3')}>
-          <h3 className={cn('font-semibold mb-1', mobileLayout ? 'text-sm' : 'text-xs sm:text-base')}>
+          <h3 className={cn('font-semibold mb-1', mobileLayout ? 'text-label' : 'text-caption sm:text-base')}>
             {product.name}
           </h3>
           {product.description && (
-            <p className={cn('text-muted-foreground line-clamp-2 mb-2', mobileLayout ? 'text-xs' : 'text-[11px] sm:text-xs')}>
+            <p className={cn('text-muted-foreground line-clamp-2 mb-2', mobileLayout ? 'text-caption' : 'text-[11px] sm:text-caption')}>
               {product.description}
             </p>
           )}
           <div className="flex items-center justify-between">
-            <span className={cn('font-bold text-primary', mobileLayout ? 'text-lg' : 'text-base sm:text-lg')}>
+            <span className={cn('font-bold text-primary', mobileLayout ? 'text-body' : 'text-base sm:text-body')}>
               {product.price.toFixed(2)}€
             </span>
             {isSelected ? (
@@ -160,7 +162,7 @@ export function UpsellDialog({
             )}
           </div>
         </div>
-      </button>
+      </Button>
     )
   }
 
@@ -173,7 +175,7 @@ export function UpsellDialog({
           : 'mt-4 pt-4',
       )}
     >
-      <div className={cn('gap-3', mobileLayout ? 'grid grid-cols-2 pb-8' : 'flex flex-col sm:flex-row')}>
+      <div className={cn('gap-3', mobileLayout ? 'grid grid-cols-1 pb-8 sm:grid-cols-2' : 'flex flex-col sm:flex-row')}>
       <Button onClick={handleAddSelected} disabled={selectedProducts.size === 0} className="flex-1">
           {confirmLabel}
           {selectedProducts.size > 0 && ` (${selectedProducts.size})`}
@@ -191,8 +193,8 @@ export function UpsellDialog({
       <Drawer open={open} onOpenChange={onOpenChange}>
         <DrawerContent className="max-h-[90vh] rounded-t-2xl p-0">
           <DrawerHeader className="px-4 pb-2 pt-5 text-left">
-            <DrawerTitle className="text-pretty text-lg leading-tight">{titleText}</DrawerTitle>
-            <DrawerDescription id="upsell-description-mobile" className="text-sm">
+            <DrawerTitle className="text-pretty text-body leading-tight">{titleText}</DrawerTitle>
+            <DrawerDescription id="upsell-description-mobile" className="text-label">
               {descriptionText}
             </DrawerDescription>
           </DrawerHeader>
@@ -213,10 +215,10 @@ export function UpsellDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-h-[85vh] max-w-2xl" aria-describedby="upsell-description-desktop">
         <DialogHeader className="w-full">
-          <DialogTitle className="mx-auto text-balance text-xl leading-tight sm:text-2xl">
+          <DialogTitle className="mx-auto text-balance text-xl leading-tight sm:text-body-lg">
             {titleText}
           </DialogTitle>
-          <DialogDescription id="upsell-description-desktop" className="text-center text-sm sm:text-base">
+          <DialogDescription id="upsell-description-desktop" className="text-center text-label sm:text-base">
             {descriptionText}
           </DialogDescription>
         </DialogHeader>

@@ -364,7 +364,7 @@ export default function SettingsPage() {
           <div className="md:hidden">
             <DropdownMenu>
               <DropdownMenuTrigger className="text-left">
-                <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+                <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                   Impostazioni
                   <ChevronDown className="h-5 w-5 text-muted-foreground" />
                 </h1>
@@ -378,7 +378,7 @@ export default function SettingsPage() {
               </DropdownMenuContent>
             </DropdownMenu>
           </div>
-          <h1 className="hidden md:block text-3xl font-bold">Impostazioni</h1>
+          <h1 className="hidden md:block text-body-xl font-bold">Impostazioni</h1>
           <p className="text-muted-foreground">Caricamento...</p>
         </div>
       </div>
@@ -391,7 +391,7 @@ export default function SettingsPage() {
         <div className="md:hidden">
           <DropdownMenu>
             <DropdownMenuTrigger className="text-left">
-              <h1 className="inline-flex items-center gap-2 text-3xl font-bold">
+              <h1 className="inline-flex items-center gap-2 text-body-xl font-bold">
                 Impostazioni
                 <ChevronDown className="h-5 w-5 text-muted-foreground" />
               </h1>
@@ -405,7 +405,7 @@ export default function SettingsPage() {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
-        <h1 className="hidden md:block text-3xl font-bold">Impostazioni</h1>
+        <h1 className="hidden md:block text-body-xl font-bold">Impostazioni</h1>
         <p className="text-muted-foreground">
           Gestisci le informazioni del tuo locale
         </p>
@@ -467,7 +467,7 @@ export default function SettingsPage() {
                 setFormData({ ...formData, opening_hours: e.target.value })
               }
             />
-            <p className="text-sm text-muted-foreground">
+            <p className="text-label text-muted-foreground">
               Esempio formato : {`"lunedi": "11:00-22:00", "martedi": "Chiuso"`}
             </p>
           </div>
@@ -476,7 +476,7 @@ export default function SettingsPage() {
             <div className="flex items-center justify-between gap-4">
               <div>
                 <CardTitle>Programmazione Ordini</CardTitle>
-                <CardDescription className="text-xs text-muted-foreground mt-1">
+                <CardDescription className="text-caption text-muted-foreground mt-1">
                   Se attiva, gli ordini sono accettati solo negli orari indicati.
                 </CardDescription>
               </div>
@@ -498,7 +498,7 @@ export default function SettingsPage() {
                     </Button>
                   </div>
                   {orderSchedule.days[day].length === 0 ? (
-                    <p className="text-xs text-muted-foreground">Nessuna fascia impostata.</p>
+                    <p className="text-caption text-muted-foreground">Nessuna fascia impostata.</p>
                   ) : (
                     <div className="space-y-2">
                       {orderSchedule.days[day].map((range, index) => (
@@ -509,7 +509,7 @@ export default function SettingsPage() {
                             onChange={(e) => updateRange(day, index, 'start', e.target.value)}
                             className="w-32"
                           />
-                          <span className="text-sm text-muted-foreground">-</span>
+                          <span className="text-label text-muted-foreground">-</span>
                           <Input
                             type="time"
                             value={range.end}
@@ -518,7 +518,7 @@ export default function SettingsPage() {
                           />
                           <Button
                             type="button"
-                            variant="ghost"
+                            variant="link"
                             size="sm"
                             onClick={() => removeRange(day, index)}
                           >
@@ -586,7 +586,7 @@ export default function SettingsPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="rounded-lg border p-4 text-sm text-muted-foreground">
+            <div className="rounded-lg border p-4 text-label text-muted-foreground">
               Questa configurazione vale solo per questo telefono/tablet Android. Per stabilita usiamo stampa nativa
               ESC/POS con testo ASCII fisso, non il layout del browser.
             </div>
@@ -616,7 +616,7 @@ export default function SettingsPage() {
                   ))}
                 </SelectContent>
               </Select>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-caption text-muted-foreground">
                 Se non vedi la stampante, abbinala prima dalle impostazioni Bluetooth di Android.
               </p>
             </div>
@@ -628,12 +628,12 @@ export default function SettingsPage() {
               <Button type="button" variant="outline" onClick={handleTestNativePrinter} disabled={testingPrinter}>
                 {testingPrinter ? 'Test in corso...' : 'Test stampa'}
               </Button>
-              <Button type="button" variant="ghost" onClick={handleClearNativePrinter}>
+              <Button type="button" variant="link" onClick={handleClearNativePrinter}>
                 Rimuovi configurazione
               </Button>
             </div>
 
-            <div className="rounded-lg border p-4 text-sm">
+            <div className="rounded-lg border p-4 text-label">
               <p className="font-medium">Stampante attiva</p>
               <p className="mt-1 text-muted-foreground">
                 {savedPrinterName ? savedPrinterName : 'Nessuna stampante salvata'}
@@ -651,7 +651,7 @@ export default function SettingsPage() {
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-label text-muted-foreground">
             Usa questa funzione solo dopo aver salvato gli incassi giornalieri. L’operazione è irreversibile.
           </p>
           <AlertDialog>
@@ -677,7 +677,7 @@ export default function SettingsPage() {
           </AlertDialog>
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button variant="destructive" disabled={resettingOrders}>
+              <Button variant="error" disabled={resettingOrders}>
                 {resettingOrders ? 'Azzeramento...' : 'Azzera ordini e incassi'}
               </Button>
             </AlertDialogTrigger>

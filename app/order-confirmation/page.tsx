@@ -165,10 +165,10 @@ function OrderConfirmationContent() {
               <CheckCircle className="h-12 w-12 sm:h-16 sm:w-16 text-green-500" />
             </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2">
+          <h1 className="text-body-lg sm:text-body-xl md:text-section-title font-bold mb-2">
             Ordine ricevuto ✅
           </h1>
-          <p className="text-muted-foreground text-sm sm:text-base">
+          <p className="text-muted-foreground text-label sm:text-base">
             Grazie per il tuo ordine!
           </p>
         </div>
@@ -176,13 +176,13 @@ function OrderConfirmationContent() {
         {/* Codice - Ordine #xxxx */}
         <Card className="mb-4 border-2 border-primary/20">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg text-center text-muted-foreground">
+            <CardTitle className="text-base sm:text-body text-center text-muted-foreground">
               Codice Ordine
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-center">
-              <p className="text-2xl sm:text-3xl md:text-4xl font-bold font-mono tracking-wider bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
+              <p className="text-body-lg sm:text-body-xl md:text-section-title font-bold font-mono tracking-wider bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
                 #{order.order_number}
               </p>
             </div>
@@ -192,14 +192,14 @@ function OrderConfirmationContent() {
         {/* Stato - In preparazione 🍳 */}
         <Card className="mb-4">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            <CardTitle className="text-base sm:text-body flex items-center gap-2">
               <Package className="h-5 w-5 text-primary" />
               Stato
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex items-center gap-3">
-              <span className="text-3xl" role="img" aria-label="stato ordine">
+              <span className="text-body-xl" role="img" aria-label="stato ordine">
                 {getStatusEmoji(order.status)}
               </span>
               <Badge variant="outline" className="bg-primary text-primary-foreground border-none text-base px-4 py-2">
@@ -212,7 +212,7 @@ function OrderConfirmationContent() {
         {/* Info - Tempo stimato: XX min */}
         <Card className="mb-6">
           <CardHeader className="pb-3">
-            <CardTitle className="text-base sm:text-lg flex items-center gap-2">
+            <CardTitle className="text-base sm:text-body flex items-center gap-2">
               <Clock className="h-5 w-5 text-primary" />
               Informazioni
             </CardTitle>
@@ -220,7 +220,7 @@ function OrderConfirmationContent() {
           <CardContent className="space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Tempo stimato:</span>
-              <span className="font-bold text-lg">{estimatedTime}</span>
+              <span className="font-bold text-body">{estimatedTime}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Tipo ordine:</span>
@@ -230,7 +230,7 @@ function OrderConfirmationContent() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-muted-foreground">Totale:</span>
-              <span className="font-bold text-lg">€{order.total.toFixed(2)}</span>
+              <span className="font-bold text-body">€{order.total.toFixed(2)}</span>
             </div>
           </CardContent>
         </Card>
@@ -274,13 +274,13 @@ function OrderConfirmationContent() {
           </Button>
 
           {/* 📌 Ordine salvato su questo dispositivo */}
-          <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg border text-sm text-muted-foreground">
+          <div className="flex items-center justify-center gap-2 p-3 bg-muted/50 rounded-lg border text-label text-muted-foreground">
             <Bookmark className="h-4 w-4" />
             <span>📌 Ordine salvato su questo dispositivo</span>
           </div>
 
           {/* Torna alla home */}
-          <Button asChild variant="ghost" className="w-full" size="lg">
+          <Button asChild variant="link" className="w-full" size="lg">
             <Link href="/">
               <Home className="mr-2 h-4 w-4" />
               Torna alla home

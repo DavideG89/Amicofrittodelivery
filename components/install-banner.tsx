@@ -95,7 +95,7 @@ export function InstallBanner() {
       <div className="container relative px-4 sm:px-6 lg:px-8 py-2.5">
         <Button
           size="icon"
-          variant="ghost"
+          variant="link"
           onClick={handleDismiss}
           aria-label="Chiudi"
           className="absolute right-2 top-2 h-7 w-7"
@@ -103,7 +103,7 @@ export function InstallBanner() {
           <X className="h-4 w-4" />
         </Button>
         <div className="flex flex-col gap-2 pr-8 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-sm sm:text-base">
+          <div className="text-label sm:text-base">
             <span className="font-medium">Installa l&apos;app per un accesso rapido.</span>{' '}
             {isIosDevice ? (
               <span>Su iPhone: Condividi → Aggiungi a Home.</span>
@@ -118,7 +118,7 @@ export function InstallBanner() {
           )}
         </div>
         {!isIosDevice && showAndroidHelp && (
-          <p className="mt-2 text-xs text-amber-800">
+          <p className="mt-2 text-caption text-amber-800">
             Apri il menu del browser e scegli “Aggiungi a schermata Home”.
           </p>
         )}

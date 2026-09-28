@@ -6,29 +6,56 @@
   .text-balance {
     text-wrap: balance;
   }
+
+  .offer-card-text-outline {
+    -webkit-text-stroke: 12px hsl(var(--ds-accent));
+    paint-order: stroke fill;
+  }
 }
 
 @layer base {
   :root {
-    --background: 0 0% 100%;
-    --foreground: 0 0% 5%;
-    --card: 0 0% 100%;
-    --card-foreground: 0 0% 5%;
-    --popover: 0 0% 100%;
-    --popover-foreground: 0 0% 5%;
-    --primary: 45 100% 51%;
-    --primary-foreground: 0 0% 5%;
-    --secondary: 0 0% 5%;
-    --secondary-foreground: 0 0% 98%;
-    --muted: 45 25% 95%;
-    --muted-foreground: 0 0% 40%;
-    --accent: 45 100% 51%;
-    --accent-foreground: 0 0% 5%;
-    --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 89.8%;
-    --input: 0 0% 89.8%;
-    --ring: 45 100% 51%;
+    /* DS AMICOFRITTO / Colors, Mode 1 */
+    --ds-background:0 0% 100%; /* #ffffff */
+    --ds-background-third: 60 11.11% 96.47%; /* #f7f7f5 */
+    --ds-background-second: 43.13 100% 93.73%; /* #fff6df */
+    --ds-cheddar: 34.04 90.43% 54.9%; /* #f49a24 */
+    --ds-buttons: 46.12 100% 50%; /* #ffc400 */
+    --ds-confirm: 145.61 50.62% 31.76%; /* #287a4b */
+    --ds-text-primary: 0 0% 5.1%; /* #0d0d0d */
+    --ds-text-secondary: 0 0% 40%; /* #666666 */
+    --ds-accent: 45.3 98.42% 50.39%; /* #fdc004 */
+    --ds-cards: 0 0% 100%; /* #ffffff */
+    --ds-error: 0 84.24% 60.2%; /* #ef4444 */
+    --ds-card-border: 0 0% 83.92%; /* #d6d6d6 */
+
+    /* Alias usati dai componenti esistenti. */
+    --offer-surface: var(--ds-background-second);
+    --offer-section: var(--ds-background-third);
+    --offer-cheddar: var(--ds-cheddar);
+    --offer-button: var(--ds-buttons);
+    --offer-badge: var(--ds-error);
+    --offer-foreground: var(--ds-text-primary);
+    --offer-white: var(--ds-cards);
+    --background: var(--ds-background);
+    --foreground: var(--ds-text-primary);
+    --card: var(--ds-cards);
+    --card-foreground: var(--ds-text-primary);
+    --popover: var(--ds-cards);
+    --popover-foreground: var(--ds-text-primary);
+    --primary: var(--ds-buttons);
+    --primary-foreground: var(--ds-text-primary);
+    --secondary: var(--ds-cards);
+    --secondary-foreground: var(--ds-text-primary);
+    --muted: var(--ds-background-second);
+    --muted-foreground: var(--ds-text-secondary);
+    --accent: var(--ds-accent);
+    --accent-foreground: var(--ds-text-primary);
+    --destructive: var(--ds-error);
+    --destructive-foreground: var(--ds-text-primary);
+    --border: var(--ds-card-border);
+    --input: var(--ds-card-border);
+    --ring: var(--ds-accent);
     --chart-1: 45 100% 51%;
     --chart-2: 0 0% 5%;
     --chart-3: 45 85% 60%;
@@ -86,6 +113,9 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+  :where(h1, h2, h3, h4, h5, h6) {
+    @apply font-heading;
   }
   :where(button, [role='button'], a) {
     -webkit-tap-highlight-color: transparent;
