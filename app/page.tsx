@@ -521,7 +521,7 @@ export default function Home() {
               
               return (
                 <TabsContent key={category.id} value={category.id} className="mx-auto mt-0 w-full max-w-6xl space-y-0 px-4 sm:px-6 lg:px-8">
-                  <div className="sticky top-[11.5rem] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-2  sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0 lg:static lg:top-auto">
+                  <div className="sticky top-[11.5rem] z-30 -mx-4 px-4 sm:mx-0 sm:px-0 bg-background/95 backdrop-blur border-b border-muted/40 py-4  sm:bg-transparent sm:backdrop-blur-0 sm:border-0 sm:py-0 lg:static lg:top-auto">
                     <div className="flex items-baseline justify-between">
                     <h2 className="font-bold text-body-lg sm:text-xl">{category.name}</h2>
                     <span className="text-label text-muted-foreground">

@@ -8,8 +8,14 @@
   }
 
   .offer-card-text-outline {
-    -webkit-text-stroke: 12px hsl(var(--ds-accent));
+    -webkit-text-stroke: 8px hsl(var(--ds-accent));
     paint-order: stroke fill;
+  }
+
+  @media (min-width: 640px) {
+    .offer-card-text-outline {
+      -webkit-text-stroke-width: 12px;
+    }
   }
 }
 

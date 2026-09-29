@@ -366,7 +366,7 @@ export function ProductCard({
 
   return (
     <Card className={variant === 'offer'
-      ? 'h-full overflow-hidden rounded-lg border-0 bg-offer-section text-offer-foreground shadow-none'
+      ? 'h-full overflow-hidden rounded-lg border border-ds-card-border bg-offer-section text-offer-foreground shadow-sm'
       : 'flex h-full flex-col overflow-hidden bg-card hover:shadow-lg transition-shadow duration-300'}>
       {variant === 'offer' ? (
         <OfferProductCard

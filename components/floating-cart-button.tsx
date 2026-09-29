@@ -64,7 +64,7 @@ export function FloatingCartButton() {
             aria-hidden="true"
             className="pointer-events-none absolute left-0 top-2 h-32 w-32 -translate-y-14"
           />
-          <Badge className="h-6 min-w-6 -translate-x-4 -translate-y-10 rounded-full bg-destructive px-2 text-caption font-bold text-destructive-foreground">
+          <Badge className="h-6 min-w-6 -translate-x-4 -translate-y-10 rounded-full bg-destructive px-2 text-caption font-bold text-white">
             {totalItems}
           </Badge>
         </span>
